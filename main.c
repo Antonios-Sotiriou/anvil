@@ -6,7 +6,7 @@
 // Project specific headers
 #include "header_files/locale.h"
 typedef struct {
-    int x, y;
+    float x, y;
 } Point;
 
 typedef struct {
@@ -56,6 +56,7 @@ static const void resizerequest(XEvent *event);
 static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
+static const void paint_triangle(Element tri);
 // static const void pixmapupdate(void);
 // static const void pixmapdisplay(void);
 static const void atomsinit(void);
@@ -133,8 +134,18 @@ static const void buttonpress(XEvent *event) {
         el.y = (event->xbutton.y - (wa.height / VERTICAL)) / (wa.height / ZOOM);
     }
 
-    printf("X : %d --------- Y : %d\n", el.x, el.y);
-    printf("Normal X : %f --------- Normal Y : %f\n", (el.x + (wa.width / HORIZONTAL)) * (wa.width / ZOOM), (el.y + (wa.height / VERTICAL)) * (wa.height / ZOOM));
+    printf("X : %f --------- Y : %f\n", el.x, el.y);
+
+    Element tri;
+    tri.point[0].x = 0.0;
+    tri.point[0].y = -1.0;
+    tri.point[1].x = 1.0;
+    tri.point[1].y = 0.0;
+    tri.point[2].x = -1.0;
+    tri.point[2].y = 0.0;
+
+    paint_triangle(tri);
+
 
     // if (event->xkey.keycode == 1) {
     //     el.zoom *= 0.50;
@@ -214,6 +225,29 @@ static const void keypress(XEvent *event) {
 //     XCopyArea(displ, pixmap, app, pix, 0, 0, stat_app.width, stat_app.height, 0, 0);
 //     XFreeGC(displ, pix);
 // }
+static const void paint_triangle(Element tri) {
+
+    XGCValues gcv;
+    gcv.graphics_exposures = False;
+    gcv.foreground = 0xffffff;
+    GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcv);
+
+    int x = 0, y = 0;
+    for (int i = 0; i <= wa.width * wa.height; i++) {
+        if ((x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM) == tri.point[0].x) {
+            printf("Found x coordinate\n");
+            if ((y - (wa.height / VERTICAL)) / (wa.height / ZOOM) == tri.point[0].y)
+                XDrawLine(displ, win, gc, x, y, wa.width, wa.height);
+        }
+        if (x == wa.width) {
+            y++;
+            x = 0;
+        }
+        x++;
+    }
+    printf("Value of X: %d --- Value of Y: %d\n", x, y);
+    XFreeGC(displ, gc);
+}
 static const void atomsinit(void) {
 
     /* Delete window initializer area */

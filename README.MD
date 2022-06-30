@@ -1,5 +1,5 @@
-# 3D Graphics Engine with xlib on c programming.
-### The compiler used to run this software is "gcc (Debian 10.3.0-9) 10.3.0"
+# 3D Graphics Engine.
+### The compiler used to run this software is "gcc (Debian 11.3.0-3) 11.3.0"
 Only Xlib and standard C Libraries have been used to develop this software.<br>
 
 # The engine is under development and not ready to be used yet.
