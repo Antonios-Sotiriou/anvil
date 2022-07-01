@@ -2,19 +2,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <X11/Xlib.h>
+#include <math.h>
 
 // Project specific headers
 #include "header_files/locale.h"
 typedef struct {
-    float x, y;
+    float x, y, z;
 } Point;
 
 typedef struct {
     Point point[3];
-} Element;
+} Triangle;
 
 typedef struct {
-    Element el[2];
+    Triangle el[2];
 } Block;
 
 typedef struct {
@@ -27,9 +28,11 @@ enum { FrontBlock, BackBlock, WestBlock, EastBlock, NorthBlock, SouthBlock, Last
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define HORIZONTAL                2.00
-#define VERTICAL                  2.00
-#define ZOOM                      4.00
+// #define HORIZONTAL                2.00
+// #define VERTICAL                  2.00
+// #define ZOOM                      4.00
+#define AspectRatio               ( wa.width / wa.height )
+#define FieldOfView               ( AspectRatio * (1 / tan(wa.width / 2)) * event->xbutton.x )
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask | ExposureMask )
@@ -41,11 +44,23 @@ Pixmap pixmap;
 XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
-// Element el;
+// Triangle el;
 Point el;
+Triangle tri = {
+    {{ 0.0, -1.0,  0.0}, { -1.0, 0.0, 0.0 }, { 1.0, 0.0, 0.0 }}
+    // .point[0].x = 0.0,
+    // .point[0].y = -1.0,
+    // .point[1].x = -1.0,
+    // .point[1].y = 0.0,
+    // .point[2].x = 1.0,
+    // .point[2].y = 0.0,
+};
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
+static float HORIZONTAL = 2.00;
+static float VERTICAL = 2.00;
+static float ZOOM = 4.00;
 
 // initialize the knot object to be transfered because we can't transfer pointers to pointers through shared memory.
 static const void clientmessage(XEvent *event);
@@ -56,7 +71,7 @@ static const void resizerequest(XEvent *event);
 static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
-static const void paint_triangle(Element tri);
+static const void paint_triangle(Triangle tri);
 // static const void pixmapupdate(void);
 // static const void pixmapdisplay(void);
 static const void atomsinit(void);
@@ -121,7 +136,7 @@ static const void resizerequest(XEvent *event) {
 }
 static const void configurenotify(XEvent *event) {
 
-    printf("configurenotify event received\n");
+    //printf("configurenotify event received\n");
 }
 static const void buttonpress(XEvent *event) {
 
@@ -134,15 +149,8 @@ static const void buttonpress(XEvent *event) {
         el.y = (event->xbutton.y - (wa.height / VERTICAL)) / (wa.height / ZOOM);
     }
 
-    printf("X : %f --------- Y : %f\n", el.x, el.y);
-
-    Element tri;
-    tri.point[0].x = 0.0;
-    tri.point[0].y = -1.0;
-    tri.point[1].x = 1.0;
-    tri.point[1].y = 0.0;
-    tri.point[2].x = -1.0;
-    tri.point[2].y = 0.0;
+    // printf("X : %f\nY : %f\n", el.x, el.y);
+    // printf("Fielf Of View : %f\n", AspectRatio * (1 / tan(wa.width / 2)) * event->xbutton.x);
 
     paint_triangle(tri);
 
@@ -152,6 +160,13 @@ static const void buttonpress(XEvent *event) {
     // } else if (event->xkey.keycode == 3) {
     //     el.zoom /= 0.50;
     // }
+}
+static void move_left(void) {
+
+    for (int i = 0; i <= 2; i++) {
+        tri.point[i].x -= 0.01;
+        printf("New point[%d] X : %f\n", i, tri.point[i].x);
+    }
 }
 static const void keypress(XEvent *event) {
 
@@ -192,19 +207,21 @@ static const void keypress(XEvent *event) {
         printf("Status: %d\n", status);
     }
     printf("Pressed key: %lu.\n", keysym);
-    // if (keysym == 65361) {
-    //     obj.horiz += 0.01;
-    // } else if (keysym == 65363) {
-    //     obj.horiz -= 0.01;
-    // } else if (keysym == 65362) {
-    //     obj.vert += 0.01;
-    // } else if (keysym == 65364) {
-    //     obj.vert -= 0.01;
-    // } else if (keysym == 65293) {
-    //     obj.zoom *= 0.50;
-    // } else {
-    //     return;
-    // }
+    if (keysym == 65361) {
+        move_left();
+    } else if (keysym == 65363) {
+        HORIZONTAL -= 0.01;
+    } else if (keysym == 65362) {
+        VERTICAL += 0.01;
+    } else if (keysym == 65364) {
+        VERTICAL -= 0.01;
+    } else if (keysym == 65293) {
+        ZOOM *= 0.10;
+    } else {
+        return;
+    }
+    event->type = ButtonPress;
+    XSendEvent(displ, win, False, StructureNotifyMask, event);
 }
 // static const void pixmapupdate(void) {
 
@@ -225,19 +242,25 @@ static const void keypress(XEvent *event) {
 //     XCopyArea(displ, pixmap, app, pix, 0, 0, stat_app.width, stat_app.height, 0, 0);
 //     XFreeGC(displ, pix);
 // }
-static const void paint_triangle(Element tri) {
+static const void paint_triangle(Triangle tri) {
 
     XGCValues gcv;
     gcv.graphics_exposures = False;
+    gcv.line_width = 3;
     gcv.foreground = 0xffffff;
-    GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcv);
+    GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gcv);
+    Triangle new_tri;
 
+    int tri_count = 0;
     int x = 0, y = 0;
     for (int i = 0; i <= wa.width * wa.height; i++) {
-        if ((x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM) == tri.point[0].x) {
-            printf("Found x coordinate\n");
-            if ((y - (wa.height / VERTICAL)) / (wa.height / ZOOM) == tri.point[0].y)
-                XDrawLine(displ, win, gc, x, y, wa.width, wa.height);
+        if (((x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM) == tri.point[tri_count].x) &&
+            (y - (wa.height / VERTICAL)) / (wa.height / ZOOM) == tri.point[tri_count].y) {
+
+            new_tri.point[tri_count].x = x;
+            new_tri.point[tri_count].y = y;
+            tri_count++;
+            printf("Value of X: %d --- Value of Y: %d --- tri_count: %d\n", x, y, tri_count);
         }
         if (x == wa.width) {
             y++;
@@ -245,7 +268,11 @@ static const void paint_triangle(Element tri) {
         }
         x++;
     }
-    printf("Value of X: %d --- Value of Y: %d\n", x, y);
+
+    XDrawLine(displ, win, gc, new_tri.point[0].x, new_tri.point[0].y, new_tri.point[1].x, new_tri.point[1].y);
+    XDrawLine(displ, win, gc, new_tri.point[1].x, new_tri.point[1].y, new_tri.point[2].x, new_tri.point[2].y);
+    XDrawLine(displ, win, gc, new_tri.point[2].x, new_tri.point[2].y, new_tri.point[0].x, new_tri.point[0].y);
+
     XFreeGC(displ, gc);
 }
 static const void atomsinit(void) {

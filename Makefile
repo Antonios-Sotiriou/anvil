@@ -1,10 +1,10 @@
 # Compile all c files to crwindow executable!
 
 CC = gcc
-CFLAGS = -Wall -Werror -O2 #-Os -Og -O0 -g
+CFLAGS = -Wall -Werror -O2 -g #-Os -Og -O0
 OBJ = anvil
 RM = rm
-LINKS = -lX11
+LINKS = -lX11 -lm
 
 install:
 	./install.sh;
