@@ -48,12 +48,6 @@ Atom wmatom[Atom_Last];
 Point el;
 Triangle tri = {
     {{ 0.0, -1.0,  0.0}, { -1.0, 0.0, 0.0 }, { 1.0, 0.0, 0.0 }}
-    // .point[0].x = 0.0,
-    // .point[0].y = -1.0,
-    // .point[1].x = -1.0,
-    // .point[1].y = 0.0,
-    // .point[2].x = 1.0,
-    // .point[2].y = 0.0,
 };
 
 static int MAPCOUNT = 0;
@@ -71,9 +65,9 @@ static const void resizerequest(XEvent *event);
 static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
-static const void paint_triangle(Triangle tri);
-// static const void pixmapupdate(void);
-// static const void pixmapdisplay(void);
+static void paint_triangle(Triangle *tri);
+static const void pixmapupdate(void);
+static const void pixmapdisplay(void);
 static const void atomsinit(void);
 static const int board(void);
 static void (*handler[LASTEvent]) (XEvent *event) = {
@@ -103,13 +97,14 @@ static const void reparentnotify(XEvent *event) {
 
     printf("reparentnotify event received\n");
     XGetWindowAttributes(displ, win, &wa);
+    paint_triangle(&tri);
 }
 static const void mapnotify(XEvent *event) {
 
     printf("mapnotify event received\n");
 
     if (MAPCOUNT) {
-        // pixmapdisplay();
+        pixmapdisplay();
     } else {
         if (!MAPCOUNT)
             MAPCOUNT = 1;
@@ -129,6 +124,7 @@ static const void expose(XEvent *event) {
     XDrawLine(displ, win, gc, wa.width / 2, 0, wa.width / 2, wa.height);
 
     XFreeGC(displ, gc);
+    pixmapupdate();
 }
 static const void resizerequest(XEvent *event) {
 
@@ -149,10 +145,8 @@ static const void buttonpress(XEvent *event) {
         el.y = (event->xbutton.y - (wa.height / VERTICAL)) / (wa.height / ZOOM);
     }
 
-    // printf("X : %f\nY : %f\n", el.x, el.y);
+    printf("X : %f\nY : %f\n", el.x, el.y);
     // printf("Fielf Of View : %f\n", AspectRatio * (1 / tan(wa.width / 2)) * event->xbutton.x);
-
-    paint_triangle(tri);
 
 
     // if (event->xkey.keycode == 1) {
@@ -164,8 +158,9 @@ static const void buttonpress(XEvent *event) {
 static void move_left(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].x -= 0.01;
+        tri.point[i].x -= 1;
         printf("New point[%d] X : %f\n", i, tri.point[i].x);
+        printf("New point[%d] Y : %f\n", i, tri.point[i].y);
     }
 }
 static const void keypress(XEvent *event) {
@@ -190,23 +185,15 @@ static const void keypress(XEvent *event) {
     }
     XSetICFocus(xic);
 
-    int count = 0;
     KeySym keysym = 0;
     char buffer[32];
     Status status = 0;
-    count = Xutf8LookupString(xic, &event->xkey, buffer, 32, &keysym, &status);
-    printf("Button pressed.\n");
-    printf("Count %d.\n", count);
+    Xutf8LookupString(xic, &event->xkey, buffer, 32, &keysym, &status);
     if (status == XBufferOverflow) {
-        printf("Buffer Overflow...\n");
-    }
-    if (count) {
-        printf("The Button that was pressed is %s.\n", buffer);
-    }
-    if (status == XLookupKeySym || status == XLookupBoth) {
-        printf("Status: %d\n", status);
+        perror("Buffer Overflow...\n");
     }
     printf("Pressed key: %lu.\n", keysym);
+    printf("The Button that was pressed is %s.\n", buffer);
     if (keysym == 65361) {
         move_left();
     } else if (keysym == 65363) {
@@ -220,58 +207,65 @@ static const void keypress(XEvent *event) {
     } else {
         return;
     }
-    event->type = ButtonPress;
-    XSendEvent(displ, win, False, StructureNotifyMask, event);
+
+    pixmapdisplay();
+    paint_triangle(&tri);
+
+    // event->type = ButtonPress;
+    // XSendEvent(displ, win, False, StructureNotifyMask, event);
 }
-// static const void pixmapupdate(void) {
+static const void pixmapupdate(void) {
 
-//     XGCValues gc_vals;
-//     gc_vals.graphics_exposures = False;
-//     GC pix = XCreateGC(displ, app, GCGraphicsExposures, &gc_vals);
+    XGCValues gc_vals;
+    gc_vals.graphics_exposures = False;
+    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
 
-//     pixmap = XCreatePixmap(displ, app, stat_app.width, stat_app.height, stat_app.depth);
-//     XCopyArea(displ, app, pixmap, pix, 0, 0, stat_app.width, stat_app.height, 0, 0);
-//     XFreeGC(displ, pix);
-// }
-// static const void pixmapdisplay(void) {
+    pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
+    XCopyArea(displ, win, pixmap, pix, 0, 0, wa.width, wa.height, 0, 0);
+    XFreeGC(displ, pix);
+}
+static const void pixmapdisplay(void) {
 
-//     XGCValues gc_vals;
-//     gc_vals.graphics_exposures = False;
-//     GC pix = XCreateGC(displ, app, GCGraphicsExposures, &gc_vals);
+    XGCValues gc_vals;
+    gc_vals.graphics_exposures = False;
+    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
 
-//     XCopyArea(displ, pixmap, app, pix, 0, 0, stat_app.width, stat_app.height, 0, 0);
-//     XFreeGC(displ, pix);
-// }
-static const void paint_triangle(Triangle tri) {
+    XCopyArea(displ, pixmap, win, pix, 0, 0, wa.width, wa.height, 0, 0);
+    XFreeGC(displ, pix);
+}
+static void paint_triangle(Triangle *tri) {
 
     XGCValues gcv;
     gcv.graphics_exposures = False;
     gcv.line_width = 3;
     gcv.foreground = 0xffffff;
     GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gcv);
-    Triangle new_tri;
 
-    int tri_count = 0;
     int x = 0, y = 0;
-    for (int i = 0; i <= wa.width * wa.height; i++) {
-        if (((x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM) == tri.point[tri_count].x) &&
-            (y - (wa.height / VERTICAL)) / (wa.height / ZOOM) == tri.point[tri_count].y) {
+    for (int i = 0; i <= (wa.width * wa.height) + 1600; i++) {
 
-            new_tri.point[tri_count].x = x;
-            new_tri.point[tri_count].y = y;
-            tri_count++;
-            printf("Value of X: %d --- Value of Y: %d --- tri_count: %d\n", x, y, tri_count);
+        for (int v = 0; v <= sizeof(&tri->point) / sizeof(float); v++) {
+            if ((tri->point[v].x == (x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM)) &&
+               (tri->point[v].y == (y - (wa.height / VERTICAL)) / (wa.height / ZOOM))) {
+
+                tri->point[v].x = x;
+                tri->point[v].y = y;
+                printf("Value of X: %f --- Value of Y: %f\n", tri->point[v].x, tri->point[v].y);
+            }
         }
-        if (x == wa.width) {
+        // printf("Value of X: %d --- Value of Y: %d --- Value of i: %d\n", x, y, i);
+        x++;
+        if (x > wa.width) {
             y++;
             x = 0;
         }
-        x++;
     }
+    // printf("V loop value: %lu\n", sizeof(&tri->point) / sizeof(float));
+    //printf("X: %d\nY: %d\ntri_count: %d\n", x, y, tri_count);
 
-    XDrawLine(displ, win, gc, new_tri.point[0].x, new_tri.point[0].y, new_tri.point[1].x, new_tri.point[1].y);
-    XDrawLine(displ, win, gc, new_tri.point[1].x, new_tri.point[1].y, new_tri.point[2].x, new_tri.point[2].y);
-    XDrawLine(displ, win, gc, new_tri.point[2].x, new_tri.point[2].y, new_tri.point[0].x, new_tri.point[0].y);
+    XDrawLine(displ, win, gc, tri->point[2].x, tri->point[2].y, tri->point[1].x, tri->point[1].y);
+    XDrawLine(displ, win, gc, tri->point[1].x, tri->point[1].y, tri->point[0].x, tri->point[0].y);
+    XDrawLine(displ, win, gc, tri->point[0].x, tri->point[0].y, tri->point[2].x, tri->point[2].y);
 
     XFreeGC(displ, gc);
 }
