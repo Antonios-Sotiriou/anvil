@@ -6,6 +6,7 @@
 
 // Project specific headers
 #include "header_files/locale.h"
+
 typedef struct {
     float x, y, z;
 } Point;
@@ -54,7 +55,7 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 Point el;
 Triangle tri = {
-    {{ 0.0, -1.0,  0.0}, { -1.0, 0.0, 0.0 }, { 1.0, 0.0, 0.0 }}
+    {{ 0.0, -1.0, 1.005 }, { -1.0, 0.0, 1.005 }, { 1.0, 0.0, 1.005 }}
 };
 CTriangle ctri = { 0 };
 
@@ -73,6 +74,7 @@ static const void resizerequest(XEvent *event);
 static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
+static void init_tri(Triangle *tri);
 static void paint_triangle(CTriangle *ctri);
 static void nor_triangle(Triangle *tri);
 static const void pixmapupdate(void);
@@ -95,7 +97,7 @@ static const void clientmessage(XEvent *event) {
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
-        // XFreePixmap(displ, pixmap);
+        XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         XCloseDisplay(displ);
         
@@ -110,10 +112,11 @@ static const void reparentnotify(XEvent *event) {
 static const void mapnotify(XEvent *event) {
 
     printf("mapnotify event received\n");
-
+    
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
+        init_tri(&tri);
         if (!MAPCOUNT)
             MAPCOUNT = 1;
     }
@@ -132,7 +135,7 @@ static const void expose(XEvent *event) {
     XDrawLine(displ, win, gc, wa.width / 2, 0, wa.width / 2, wa.height);
 
     XFreeGC(displ, gc);
-    
+
     pixmapupdate();
     nor_triangle(&tri);
 }
@@ -156,9 +159,8 @@ static const void buttonpress(XEvent *event) {
     }
 
     printf("X : %f\nY : %f\n", el.x, el.y);
-    printf("Normamlized X : %d\n", (wa.width / wa.height));//((wa.width / wa.height) * (1 / tan(wa.width / 2.00)) * el.x) / ZOOM);
-
-
+    printf("FOV : %F\n", ((wa.width / wa.height) / 2.00) / tan(wa.width / 2.00) * 3.14 / 180.00);//((wa.width / wa.height) * (1 / tan(wa.width / 2.00)) * el.x) / ZOOM);
+    printf("FOV : %F\n", ((wa.width / wa.height) / 4.00) / tan(800 / 2.00));
     // if (event->xkey.keycode == 1) {
     //     el.zoom *= 0.50;
     // } else if (event->xkey.keycode == 3) {
@@ -174,33 +176,59 @@ static int compare_float(float f1, float f2, int precision) {
         return 0;
     }
 }
+static void init_tri(Triangle *tri) {
+
+    for (int i = 0; i <= 2; i++) {
+        tri->point[i].x = tri->point[i].x / tri->point[i].z;
+        tri->point[i].y = tri->point[i].y / tri->point[i].z;
+        printf("Point x: %f\nPoint y: %f\n", tri->point[i].x, tri->point[i].y);
+    }
+}
 static void move_left(void) {
 
     for (int i = 0; i <= 2; i++) {
         ctri.cpoint[i].x -= 1;
-        printf("X: %d --- Y: %d\n", ctri.cpoint[i].x, ctri.cpoint[i].y);
+        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
+        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
     }
 }
 static void move_right(void) {
 
     for (int i = 0; i <= 2; i++) {
         ctri.cpoint[i].x += 1;
-        printf("X: %d --- Y: %d\n", ctri.cpoint[i].x, ctri.cpoint[i].y);
+        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
+        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
     }
 }
 static void move_up(void) {
 
     for (int i = 0; i <= 2; i++) {
         ctri.cpoint[i].y -= 1;
-        printf("X: %d --- Y: %d\n", ctri.cpoint[i].x, ctri.cpoint[i].y);
+        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
+        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
     }
 }
 static void move_down(void) {
 
     for (int i = 0; i <= 2; i++) {
         ctri.cpoint[i].y += 1;
-        printf("X: %d --- Y: %d\n", ctri.cpoint[i].x, ctri.cpoint[i].y);
+        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
+        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
     }
+}
+static void move_forward(void) {
+    
+    for (int i = 0; i <= 2; i++) {
+        tri.point[i].z += 0.005;
+    }
+    init_tri(&tri);
+}
+static void move_backward(void) {
+
+    for (int i = 0; i <= 2; i++) {
+        tri.point[i].z -= 0.005;
+    }
+    init_tri(&tri);
 }
 static const void keypress(XEvent *event) {
 
@@ -233,23 +261,29 @@ static const void keypress(XEvent *event) {
     }
     printf("Pressed key: %lu.\n", keysym);
     printf("The Button that was pressed is %s.\n", buffer);
-    if (keysym == 65361) {
-        move_left();
-    } else if (keysym == 65363) {
-        move_right();
-    } else if (keysym == 65362) {
-        move_up();
-    } else if (keysym == 65364) {
-        move_down();
-    } else if (keysym == 65293) {
-        ZOOM *= 0.10;
-    } else {
-        return;
-    }
+    switch (keysym) {
 
+        case 119 : move_forward();
+            break;
+        case 115 : move_backward();
+            break;
+        case 65361 : move_left();
+            break;
+        case 65363 : move_right();
+            break;
+        case 65362 : move_up();
+            break;
+        case 65364 : move_down();
+            break;
+        case 65293 : ZOOM *= 0.10;
+            break;
+        default :
+            return;
+    }
+    
     pixmapdisplay();
-    // nor_triangle(&tri);
-    paint_triangle(&ctri);
+    nor_triangle(&tri);
+    // paint_triangle(&ctri);
 
     // event->type = ButtonPress;
     // XSendEvent(displ, win, False, StructureNotifyMask, event);
@@ -290,22 +324,19 @@ static void paint_triangle(CTriangle *ctri) {
 static void nor_triangle(Triangle *tri) {
 
     int x = 0, y = 0;
-    for (int i = 0; i <= wa.width * (wa.height + 2); i++) {
-
+    for (int i = 0; i <= wa.width * wa.height; i++) {
+        // printf("X %d ---> x : %f i : %d\n", x, (x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM), i);
         for (int v = 0; v <= sizeof(&tri->point) / sizeof(float); v++) {
             if (!compare_float(tri->point[v].x, (x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM), 1000) &&
                 !compare_float(tri->point[v].y, (y - (wa.height / VERTICAL)) / (wa.width / ZOOM), 1000)) {
 
-                printf("Value of tri->point[%d].x: %f --- : %f\n", v, tri->point[v].x, (x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM));
-                printf("Value of tri->point[%d].y: %f --- : %f\n", v, tri->point[v].y, (y - (wa.height / VERTICAL)) / (wa.width / ZOOM));
-
                 ctri.cpoint[v].x = x;
                 ctri.cpoint[v].y = y;
+                printf("Vectors identified: %d\n", v);
             }
         }   
-        // printf("Value of X: %d --- Value of Y: %d --- Value of i: %d\n", x, y, i);
         x++;
-        if (x > wa.width) {
+        if (x == wa.width) {
             y++;
             x = 0;
         }
