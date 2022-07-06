@@ -8,7 +8,7 @@
 #include "header_files/locale.h"
 
 typedef struct {
-    float x, y, z;
+    float x, y, z, m;
 } Point;
 
 typedef struct {
@@ -24,12 +24,16 @@ typedef struct {
 } CTriangle;
 
 typedef struct {
-    Triangle el[2];
+    Triangle triangle[2];
 } Block;
 
 typedef struct {
     Block block[6];
 } Cube;
+
+typedef struct {
+    float m[4][4];
+} Mat4x4;
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 enum { UnderEl, UperEl, LastEl};
@@ -37,11 +41,13 @@ enum { FrontBlock, BackBlock, WestBlock, EastBlock, NorthBlock, SouthBlock, Last
 
 #define WIDTH                     800
 #define HEIGHT                    800
-// #define HORIZONTAL                2.00
-// #define VERTICAL                  2.00
-// #define ZOOM                      4.00
-#define AspectRatio               ( wa.width / wa.height )
-#define FieldOfView               ( AspectRatio * (1 / tan(wa.width / 2)) * event->xbutton.x )
+#define FNear                     0.1
+#define FFar                      1000.0
+#define FieldOfView               90.0
+#define AspectRatio               ( ((float)wa.width / (float)wa.height) )
+#define FovRad                    ( 1 / tan(FieldOfView * 0.5 / 180.0 * 3.14159) )
+#define FTheta                    ( 1.0 * 0.01 )
+
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask | ExposureMask )
@@ -55,15 +61,13 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 Point el;
 Triangle tri = {
-    {{ 0.0, -1.0, 1.005 }, { -1.0, 0.0, 1.005 }, { 1.0, 0.0, 1.005 }}
+    {{ 0.0, -0.5, 1.0, 1.0 }, { -0.5, 0.0, 1.0, 1.0 }, { 0.5, 0.0, 1.0, 1.0 }}
 };
 CTriangle ctri = { 0 };
+Mat4x4 ProjMatrix = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
-static float HORIZONTAL = 2.00;
-static float VERTICAL = 2.00;
-static float ZOOM = 4.00;
 
 // initialize the knot object to be transfered because we can't transfer pointers to pointers through shared memory.
 static const void clientmessage(XEvent *event);
@@ -74,6 +78,8 @@ static const void resizerequest(XEvent *event);
 static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
+static void multiply_matrices(Mat4x4 *m);
+static void init_mat4x4(Mat4x4 *matrix4x4);
 static void init_tri(Triangle *tri);
 static void paint_triangle(CTriangle *ctri);
 static void nor_triangle(Triangle *tri);
@@ -117,6 +123,7 @@ static const void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         init_tri(&tri);
+        init_mat4x4(&ProjMatrix);
         if (!MAPCOUNT)
             MAPCOUNT = 1;
     }
@@ -151,84 +158,124 @@ static const void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
     if (el.x == 0.00 && el.y == 0.00) {
-        el.x = (event->xbutton.x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
-        el.y = (event->xbutton.y - (wa.height / VERTICAL)) / (wa.height / ZOOM);
+        el.x = (event->xbutton.x - (wa.width / 2.00)) / (wa.width / 2.00);
+        el.y = (event->xbutton.y - (wa.height / 2.00)) / (wa.height / 2.00);
     } else {
-        el.x = (event->xbutton.x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
-        el.y = (event->xbutton.y - (wa.height / VERTICAL)) / (wa.height / ZOOM);
+        el.x = (event->xbutton.x - (wa.width / 2.00)) / (wa.width / 2.00);
+        el.y = (event->xbutton.y - (wa.height / 2.00)) / (wa.height / 2.00);
     }
 
-    printf("X : %f\nY : %f\n", el.x, el.y);
-    printf("FOV : %F\n", ((wa.width / wa.height) / 2.00) / tan(wa.width / 2.00) * 3.14 / 180.00);//((wa.width / wa.height) * (1 / tan(wa.width / 2.00)) * el.x) / ZOOM);
-    printf("FOV : %F\n", ((wa.width / wa.height) / 4.00) / tan(800 / 2.00));
+    printf("X1 : %f --> X2 : %f\n", el.x, ((1 + el.x) * (wa.width / 2.00)) );
+    printf("y1 : %f --> Y2 : %f\n", el.y, ((1 + el.y) * (wa.height / 2.00)) );
+    printf("FOV : %F\n", FovRad);
     // if (event->xkey.keycode == 1) {
     //     el.zoom *= 0.50;
     // } else if (event->xkey.keycode == 3) {
     //     el.zoom /= 0.50;
     // }
 }
-static int compare_float(float f1, float f2, int precision) {
+static void multiply_matrices(Mat4x4 *m) {
 
-    
-    if ( ((int)(f1 * precision) - (int)(f2 * precision)) != 0) {
-        return 1;
-    } else {
-        return 0;
+    for (int i = 0; i <= 2; i++) {
+        tri.point[i].x = tri.point[i].x * m->m[0][0] + tri.point[i].y * m->m[1][0] + tri.point[i].z * m->m[2][0] + m->m[3][0];
+        tri.point[i].y = tri.point[i].x * m->m[0][1] + tri.point[i].y * m->m[1][1] + tri.point[i].z * m->m[2][1] + m->m[3][1];
+        tri.point[i].z = tri.point[i].x * m->m[0][2] + tri.point[i].y * m->m[1][2] + tri.point[i].z * m->m[2][2] + m->m[3][2];
+        // float w        = tri.point[i].x * m->m[0][3] + tri.point[i].y * m->m[1][3] + tri.point[i].z * m->m[2][3] + m->m[3][3];
+
+        // if (w != 0.0) {
+        //     tri.point[i].x /= w; 
+        //     tri.point[i].y /= w;
+        //     tri.point[i].z /= w;
+        // }
     }
+    nor_triangle(&tri);
+}
+static void init_mat4x4(Mat4x4 *matrix4x4) {
+
+    ProjMatrix.m[0][0] = AspectRatio * FovRad;
+    ProjMatrix.m[1][1] = FovRad;
+    ProjMatrix.m[2][2] = FFar / (FFar - FNear);
+    ProjMatrix.m[3][2] = (-FFar * FNear) / (FFar - FNear);
+    ProjMatrix.m[2][3] = 1.0;
+    ProjMatrix.m[3][3] = 0.0;
 }
 static void init_tri(Triangle *tri) {
 
     for (int i = 0; i <= 2; i++) {
         tri->point[i].x = tri->point[i].x / tri->point[i].z;
         tri->point[i].y = tri->point[i].y / tri->point[i].z;
-        printf("Point x: %f\nPoint y: %f\n", tri->point[i].x, tri->point[i].y);
     }
 }
 static void move_left(void) {
 
     for (int i = 0; i <= 2; i++) {
-        ctri.cpoint[i].x -= 1;
-        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
-        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
+        tri.point[i].x -= 0.1;
     }
 }
 static void move_right(void) {
 
     for (int i = 0; i <= 2; i++) {
-        ctri.cpoint[i].x += 1;
-        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
-        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
+        tri.point[i].x += 0.1;
     }
 }
 static void move_up(void) {
 
     for (int i = 0; i <= 2; i++) {
-        ctri.cpoint[i].y -= 1;
-        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
-        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
+        tri.point[i].y -= 0.1;
     }
 }
 static void move_down(void) {
 
     for (int i = 0; i <= 2; i++) {
-        ctri.cpoint[i].y += 1;
-        tri.point[i].x = (ctri.cpoint[i].x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM);
-        tri.point[i].y = (ctri.cpoint[i].y - (wa.height / VERTICAL)) / (wa.width / ZOOM);
+        tri.point[i].y += 0.1;
     }
 }
 static void move_forward(void) {
     
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].z += 0.005;
+        tri.point[i].z += 0.01;
     }
     init_tri(&tri);
 }
 static void move_backward(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].z -= 0.005;
+        tri.point[i].z -= 0.01;
     }
     init_tri(&tri);
+}
+static void rotate_xaxis(void) {
+    Mat4x4 RotX4x4 = { 0 };
+    RotX4x4.m[0][0] = 1.0;
+    RotX4x4.m[1][1] = cosf(FTheta);
+    RotX4x4.m[1][2] = sinf(FTheta);
+    RotX4x4.m[2][1] = -sinf(FTheta);
+    RotX4x4.m[2][2] = cosf(FTheta);
+    RotX4x4.m[3][3] = 1.0;
+
+    multiply_matrices(&RotX4x4);
+}
+static void rotate_yaxis(void) {
+    Mat4x4 RotZ4x4 = { 0 };
+    RotZ4x4.m[0][0] = cosf(FTheta);
+    RotZ4x4.m[1][1] = 1.00;
+    RotZ4x4.m[1][2] = -sinf(FTheta);
+    RotZ4x4.m[2][1] = cosf(FTheta);
+    RotZ4x4.m[2][2] = 1.0;
+    RotZ4x4.m[3][3] = 1.0;
+
+    multiply_matrices(&RotZ4x4);
+}
+static void rotate_zaxis(void) {
+    Mat4x4 RotZ4x4 = { 0 };
+    RotZ4x4.m[0][0] = cosf(FTheta);
+    RotZ4x4.m[0][1] = sinf(FTheta);
+    RotZ4x4.m[1][0] = -sinf(FTheta);
+    RotZ4x4.m[1][1] = cosf(FTheta);
+    RotZ4x4.m[2][2] = 1.0;
+    RotZ4x4.m[3][3] = 1.0;
+
+    multiply_matrices(&RotZ4x4);
 }
 static const void keypress(XEvent *event) {
 
@@ -263,19 +310,27 @@ static const void keypress(XEvent *event) {
     printf("The Button that was pressed is %s.\n", buffer);
     switch (keysym) {
 
-        case 119 : move_forward();
+        case 119 : move_forward(); // w
             break;
-        case 115 : move_backward();
+        case 115 : move_backward(); // s
             break;
-        case 65361 : move_left();
+        case 65361 : move_left(); // left arrow
             break;
-        case 65363 : move_right();
+        case 65363 : move_right(); // right arrow
             break;
-        case 65362 : move_up();
+        case 65362 : move_up(); // up arror
             break;
-        case 65364 : move_down();
+        case 65364 : move_down(); // down arrow
             break;
-        case 65293 : ZOOM *= 0.10;
+        case 120 : rotate_xaxis(); // x
+            break;
+        case 121 : rotate_yaxis(); // y
+            break;
+        case 122 : rotate_zaxis(); // z
+            break;
+        case 101 : /* rotate Yaxis Backwards */
+            break;
+        case 65293 : /* ZOOM *= 0.10 */; // Enter
             break;
         default :
             return;
@@ -323,24 +378,11 @@ static void paint_triangle(CTriangle *ctri) {
 }
 static void nor_triangle(Triangle *tri) {
 
-    int x = 0, y = 0;
-    for (int i = 0; i <= wa.width * wa.height; i++) {
-        // printf("X %d ---> x : %f i : %d\n", x, (x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM), i);
-        for (int v = 0; v <= sizeof(&tri->point) / sizeof(float); v++) {
-            if (!compare_float(tri->point[v].x, (x - (wa.width / HORIZONTAL)) / (wa.width / ZOOM), 1000) &&
-                !compare_float(tri->point[v].y, (y - (wa.height / VERTICAL)) / (wa.width / ZOOM), 1000)) {
-
-                ctri.cpoint[v].x = x;
-                ctri.cpoint[v].y = y;
-                printf("Vectors identified: %d\n", v);
-            }
-        }   
-        x++;
-        if (x == wa.width) {
-            y++;
-            x = 0;
-        }
+    for (int i = 0; i <= 2; i++) {
+        ctri.cpoint[i].x = (1 + tri->point[i].x) * (wa.width / 2.00);
+        ctri.cpoint[i].y = (1 + tri->point[i].y) * (wa.height / 2.00);
     }
+
     paint_triangle(&ctri);
 }
 static const void atomsinit(void) {
