@@ -8,7 +8,7 @@
 #include "header_files/locale.h"
 
 typedef struct {
-    float x, y, z, m;
+    float x, y, z, w;
 } Point;
 
 typedef struct {
@@ -42,11 +42,13 @@ enum { FrontBlock, BackBlock, WestBlock, EastBlock, NorthBlock, SouthBlock, Last
 #define WIDTH                     800
 #define HEIGHT                    800
 #define FNear                     0.1
-#define FFar                      1000.0
+#define FFar                      1.0
 #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
 #define FovRad                    ( 1 / tan(FieldOfView * 0.5 / 180.0 * 3.14159) )
-#define FTheta                    ( 1.0 * 0.01 )
+#define FTheta                    ( 0.04 )
+#define XWorldToScreen            ( (1 + tri->point[i].x) * (wa.width / 2.00) )
+#define YWorldToScreen            ( (1 + tri->point[i].y) * (wa.height / 2.00) )
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
@@ -61,7 +63,7 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 Point el;
 Triangle tri = {
-    {{ 0.0, -0.5, 1.0, 1.0 }, { -0.5, 0.0, 1.0, 1.0 }, { 0.5, 0.0, 1.0, 1.0 }}
+    {{ 0.0, -0.5, 0.0, 1.0 }, { -0.5, 0.0, 0.0, 1.0 }, { 0.5, 0.0, 0.0, 1.0 }}
 };
 CTriangle ctri = { 0 };
 Mat4x4 ProjMatrix = { 0 };
@@ -79,8 +81,8 @@ static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
 static void multiply_matrices(Mat4x4 *m);
-static void init_mat4x4(Mat4x4 *matrix4x4);
 static void init_tri(Triangle *tri);
+static void init_mat4x4(Mat4x4 *ProjMatrix);
 static void paint_triangle(CTriangle *ctri);
 static void nor_triangle(Triangle *tri);
 static const void pixmapupdate(void);
@@ -118,7 +120,7 @@ static const void reparentnotify(XEvent *event) {
 static const void mapnotify(XEvent *event) {
 
     printf("mapnotify event received\n");
-    
+
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
@@ -165,9 +167,11 @@ static const void buttonpress(XEvent *event) {
         el.y = (event->xbutton.y - (wa.height / 2.00)) / (wa.height / 2.00);
     }
 
-    printf("X1 : %f --> X2 : %f\n", el.x, ((1 + el.x) * (wa.width / 2.00)) );
-    printf("y1 : %f --> Y2 : %f\n", el.y, ((1 + el.y) * (wa.height / 2.00)) );
-    printf("FOV : %F\n", FovRad);
+    printf("Aspect Ratio                     : %2f\n", AspectRatio);
+    printf("FovRad                           : %2f\n", FovRad);
+    printf("FFar / (FFar - FNear)            : %2f\n", FFar / (FFar - FNear));
+    printf("(-FFar * FNear) / (FFar - FNear) : %2f\n", (-FFar * FNear) / (FFar - FNear));
+    
     // if (event->xkey.keycode == 1) {
     //     el.zoom *= 0.50;
     // } else if (event->xkey.keycode == 3) {
@@ -176,35 +180,46 @@ static const void buttonpress(XEvent *event) {
 }
 static void multiply_matrices(Mat4x4 *m) {
 
+    system("clear");
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].x = tri.point[i].x * m->m[0][0] + tri.point[i].y * m->m[1][0] + tri.point[i].z * m->m[2][0] + m->m[3][0];
-        tri.point[i].y = tri.point[i].x * m->m[0][1] + tri.point[i].y * m->m[1][1] + tri.point[i].z * m->m[2][1] + m->m[3][1];
-        tri.point[i].z = tri.point[i].x * m->m[0][2] + tri.point[i].y * m->m[1][2] + tri.point[i].z * m->m[2][2] + m->m[3][2];
-        // float w        = tri.point[i].x * m->m[0][3] + tri.point[i].y * m->m[1][3] + tri.point[i].z * m->m[2][3] + m->m[3][3];
 
-        // if (w != 0.0) {
-        //     tri.point[i].x /= w; 
-        //     tri.point[i].y /= w;
-        //     tri.point[i].z /= w;
-        // }
+        tri.point[i].x = tri.point[i].x * m->m[0][0] + tri.point[i].y * m->m[1][0] + tri.point[i].z * m->m[2][0] + tri.point[i].w * m->m[3][0];
+        // printf("X[%i] : %2f\n",  i, tri.point[i].x);
+        tri.point[i].y = tri.point[i].x * m->m[0][1] + tri.point[i].y * m->m[1][1] + tri.point[i].z * m->m[2][1] + tri.point[i].w * m->m[3][1];
+        // printf("Y[%i] : %2f\n",  i, tri.point[i].y);
+        tri.point[i].z = tri.point[i].x * m->m[0][2] + tri.point[i].y * m->m[1][2] + tri.point[i].z * m->m[2][2] + tri.point[i].w * m->m[3][2];
+        // printf("Z[%i] : %2f\n",  i, tri.point[i].z);
+        tri.point[i].w = tri.point[i].x * m->m[0][3] + tri.point[i].y * m->m[1][3] + tri.point[i].z * m->m[2][3] + tri.point[i].w * m->m[3][3];
+        printf("W[%i] : %2f\n",  i, tri.point[i].w);
+        // printf("-----------------------------------\n");
+
+        if (tri.point[i].w != 0.00) {
+            tri.point[i].x /= tri.point[i].w; 
+            tri.point[i].y /= tri.point[i].w;
+            tri.point[i].z /= tri.point[i].w;
+        }
     }
-    nor_triangle(&tri);
-}
-static void init_mat4x4(Mat4x4 *matrix4x4) {
-
-    ProjMatrix.m[0][0] = AspectRatio * FovRad;
-    ProjMatrix.m[1][1] = FovRad;
-    ProjMatrix.m[2][2] = FFar / (FFar - FNear);
-    ProjMatrix.m[3][2] = (-FFar * FNear) / (FFar - FNear);
-    ProjMatrix.m[2][3] = 1.0;
-    ProjMatrix.m[3][3] = 0.0;
 }
 static void init_tri(Triangle *tri) {
 
     for (int i = 0; i <= 2; i++) {
-        tri->point[i].x = tri->point[i].x / tri->point[i].z;
-        tri->point[i].y = tri->point[i].y / tri->point[i].z;
+        if (tri->point[i].z != 0.00) {
+            tri->point[i].x = tri->point[i].x / tri->point[i].z;
+            tri->point[i].y = tri->point[i].y / tri->point[i].z;
+        }
     }
+}
+static void init_mat4x4(Mat4x4 *ProjMatrix) {
+
+    ProjMatrix->m[0][0] = AspectRatio * FovRad;
+    ProjMatrix->m[1][1] = FovRad;
+    ProjMatrix->m[2][2] = FFar / (FFar - FNear);
+    ProjMatrix->m[2][3] = 1.0;
+    ProjMatrix->m[3][2] = (-FFar * FNear) / (FFar - FNear);
+    ProjMatrix->m[3][3] = 1.0;
+
+    multiply_matrices(ProjMatrix);
+    nor_triangle(&tri);
 }
 static void move_left(void) {
 
@@ -248,23 +263,23 @@ static void rotate_xaxis(void) {
     Mat4x4 RotX4x4 = { 0 };
     RotX4x4.m[0][0] = 1.0;
     RotX4x4.m[1][1] = cosf(FTheta);
-    RotX4x4.m[1][2] = sinf(FTheta);
-    RotX4x4.m[2][1] = -sinf(FTheta);
+    RotX4x4.m[1][2] = -sinf(FTheta);
+    RotX4x4.m[2][1] = sinf(FTheta);
     RotX4x4.m[2][2] = cosf(FTheta);
     RotX4x4.m[3][3] = 1.0;
 
     multiply_matrices(&RotX4x4);
 }
 static void rotate_yaxis(void) {
-    Mat4x4 RotZ4x4 = { 0 };
-    RotZ4x4.m[0][0] = cosf(FTheta);
-    RotZ4x4.m[1][1] = 1.00;
-    RotZ4x4.m[1][2] = -sinf(FTheta);
-    RotZ4x4.m[2][1] = cosf(FTheta);
-    RotZ4x4.m[2][2] = 1.0;
-    RotZ4x4.m[3][3] = 1.0;
+    Mat4x4 RotY4x4 = { 0 };
+    RotY4x4.m[0][0] = cosf(FTheta);
+    RotY4x4.m[1][1] = 1.00;
+    RotY4x4.m[0][2] = -sinf(FTheta);
+    RotY4x4.m[2][0] = sinf(FTheta);
+    RotY4x4.m[2][2] = cosf(FTheta);
+    RotY4x4.m[3][3] = 1.0;
 
-    multiply_matrices(&RotZ4x4);
+    multiply_matrices(&RotY4x4);
 }
 static void rotate_zaxis(void) {
     Mat4x4 RotZ4x4 = { 0 };
@@ -379,8 +394,10 @@ static void paint_triangle(CTriangle *ctri) {
 static void nor_triangle(Triangle *tri) {
 
     for (int i = 0; i <= 2; i++) {
-        ctri.cpoint[i].x = (1 + tri->point[i].x) * (wa.width / 2.00);
-        ctri.cpoint[i].y = (1 + tri->point[i].y) * (wa.height / 2.00);
+        ctri.cpoint[i].x = XWorldToScreen;
+        ctri.cpoint[i].y = YWorldToScreen;
+        printf("Screen X[%d] : %d --> Normalized: %f\n", i, ctri.cpoint[i].x, XWorldToScreen);
+        printf("Screen Y[%d] : %d ..> Normalized: %f\n", i, ctri.cpoint[i].y, YWorldToScreen);
     }
 
     paint_triangle(&ctri);
