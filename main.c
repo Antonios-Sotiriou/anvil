@@ -42,11 +42,11 @@ enum { FrontBlock, BackBlock, WestBlock, EastBlock, NorthBlock, SouthBlock, Last
 #define WIDTH                     800
 #define HEIGHT                    800
 #define FNear                     0.1
-#define FFar                      1.0
+#define FFar                      1000.0
 #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
 #define FovRad                    ( 1 / tan(FieldOfView * 0.5 / 180.0 * 3.14159) )
-#define FTheta                    ( 0.04 )
+#define FTheta                    ( 1 * 0.2 )
 #define XWorldToScreen            ( (1 + tri->point[i].x) * (wa.width / 2.00) )
 #define YWorldToScreen            ( (1 + tri->point[i].y) * (wa.height / 2.00) )
 
@@ -83,8 +83,18 @@ static const void keypress(XEvent *event);
 static void multiply_matrices(Mat4x4 *m);
 static void init_tri(Triangle *tri);
 static void init_mat4x4(Mat4x4 *ProjMatrix);
+static void move_left(void);
+static void move_right(void);
+static void move_up(void);
+static void move_down(void);
+static void move_forward(void);
+static void move_backward(void);
+static void rotate_xaxis(void);
+static void rotate_yaxis(void);
+static void rotate_zaxis(void);
 static void paint_triangle(CTriangle *ctri);
 static void nor_triangle(Triangle *tri);
+static KeySym get_keysym(XEvent *event);
 static const void pixmapupdate(void);
 static const void pixmapdisplay(void);
 static const void atomsinit(void);
@@ -115,7 +125,7 @@ static const void clientmessage(XEvent *event) {
 static const void reparentnotify(XEvent *event) {
 
     printf("reparentnotify event received\n");
-    // XGetWindowAttributes(displ, win, &wa);
+    XGetWindowAttributes(displ, win, &wa);
 }
 static const void mapnotify(XEvent *event) {
 
@@ -171,34 +181,59 @@ static const void buttonpress(XEvent *event) {
     printf("FovRad                           : %2f\n", FovRad);
     printf("FFar / (FFar - FNear)            : %2f\n", FFar / (FFar - FNear));
     printf("(-FFar * FNear) / (FFar - FNear) : %2f\n", (-FFar * FNear) / (FFar - FNear));
+}
+static const void keypress(XEvent *event) {
     
-    // if (event->xkey.keycode == 1) {
-    //     el.zoom *= 0.50;
-    // } else if (event->xkey.keycode == 3) {
-    //     el.zoom /= 0.50;
-    // }
+    KeySym keysym = get_keysym(event);
+    switch (keysym) {
+
+        case 119 : move_forward(); // w
+            break;
+        case 115 : move_backward(); // s
+            break;
+        case 65361 : move_left(); // left arrow
+            break;
+        case 65363 : move_right(); // right arrow
+            break;
+        case 65362 : move_up(); // up arror
+            break;
+        case 65364 : move_down(); // down arrow
+            break;
+        case 120 : rotate_xaxis(); // x
+            break;
+        case 121 : rotate_yaxis(); // y
+            break;
+        case 122 : rotate_zaxis(); // z
+            break;
+        case 101 : /* rotate Yaxis Backwards */
+            break;
+        case 65293 : /* ZOOM *= 0.10 */; // Enter
+            break;
+        default :
+            return;
+    }
+    
+    pixmapdisplay();
+    nor_triangle(&tri);
 }
 static void multiply_matrices(Mat4x4 *m) {
 
     system("clear");
+    Triangle newtri = tri;
     for (int i = 0; i <= 2; i++) {
 
-        tri.point[i].x = tri.point[i].x * m->m[0][0] + tri.point[i].y * m->m[1][0] + tri.point[i].z * m->m[2][0] + tri.point[i].w * m->m[3][0];
-        // printf("X[%i] : %2f\n",  i, tri.point[i].x);
-        tri.point[i].y = tri.point[i].x * m->m[0][1] + tri.point[i].y * m->m[1][1] + tri.point[i].z * m->m[2][1] + tri.point[i].w * m->m[3][1];
-        // printf("Y[%i] : %2f\n",  i, tri.point[i].y);
-        tri.point[i].z = tri.point[i].x * m->m[0][2] + tri.point[i].y * m->m[1][2] + tri.point[i].z * m->m[2][2] + tri.point[i].w * m->m[3][2];
-        // printf("Z[%i] : %2f\n",  i, tri.point[i].z);
-        tri.point[i].w = tri.point[i].x * m->m[0][3] + tri.point[i].y * m->m[1][3] + tri.point[i].z * m->m[2][3] + tri.point[i].w * m->m[3][3];
-        printf("W[%i] : %2f\n",  i, tri.point[i].w);
-        // printf("-----------------------------------\n");
+        newtri.point[i].x = tri.point[i].x * m->m[0][0] + tri.point[i].y * m->m[1][0] + tri.point[i].z * m->m[2][0] + tri.point[i].w * m->m[3][0];
+        newtri.point[i].y = tri.point[i].x * m->m[0][1] + tri.point[i].y * m->m[1][1] + tri.point[i].z * m->m[2][1] + tri.point[i].w * m->m[3][1];
+        newtri.point[i].z = tri.point[i].x * m->m[0][2] + tri.point[i].y * m->m[1][2] + tri.point[i].z * m->m[2][2] + tri.point[i].w * m->m[3][2];
+        newtri.point[i].w = tri.point[i].x * m->m[0][3] + tri.point[i].y * m->m[1][3] + tri.point[i].z * m->m[2][3] + tri.point[i].w * m->m[3][3];
 
-        if (tri.point[i].w != 0.00) {
-            tri.point[i].x /= tri.point[i].w; 
-            tri.point[i].y /= tri.point[i].w;
-            tri.point[i].z /= tri.point[i].w;
+        if (newtri.point[i].w != 0.00) {
+            newtri.point[i].x /= tri.point[i].w; 
+            newtri.point[i].y /= tri.point[i].w;
+            newtri.point[i].z /= tri.point[i].w;
         }
     }
+    tri = newtri;
 }
 static void init_tri(Triangle *tri) {
 
@@ -214,12 +249,11 @@ static void init_mat4x4(Mat4x4 *ProjMatrix) {
     ProjMatrix->m[0][0] = AspectRatio * FovRad;
     ProjMatrix->m[1][1] = FovRad;
     ProjMatrix->m[2][2] = FFar / (FFar - FNear);
-    ProjMatrix->m[2][3] = 1.0;
+    ProjMatrix->m[2][3] = 0.0;
     ProjMatrix->m[3][2] = (-FFar * FNear) / (FFar - FNear);
     ProjMatrix->m[3][3] = 1.0;
 
     multiply_matrices(ProjMatrix);
-    nor_triangle(&tri);
 }
 static void move_left(void) {
 
@@ -236,13 +270,13 @@ static void move_right(void) {
 static void move_up(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].y -= 0.1;
+        tri.point[i].y += 0.1;
     }
 }
 static void move_down(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].y += 0.1;
+        tri.point[i].y -= 0.1;
     }
 }
 static void move_forward(void) {
@@ -292,7 +326,36 @@ static void rotate_zaxis(void) {
 
     multiply_matrices(&RotZ4x4);
 }
-static const void keypress(XEvent *event) {
+static void paint_triangle(CTriangle *ctri) {
+
+    XGCValues gcv;
+    gcv.graphics_exposures = False;
+    gcv.line_width = 3;
+    gcv.foreground = 0xffffff;
+    GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gcv);
+
+    int vecindex = 1;
+    for (int i = 0; i <= 2; i++) {
+        if (i == 2)
+            vecindex = 0;
+        XDrawLine(displ, win, gc, ctri->cpoint[i].x, ctri->cpoint[i].y, ctri->cpoint[vecindex].x, ctri->cpoint[vecindex].y);
+        vecindex++;
+    }
+
+    XFreeGC(displ, gc);
+}
+static void nor_triangle(Triangle *tri) {
+
+    for (int i = 0; i <= 2; i++) {
+        ctri.cpoint[i].x = ceil(XWorldToScreen);
+        ctri.cpoint[i].y = ceil(YWorldToScreen);
+        printf("Screen X[%d] : %d --> Normalized: %f\n", i, ctri.cpoint[i].x, XWorldToScreen);
+        printf("Screen Y[%d] : %d ..> Normalized: %f\n", i, ctri.cpoint[i].y, YWorldToScreen);
+    }
+
+    paint_triangle(&ctri);
+}
+static KeySym get_keysym(XEvent *event) {
 
     /* Get user text input */
     XIM xim;
@@ -323,40 +386,8 @@ static const void keypress(XEvent *event) {
     }
     printf("Pressed key: %lu.\n", keysym);
     printf("The Button that was pressed is %s.\n", buffer);
-    switch (keysym) {
 
-        case 119 : move_forward(); // w
-            break;
-        case 115 : move_backward(); // s
-            break;
-        case 65361 : move_left(); // left arrow
-            break;
-        case 65363 : move_right(); // right arrow
-            break;
-        case 65362 : move_up(); // up arror
-            break;
-        case 65364 : move_down(); // down arrow
-            break;
-        case 120 : rotate_xaxis(); // x
-            break;
-        case 121 : rotate_yaxis(); // y
-            break;
-        case 122 : rotate_zaxis(); // z
-            break;
-        case 101 : /* rotate Yaxis Backwards */
-            break;
-        case 65293 : /* ZOOM *= 0.10 */; // Enter
-            break;
-        default :
-            return;
-    }
-    
-    pixmapdisplay();
-    nor_triangle(&tri);
-    // paint_triangle(&ctri);
-
-    // event->type = ButtonPress;
-    // XSendEvent(displ, win, False, StructureNotifyMask, event);
+    return keysym;
 }
 static const void pixmapupdate(void) {
 
@@ -376,31 +407,6 @@ static const void pixmapdisplay(void) {
 
     XCopyArea(displ, pixmap, win, pix, 0, 0, wa.width, wa.height, 0, 0);
     XFreeGC(displ, pix);
-}
-static void paint_triangle(CTriangle *ctri) {
-
-    XGCValues gcv;
-    gcv.graphics_exposures = False;
-    gcv.line_width = 3;
-    gcv.foreground = 0xffffff;
-    GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gcv);
-
-    XDrawLine(displ, win, gc, ctri->cpoint[2].x, ctri->cpoint[2].y, ctri->cpoint[1].x, ctri->cpoint[1].y);
-    XDrawLine(displ, win, gc, ctri->cpoint[1].x, ctri->cpoint[1].y, ctri->cpoint[0].x, ctri->cpoint[0].y);
-    XDrawLine(displ, win, gc, ctri->cpoint[0].x, ctri->cpoint[0].y, ctri->cpoint[2].x, ctri->cpoint[2].y);
-
-    XFreeGC(displ, gc);
-}
-static void nor_triangle(Triangle *tri) {
-
-    for (int i = 0; i <= 2; i++) {
-        ctri.cpoint[i].x = XWorldToScreen;
-        ctri.cpoint[i].y = YWorldToScreen;
-        printf("Screen X[%d] : %d --> Normalized: %f\n", i, ctri.cpoint[i].x, XWorldToScreen);
-        printf("Screen Y[%d] : %d ..> Normalized: %f\n", i, ctri.cpoint[i].y, YWorldToScreen);
-    }
-
-    paint_triangle(&ctri);
 }
 static const void atomsinit(void) {
 
