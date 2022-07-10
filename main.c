@@ -7,37 +7,38 @@
 // Project specific headers
 #include "header_files/locale.h"
 
+enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
+enum { UpVector, DownVector, OtherVector, LastVector};
+enum { FrontUp, FrontDown, BackUp, BackDown, EastUp, EastDown, WestUp, WestDown, NorthUp, NorthDown, SouthUp, SouthDown, LastTriangle};
+
+// World Vector
 typedef struct {
     float x, y, z, w;
-} Point;
-
+} Vector;
+// Screen Vector
 typedef struct {
     int x, y;
-} CPoint;
-
+} SCVector;
+// World Triangle
 typedef struct {
-    Point point[3];
+    Vector vector[LastVector];
 } Triangle;
-
+// Screen Triangle
 typedef struct {
-    CPoint cpoint[3];
-} CTriangle;
-
+    XPoint scvector[LastVector];
+} SCTriangle;
+// World Cude
 typedef struct {
-    Triangle triangle[2];
-} Block;
-
-typedef struct {
-    Block block[6];
+    Triangle tri[LastTriangle];
 } Cube;
-
+// Screen Cube
+typedef struct {
+    SCTriangle sctri[LastTriangle];
+} SCCube;
+// 1st frame Initialization matrix
 typedef struct {
     float m[4][4];
 } Mat4x4;
-
-enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
-enum { UnderEl, UperEl, LastEl};
-enum { FrontBlock, BackBlock, WestBlock, EastBlock, NorthBlock, SouthBlock, LastBlock};
 
 #define WIDTH                     800
 #define HEIGHT                    800
@@ -47,8 +48,8 @@ enum { FrontBlock, BackBlock, WestBlock, EastBlock, NorthBlock, SouthBlock, Last
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
 #define FovRad                    ( 1 / tan(FieldOfView * 0.5 / 180.0 * 3.14159) )
 #define FTheta                    ( 1 * 0.2 )
-#define XWorldToScreen            ( (1 + tri->point[i].x) * (wa.width / 2.00) )
-#define YWorldToScreen            ( (1 + tri->point[i].y) * (wa.height / 2.00) )
+#define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )
+#define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) )
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
@@ -61,17 +62,45 @@ Pixmap pixmap;
 XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
-Point el;
-Triangle tri = {
-    {{ 0.0, -0.5, 0.0, 1.0 }, { -0.5, 0.0, 0.0, 1.0 }, { 0.5, 0.0, 0.0, 1.0 }}
+
+Vector camera = { 0 };
+Vector LightSC = {
+    0.0, 0.0, -1.0, 1.0
 };
-CTriangle ctri = { 0 };
+Vector el;
+Triangle tri = {
+    {{ 0.25, -0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }},
+};
+SCTriangle sctri = { 0 };
+
+Cube cube = {
+    {
+        { {{ -0.25, 0.25, 0.0, 1.0 }, { -0.25, -0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }} },    // Front Up
+        { {{ -0.25, 0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }} },      // Front Down
+
+        { {{ 0.25, 0.25, 0.5, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }, { -0.25, -0.25, 0.5, 1.0 }} },    // Back Up
+        { {{ 0.25, 0.25, 0.5, 1.0 }, { -0.25, -0.25, 0.5, 1.0 }, { -0.25, 0.25, 0.5, 1.0 }} },     // Back Down
+
+        { {{ -0.25, -0.25, 0.5, 1.0 }, { -0.25, -0.25, 0.0, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }} },   // East Up
+        { {{ -0.25, -0.25, 0.5, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }, { -0.25, 0.25, 0.5, 1.0 }} },     // East Down
+
+        { {{ 0.25, 0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }} },     // West Up
+        { {{ 0.25, 0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }, { 0.25, 0.25, 0.5, 1.0 }} },       // West Down
+
+        { {{ -0.25, -0.25, 0.0, 1.0 }, { -0.25, -0.25, 0.5, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }} },   // North Up
+        { {{ -0.25, -0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }}} ,   // North Down
+
+        { {{ -0.25, 0.25, 0.5, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }} },       // South Up
+        { {{ -0.25, 0.25, 0.5, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.5, 1.0 }} }      // South Down
+    }
+};
+SCCube sccube = { 0 };
 Mat4x4 ProjMatrix = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
 
-// initialize the knot object to be transfered because we can't transfer pointers to pointers through shared memory.
+// initialize the knot object to be transfered because we can't transfer vectorers to vectorers through shared memory.
 static const void clientmessage(XEvent *event);
 static const void reparentnotify(XEvent *event);
 static const void mapnotify(XEvent *event);
@@ -81,8 +110,8 @@ static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
 static void multiply_matrices(Mat4x4 *m);
-static void init_tri(Triangle *tri);
-static void init_mat4x4(Mat4x4 *ProjMatrix);
+// static void init_mesh(Cube *c);               #######################################################################
+static void init_mat4x4(Mat4x4 *m);
 static void move_left(void);
 static void move_right(void);
 static void move_up(void);
@@ -92,8 +121,10 @@ static void move_backward(void);
 static void rotate_xaxis(void);
 static void rotate_yaxis(void);
 static void rotate_zaxis(void);
-static void paint_triangle(CTriangle *ctri);
-static void nor_triangle(Triangle *tri);
+static Vector cross_product(const Triangle t);
+static float dot_product(const Vector v, const Vector nm);
+static void paint_mesh(SCCube sc);
+static void norm_mesh(const Cube c);
 static KeySym get_keysym(XEvent *event);
 static const void pixmapupdate(void);
 static const void pixmapdisplay(void);
@@ -134,7 +165,7 @@ static const void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        init_tri(&tri);
+        // init_mesh(&cube); ###########################################################################################
         init_mat4x4(&ProjMatrix);
         if (!MAPCOUNT)
             MAPCOUNT = 1;
@@ -156,7 +187,8 @@ static const void expose(XEvent *event) {
     XFreeGC(displ, gc);
 
     pixmapupdate();
-    nor_triangle(&tri);
+
+    norm_mesh(cube);
 }
 static const void resizerequest(XEvent *event) {
 
@@ -176,11 +208,6 @@ static const void buttonpress(XEvent *event) {
         el.x = (event->xbutton.x - (wa.width / 2.00)) / (wa.width / 2.00);
         el.y = (event->xbutton.y - (wa.height / 2.00)) / (wa.height / 2.00);
     }
-
-    printf("Aspect Ratio                     : %2f\n", AspectRatio);
-    printf("FovRad                           : %2f\n", FovRad);
-    printf("FFar / (FFar - FNear)            : %2f\n", FFar / (FFar - FNear));
-    printf("(-FFar * FNear) / (FFar - FNear) : %2f\n", (-FFar * FNear) / (FFar - FNear));
 }
 static const void keypress(XEvent *event) {
     
@@ -214,84 +241,87 @@ static const void keypress(XEvent *event) {
     }
     
     pixmapdisplay();
-    nor_triangle(&tri);
+    norm_mesh(cube);
 }
 static void multiply_matrices(Mat4x4 *m) {
 
-    system("clear");
-    Triangle newtri = tri;
-    for (int i = 0; i <= 2; i++) {
+    Cube cache = cube;
+    for (int i = 0; i < sizeof(cube.tri) / sizeof(Triangle); i++) {
+        for (int j = 0; j < sizeof(cube.tri->vector) / sizeof(Vector); j++) {
 
-        newtri.point[i].x = tri.point[i].x * m->m[0][0] + tri.point[i].y * m->m[1][0] + tri.point[i].z * m->m[2][0] + tri.point[i].w * m->m[3][0];
-        newtri.point[i].y = tri.point[i].x * m->m[0][1] + tri.point[i].y * m->m[1][1] + tri.point[i].z * m->m[2][1] + tri.point[i].w * m->m[3][1];
-        newtri.point[i].z = tri.point[i].x * m->m[0][2] + tri.point[i].y * m->m[1][2] + tri.point[i].z * m->m[2][2] + tri.point[i].w * m->m[3][2];
-        newtri.point[i].w = tri.point[i].x * m->m[0][3] + tri.point[i].y * m->m[1][3] + tri.point[i].z * m->m[2][3] + tri.point[i].w * m->m[3][3];
+            cache.tri[i].vector[j].x = cube.tri[i].vector[j].x * m->m[0][0] + cube.tri[i].vector[j].y * m->m[1][0] + cube.tri[i].vector[j].z * m->m[2][0] + cube.tri[i].vector[j].w * m->m[3][0];
+            cache.tri[i].vector[j].y = cube.tri[i].vector[j].x * m->m[0][1] + cube.tri[i].vector[j].y * m->m[1][1] + cube.tri[i].vector[j].z * m->m[2][1] + cube.tri[i].vector[j].w * m->m[3][1];
+            cache.tri[i].vector[j].z = cube.tri[i].vector[j].x * m->m[0][2] + cube.tri[i].vector[j].y * m->m[1][2] + cube.tri[i].vector[j].z * m->m[2][2] + cube.tri[i].vector[j].w * m->m[3][2];
+            cache.tri[i].vector[j].w = cube.tri[i].vector[j].x * m->m[0][3] + cube.tri[i].vector[j].y * m->m[1][3] + cube.tri[i].vector[j].z * m->m[2][3] + cube.tri[i].vector[j].w * m->m[3][3];
 
-        if (newtri.point[i].w != 0.00) {
-            newtri.point[i].x /= tri.point[i].w; 
-            newtri.point[i].y /= tri.point[i].w;
-            newtri.point[i].z /= tri.point[i].w;
+            if (cube.tri[i].vector[j].w != 0.00) {
+                cache.tri[i].vector[j].x /= cube.tri[i].vector[j].w;
+                cache.tri[i].vector[j].y /= cube.tri[i].vector[j].w;
+                cache.tri[i].vector[j].z /= cube.tri[i].vector[j].w;
+            }
         }
     }
-    tri = newtri;
+    cube = cache;
 }
-static void init_tri(Triangle *tri) {
+// static void init_mesh(Cube *c) {                 #####################################################################
 
-    for (int i = 0; i <= 2; i++) {
-        if (tri->point[i].z != 0.00) {
-            tri->point[i].x = tri->point[i].x / tri->point[i].z;
-            tri->point[i].y = tri->point[i].y / tri->point[i].z;
-        }
-    }
-}
-static void init_mat4x4(Mat4x4 *ProjMatrix) {
+//     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
 
-    ProjMatrix->m[0][0] = AspectRatio * FovRad;
-    ProjMatrix->m[1][1] = FovRad;
-    ProjMatrix->m[2][2] = FFar / (FFar - FNear);
-    ProjMatrix->m[2][3] = 0.0;
-    ProjMatrix->m[3][2] = (-FFar * FNear) / (FFar - FNear);
-    ProjMatrix->m[3][3] = 1.0;
+//         for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
 
-    multiply_matrices(ProjMatrix);
+//             if (c->tri[i].vector[j].z != 0.00) {
+//                 c->tri[i].vector[j].x = c->tri[i].vector[j].x / c->tri[i].vector[j].z;
+//                 c->tri[i].vector[j].y = c->tri[i].vector[j].y / c->tri[i].vector[j].z;
+//             }
+//         }
+//     }
+// }
+static void init_mat4x4(Mat4x4 *m) {
+
+    m->m[0][0] = AspectRatio * FovRad;
+    m->m[1][1] = FovRad;
+    m->m[2][2] = FFar / (FFar - FNear);
+    m->m[2][3] = 0.0;
+    m->m[3][2] = (-FFar * FNear) / (FFar - FNear);
+    m->m[3][3] = 1.0;
+
+    multiply_matrices(m);
 }
 static void move_left(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].x -= 0.1;
+        tri.vector[i].x -= 0.1;
     }
 }
 static void move_right(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].x += 0.1;
+        tri.vector[i].x += 0.1;
     }
 }
 static void move_up(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].y += 0.1;
+        tri.vector[i].y += 0.1;
     }
 }
 static void move_down(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].y -= 0.1;
+        tri.vector[i].y -= 0.1;
     }
 }
 static void move_forward(void) {
     
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].z += 0.01;
+        tri.vector[i].z += 0.01;
     }
-    init_tri(&tri);
 }
 static void move_backward(void) {
 
     for (int i = 0; i <= 2; i++) {
-        tri.point[i].z -= 0.01;
+        tri.vector[i].z -= 0.01;
     }
-    init_tri(&tri);
 }
 static void rotate_xaxis(void) {
     Mat4x4 RotX4x4 = { 0 };
@@ -326,34 +356,80 @@ static void rotate_zaxis(void) {
 
     multiply_matrices(&RotZ4x4);
 }
-static void paint_triangle(CTriangle *ctri) {
+static Vector cross_product(const Triangle t) {
+    Vector cp, line1, line2;
+    line1.x = t.vector[1].x - t.vector[0].x;
+    line1.y = t.vector[1].y - t.vector[0].y;
+    line1.z = t.vector[1].z - t.vector[0].z;
 
-    XGCValues gcv;
-    gcv.graphics_exposures = False;
-    gcv.line_width = 3;
-    gcv.foreground = 0xffffff;
-    GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gcv);
+    line2.x = t.vector[2].x - t.vector[0].x;
+    line2.y = t.vector[2].y - t.vector[0].y;
+    line2.z = t.vector[2].z - t.vector[0].z;
 
-    int vecindex = 1;
-    for (int i = 0; i <= 2; i++) {
-        if (i == 2)
-            vecindex = 0;
-        XDrawLine(displ, win, gc, ctri->cpoint[i].x, ctri->cpoint[i].y, ctri->cpoint[vecindex].x, ctri->cpoint[vecindex].y);
-        vecindex++;
-    }
+    cp.x = line1.y * line2.z - line1.z * line2.y;
+    cp.y = line1.z * line2.x - line1.x * line2.z;
+    cp.z = line1.x * line2.y - line1.y * line2.x;
 
-    XFreeGC(displ, gc);
+    return cp;
 }
-static void nor_triangle(Triangle *tri) {
+static float dot_product(const Vector v, const Vector nm) {
+    float dp;
+    dp = (nm.x * (v.x - camera.x)) + (nm.y * (v.y - camera.y)) + (nm.z * (v.z - camera.z));
+    return dp;
+}
+static void paint_mesh(SCCube sc) {
 
-    for (int i = 0; i <= 2; i++) {
-        ctri.cpoint[i].x = ceil(XWorldToScreen);
-        ctri.cpoint[i].y = ceil(YWorldToScreen);
-        printf("Screen X[%d] : %d --> Normalized: %f\n", i, ctri.cpoint[i].x, XWorldToScreen);
-        printf("Screen Y[%d] : %d ..> Normalized: %f\n", i, ctri.cpoint[i].y, YWorldToScreen);
-    }
+    XGCValues gclines, gcfill, gcil;
 
-    paint_triangle(&ctri);
+    gclines.graphics_exposures = False;
+    gclines.line_width = 3;
+    gclines.foreground = 0xffffff;
+    GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
+
+    gcfill.graphics_exposures = False;
+    gcfill.foreground = 0xab00a6;
+    GC gcf = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcfill);
+
+    Vector cp;
+    float dp;
+    int vecindex = 1;
+    for (int i = 0; i < sizeof(sc.sctri) / sizeof(SCTriangle); i++)
+
+        for (int j = 0; j < sizeof(sc.sctri->scvector) / sizeof(XPoint); j++) {
+            // Here we count the cross product of the world coordinated cube's triangles. S.O.S
+            cp = cross_product(cube.tri[i]);
+            if (cp.z < 0.00) {
+
+                dp = dot_product(LightSC, cp);
+                printf("Dot Product: %f\n", dp);
+
+                gcil.graphics_exposures = False;
+                gcil.foreground = dp * 1000;
+                GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
+
+                XFillPolygon(displ, win, gci, sc.sctri[i].scvector, 3, Convex, CoordModeOrigin);
+
+                if (j == 2)
+                    vecindex = 0;
+                XDrawLine(displ, win, gcl, sc.sctri[i].scvector[j].x, sc.sctri[i].scvector[j].y, sc.sctri[i].scvector[vecindex].x, sc.sctri[i].scvector[vecindex].y);
+                vecindex++;
+                XFreeGC(displ, gci);
+            }
+        }
+
+    XFreeGC(displ, gcl);
+    XFreeGC(displ, gcf);
+
+}
+static void norm_mesh(const Cube c) {
+
+    for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c.tri->vector) / sizeof(Vector); j++) {
+
+            sccube.sctri[i].scvector[j].x = ceil(XWorldToScreen);
+            sccube.sctri[i].scvector[j].y = ceil(YWorldToScreen);
+        }
+    paint_mesh(sccube);
 }
 static KeySym get_keysym(XEvent *event) {
 
