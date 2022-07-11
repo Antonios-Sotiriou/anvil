@@ -8,26 +8,23 @@
 #include "header_files/locale.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
-enum { UpVector, DownVector, OtherVector, LastVector};
-enum { FrontUp, FrontDown, BackUp, BackDown, EastUp, EastDown, WestUp, WestDown, NorthUp, NorthDown, SouthUp, SouthDown, LastTriangle};
+enum { AVector, BVector, CVector, LastVector};
+enum { FrontUp, FrontDown, BackUp, BackDown, WestUp, WestDown, EastUp, EastDown, NorthUp, NorthDown, SouthUp, SouthDown, LastTriangle};
 
 // World Vector
 typedef struct {
     float x, y, z, w;
 } Vector;
-// Screen Vector
-typedef struct {
-    int x, y;
-} SCVector;
 // World Triangle
 typedef struct {
     Vector vector[LastVector];
 } Triangle;
 // Screen Triangle
 typedef struct {
+    // Importand! XPoint here so we can use the xlib build in function to fill the triangles.
     XPoint scvector[LastVector];
 } SCTriangle;
-// World Cude
+// World Cube
 typedef struct {
     Triangle tri[LastTriangle];
 } Cube;
@@ -42,8 +39,8 @@ typedef struct {
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define FNear                     0.1
-#define FFar                      1000.0
+#define ZNear                     0.1
+#define ZFar                      1000.0
 #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
 #define FovRad                    ( 1 / tan(FieldOfView * 0.5 / 180.0 * 3.14159) )
@@ -68,30 +65,47 @@ Vector LightSC = {
     0.0, 0.0, -1.0, 1.0
 };
 Vector el;
-Triangle tri = {
-    {{ 0.25, -0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }},
-};
-SCTriangle sctri = { 0 };
 
+#define cube_back     0.5
+#define cube_front    0.0
+#define cube_size     0.5
 Cube cube = {
     {
-        { {{ -0.25, 0.25, 0.0, 1.0 }, { -0.25, -0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }} },    // Front Up
-        { {{ -0.25, 0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }} },      // Front Down
+        // { {{ -cube_size, cube_size, cube_front, 1.0 }, { -cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    // Front Up
+        // { {{ -cube_size, cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, cube_size, cube_front, 1.0 }} },      // Front Down
 
-        { {{ 0.25, 0.25, 0.5, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }, { -0.25, -0.25, 0.5, 1.0 }} },    // Back Up
-        { {{ 0.25, 0.25, 0.5, 1.0 }, { -0.25, -0.25, 0.5, 1.0 }, { -0.25, 0.25, 0.5, 1.0 }} },     // Back Down
+        // { {{ cube_size, cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }} },    // Back Up
+        // { {{ cube_size, cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }, { -cube_size, cube_size, cube_back, 1.0 }} },     // Back Down
 
-        { {{ -0.25, -0.25, 0.5, 1.0 }, { -0.25, -0.25, 0.0, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }} },   // East Up
-        { {{ -0.25, -0.25, 0.5, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }, { -0.25, 0.25, 0.5, 1.0 }} },     // East Down
+        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_front, 1.0 }} },     // West Up
+        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_front, 1.0 }, { -cube_size, cube_size, cube_front, 1.0 }} },       // East Down
 
-        { {{ 0.25, 0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }} },     // West Up
-        { {{ 0.25, 0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }, { 0.25, 0.25, 0.5, 1.0 }} },       // West Down
+        // { {{ cube_size, cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },    // East Up
+        // { {{ cube_size, cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, cube_size, cube_back, 1.0 }} },     // East Down    
 
-        { {{ -0.25, -0.25, 0.0, 1.0 }, { -0.25, -0.25, 0.5, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }} },   // North Up
-        { {{ -0.25, -0.25, 0.0, 1.0 }, { 0.25, -0.25, 0.5, 1.0 }, { 0.25, -0.25, 0.0, 1.0 }}} ,   // North Down
+        // { {{ -cube_size, -cube_size, cube_front, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   // North Up
+        // { {{ -cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   // North Down
 
-        { {{ -0.25, 0.25, 0.5, 1.0 }, { -0.25, 0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }} },       // South Up
-        { {{ -0.25, 0.25, 0.5, 1.0 }, { 0.25, 0.25, 0.0, 1.0 }, { 0.25, 0.25, 0.5, 1.0 }} }      // South Down
+        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { -cube_size, cube_size, cube_front, 1.0 }, { cube_size, cube_size, cube_front, 1.0 }} },       // South Up
+        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { cube_size, cube_size, cube_front, 1.0 }, { cube_size, cube_size, cube_back, 1.0 }} }      // South Down
+                      // #######################################################################
+        { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    // Front Up
+        { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },      // Front Down
+
+        { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    // Back Up
+        { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     // Back Down
+
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },     // West Up
+        { {{ 0.00,  0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },       // East Down
+
+        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },    // East Up
+        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },     // East Down
+
+        { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   // North Up
+        { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   // North Down
+
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       // South Up
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} }      // South Down
     }
 };
 SCCube sccube = { 0 };
@@ -110,14 +124,14 @@ static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
 static void multiply_matrices(Mat4x4 *m);
-// static void init_mesh(Cube *c);               #######################################################################
-static void init_mat4x4(Mat4x4 *m);
-static void move_left(void);
-static void move_right(void);
-static void move_up(void);
-static void move_down(void);
-static void move_forward(void);
-static void move_backward(void);
+// static void init_mesh(Cube *c);            //   #######################################################################
+static void project_mat4x4(Mat4x4 *m);
+static void move_left(Cube *c);
+static void move_right(Cube *c);
+static void move_up(Cube *c);
+static void move_down(Cube *c);
+static void move_forward(Cube *c);
+static void move_backward(Cube *c);
 static void rotate_xaxis(void);
 static void rotate_yaxis(void);
 static void rotate_zaxis(void);
@@ -165,8 +179,8 @@ static const void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // init_mesh(&cube); ###########################################################################################
-        init_mat4x4(&ProjMatrix);
+        // init_mesh(&cube); // ###########################################################################################
+        project_mat4x4(&ProjMatrix);
         if (!MAPCOUNT)
             MAPCOUNT = 1;
     }
@@ -214,17 +228,17 @@ static const void keypress(XEvent *event) {
     KeySym keysym = get_keysym(event);
     switch (keysym) {
 
-        case 119 : move_forward(); // w
+        case 119 : move_forward(&cube); // w
             break;
-        case 115 : move_backward(); // s
+        case 115 : move_backward(&cube); // s
             break;
-        case 65361 : move_left(); // left arrow
+        case 65361 : move_left(&cube); // left arrow
             break;
-        case 65363 : move_right(); // right arrow
+        case 65363 : move_right(&cube); // right arrow
             break;
-        case 65362 : move_up(); // up arror
+        case 65362 : move_up(&cube); // up arror
             break;
-        case 65364 : move_down(); // down arrow
+        case 65364 : move_down(&cube); // down arrow
             break;
         case 120 : rotate_xaxis(); // x
             break;
@@ -254,74 +268,114 @@ static void multiply_matrices(Mat4x4 *m) {
             cache.tri[i].vector[j].z = cube.tri[i].vector[j].x * m->m[0][2] + cube.tri[i].vector[j].y * m->m[1][2] + cube.tri[i].vector[j].z * m->m[2][2] + cube.tri[i].vector[j].w * m->m[3][2];
             cache.tri[i].vector[j].w = cube.tri[i].vector[j].x * m->m[0][3] + cube.tri[i].vector[j].y * m->m[1][3] + cube.tri[i].vector[j].z * m->m[2][3] + cube.tri[i].vector[j].w * m->m[3][3];
 
-            if (cube.tri[i].vector[j].w != 0.00) {
+            if (cube.tri[i].vector[j].w != 0.0) {
                 cache.tri[i].vector[j].x /= cube.tri[i].vector[j].w;
                 cache.tri[i].vector[j].y /= cube.tri[i].vector[j].w;
                 cache.tri[i].vector[j].z /= cube.tri[i].vector[j].w;
+                // printf("\x1b[H\x1b[J");
+                // printf("X: %f\nY: %f\nZ: %f\nW: %f\n", cube.tri[i].vector[j].x, cube.tri[i].vector[j].y, cube.tri[i].vector[j].z, cube.tri[i].vector[j].w);
+                // printf("--------------------------------------------------------\n");
+                // printf("X: %f\nY: %f\nZ: %f\nW: %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
+
             }
         }
     }
     cube = cache;
 }
-// static void init_mesh(Cube *c) {                 #####################################################################
+// static void apply_perspective(Cube *c) {
+
+//     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) 
+//         for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+//             c->tri[i].vector[j].x /= c->tri[i].vector[j].w;
+//             c->tri[i].vector[j].y /= c->tri[i].vector[j].w;
+//             c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
+//             printf("X: %f\nY: %f\nZ: %f\nW: %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
+//             printf("--------------------------------------------------------\n");
+//         }
+// }
+// static void init_mesh(Cube *c) {               //  #####################################################################
 
 //     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
 
 //         for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
 
 //             if (c->tri[i].vector[j].z != 0.00) {
-//                 c->tri[i].vector[j].x = c->tri[i].vector[j].x / c->tri[i].vector[j].z;
-//                 c->tri[i].vector[j].y = c->tri[i].vector[j].y / c->tri[i].vector[j].z;
+//                 c->tri[i].vector[j].x /= c->tri[i].vector[j].z;
+//                 c->tri[i].vector[j].y /= c->tri[i].vector[j].z;
 //             }
 //         }
 //     }
 // }
-static void init_mat4x4(Mat4x4 *m) {
+static void project_mat4x4(Mat4x4 *m) {
 
     m->m[0][0] = AspectRatio * FovRad;
     m->m[1][1] = FovRad;
-    m->m[2][2] = FFar / (FFar - FNear);
-    m->m[2][3] = 0.0;
-    m->m[3][2] = (-FFar * FNear) / (FFar - FNear);
+    m->m[2][2] = -ZFar / (ZFar - ZNear);
+    m->m[3][2] = -1.0;
+    m->m[2][3] = (-ZFar * ZNear) / (ZFar - ZNear);
     m->m[3][3] = 1.0;
 
+    // init_mesh(&cube);
     multiply_matrices(m);
+    // apply_perspective(&cube);
 }
-static void move_left(void) {
+// static void translation_mat(float x, float y, float z) {
+//     Mat4x4 tm;
+//     tm.m[0][0] = 1.0;
+//     tm.m[1][1] = 1.0;
+//     tm.m[2][2] = 1.0;
+//     tm.m[3][3] = 1.0;
+//     tm.m[3][0] = x;
+//     tm.m[3][1] = y;
+//     tm.m[3][2] = z;
+// }
+static void move_left(Cube *c) {
 
-    for (int i = 0; i <= 2; i++) {
-        tri.vector[i].x -= 0.1;
-    }
-}
-static void move_right(void) {
+    for (int i = 0; i < sizeof(cube.tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(cube.tri->vector) / sizeof(Vector); j++) {
 
-    for (int i = 0; i <= 2; i++) {
-        tri.vector[i].x += 0.1;
-    }
+            cube.tri[i].vector[j].x -= 0.1;
+        }
 }
-static void move_up(void) {
+static void move_right(Cube *c) {
 
-    for (int i = 0; i <= 2; i++) {
-        tri.vector[i].y += 0.1;
-    }
-}
-static void move_down(void) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
 
-    for (int i = 0; i <= 2; i++) {
-        tri.vector[i].y -= 0.1;
-    }
+            c->tri[i].vector[j].x += 0.1;
+        }
 }
-static void move_forward(void) {
+static void move_up(Cube *c) {
+
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].y += 0.1;
+        }
+}
+static void move_down(Cube *c) {
+
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].y -= 0.1;
+        }
+}
+static void move_forward(Cube *c) {
     
-    for (int i = 0; i <= 2; i++) {
-        tri.vector[i].z += 0.01;
-    }
-}
-static void move_backward(void) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
 
-    for (int i = 0; i <= 2; i++) {
-        tri.vector[i].z -= 0.01;
-    }
+            c->tri[i].vector[j].z += 0.1;
+        }
+}
+static void move_backward(Cube *c) {
+
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].z -= 0.1;
+        }
 }
 static void rotate_xaxis(void) {
     Mat4x4 RotX4x4 = { 0 };
@@ -330,6 +384,7 @@ static void rotate_xaxis(void) {
     RotX4x4.m[1][2] = -sinf(FTheta);
     RotX4x4.m[2][1] = sinf(FTheta);
     RotX4x4.m[2][2] = cosf(FTheta);
+    RotX4x4.m[3][2] = -1.0;
     RotX4x4.m[3][3] = 1.0;
 
     multiply_matrices(&RotX4x4);
@@ -398,10 +453,12 @@ static void paint_mesh(SCCube sc) {
         for (int j = 0; j < sizeof(sc.sctri->scvector) / sizeof(XPoint); j++) {
             // Here we count the cross product of the world coordinated cube's triangles. S.O.S
             cp = cross_product(cube.tri[i]);
-            if (cp.z < 0.00) {
-
+            if (cp.z < 0.0) {
+                 
                 dp = dot_product(LightSC, cp);
-                printf("Dot Product: %f\n", dp);
+
+                printf("\x1b[H\x1b[J");
+                printf("Cross Product Z: %2f\nDot Product: %2f\n", cp.z, dp);
 
                 gcil.graphics_exposures = False;
                 gcil.foreground = dp * 1000;
@@ -460,8 +517,8 @@ static KeySym get_keysym(XEvent *event) {
     if (status == XBufferOverflow) {
         perror("Buffer Overflow...\n");
     }
-    printf("Pressed key: %lu.\n", keysym);
-    printf("The Button that was pressed is %s.\n", buffer);
+    // printf("Pressed key: %lu.\n", keysym);
+    // printf("The Button that was pressed is %s.\n", buffer);
 
     return keysym;
 }
