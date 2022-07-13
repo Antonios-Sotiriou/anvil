@@ -39,14 +39,15 @@ typedef struct {
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define ZNear                     -0.001
-#define ZFar                      1000.0
+#define ZNear                     0.001
+#define ZFar                      1000.00
+#define ZUser                     ( ZFar / (ZFar - ZNear) )
 #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
 #define FovRad                    ( 1 / tan(FieldOfView * 0.5 / 180.0 * 3.14159) )
 #define FTheta                    ( 1 * 0.2 )
-#define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )
-#define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) )
+#define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )  //  ( c.tri[i].vector[j].x + (wa.width / 2.00) )
+#define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) ) // ( c.tri[i].vector[j].y + (wa.height / 2.00) )
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
@@ -60,7 +61,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector camera = { 0.0, 0.0, -1.0 };
+Vector camera = { 0.0, 0.0, -10.0 };
 Vector LightSC = {
     -1.0, -1.0, 1.0, 1.0
 };
@@ -123,17 +124,18 @@ static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
 static void multiply_matrices(Mat4x4 *m);
-// static void perspective_dividation(Cube *c);
-static void project_mat(void);
+static void perspective_divition(Cube *c);
+// static void identity_mat(void);
+static void projection_mat(void);
+static void rotate_xmat(void);
+static void rotate_ymat(void);
+static void rotate_zmat(void);
 static void move_left(Cube *c);
 static void move_right(Cube *c);
 static void move_up(Cube *c);
 static void move_down(Cube *c);
 static void move_forward(Cube *c);
 static void move_backward(Cube *c);
-static void rotate_xmat(void);
-static void rotate_ymat(void);
-static void rotate_zmat(void);
 static Vector cross_product(const Triangle t);
 static float dot_product(const Vector v, const Vector nm);
 static void paint_mesh(SCCube sc);
@@ -178,7 +180,7 @@ static const void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        project_mat();
+        projection_mat();
         if (!MAPCOUNT)
             MAPCOUNT = 1;
     }
@@ -253,7 +255,10 @@ static const void keypress(XEvent *event) {
     }
     
     pixmapdisplay();
-    project_mat();
+
+    // projection_mat();
+    // perspective_divition(&cube);
+
     norm_mesh(cube);
 }
 static void multiply_matrices(Mat4x4 *m) {
@@ -267,51 +272,41 @@ static void multiply_matrices(Mat4x4 *m) {
             cache.tri[i].vector[j].y = cube.tri[i].vector[j].x * m->m[0][1] + cube.tri[i].vector[j].y * m->m[1][1] + cube.tri[i].vector[j].z * m->m[2][1] + cube.tri[i].vector[j].w * m->m[3][1];
             cache.tri[i].vector[j].z = cube.tri[i].vector[j].x * m->m[0][2] + cube.tri[i].vector[j].y * m->m[1][2] + cube.tri[i].vector[j].z * m->m[2][2] + cube.tri[i].vector[j].w * m->m[3][2];
             cache.tri[i].vector[j].w = cube.tri[i].vector[j].x * m->m[0][3] + cube.tri[i].vector[j].y * m->m[1][3] + cube.tri[i].vector[j].z * m->m[2][3] + cube.tri[i].vector[j].w * m->m[3][3];
-            
-            // if (cache.tri[i].vector[j].w != 0) {
+            if (i == 0 && j == 2) {
+                printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
+                printf("Translated x coordinate : %f\n", (int)cache.tri[i].vector[j].x + (wa.width / 2.00));
+            }
+            // if (cache.tri[i].vector[j].w != 0.00) {
             //     cache.tri[i].vector[j].x /= cache.tri[i].vector[j].w;
             //     cache.tri[i].vector[j].y /= cache.tri[i].vector[j].w;
             //     cache.tri[i].vector[j].z /= cache.tri[i].vector[j].w;
             // }
-            if (i == 0) {
-                printf("X[%d]: %f\nY: %f\nZ: %f\nW: %f\n", i, cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
-                printf("--------------------------------------------------------\n");
-            }
         }
     }
     cube = cache;
 }
-// static void perspective_dividation(Cube *c) {
-
+// static void perspective_divition(Cube *c) {
+//     // printf("\x1b[H\x1b[J");
 //     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) 
 //         for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-         
+
 //             c->tri[i].vector[j].x /= c->tri[i].vector[j].w;
 //             c->tri[i].vector[j].y /= c->tri[i].vector[j].w;
 //             c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
-//             printf("X: %f\nY: %f\nZ: %f\nW: %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
-//             printf("--------------------------------------------------------\n");
+
+//             if (i == 0 && j == 2) {
+//                 printf("Reached this point: %f\n", c->tri[i].vector[j].y);
+//             }
 //         }
 // }
-static void project_mat(void) {
-    Mat4x4 m = { 0 };
-    m.m[0][0] = AspectRatio * FovRad;
-    m.m[1][1] = FovRad;
-    m.m[2][2] = ZFar / (ZFar - ZNear);
-    m.m[2][3] = (-ZFar * ZNear) / (ZFar - ZNear);
-    m.m[3][2] = 0.0;
-    m.m[3][3] = 1.0;
-
-    // init_mesh(&cube);
-    multiply_matrices(&m);
-    // perspective_dividation(&cube);
-}
 // static void identity_mat(void) {
 //     Mat4x4 m;
 //     m.m[0][0] = 1.0;
 //     m.m[1][1] = 1.0;
 //     m.m[2][2] = 1.0;
 //     m.m[3][3] = 1.0;
+
+//     multiply_matrices(&m);
 // }
 // static void translation_mat(float x, float y, float z) {
 //     Mat4x4 m;
@@ -323,53 +318,16 @@ static void project_mat(void) {
 //     m.m[3][1] = y;
 //     m.m[3][2] = z;
 // }
-static void move_left(Cube *c) {
+static void projection_mat(void) {
+    Mat4x4 m = { 0 };
+    m.m[0][0] = AspectRatio * FovRad;
+    m.m[1][1] = FovRad;
+    m.m[2][2] = ZFar / (ZFar - ZNear);
+    m.m[3][2] = (-ZFar * ZNear) / (ZFar - ZNear);
+    m.m[2][3] = -1.0;
+    m.m[3][3] = 1.0;
 
-    for (int i = 0; i < sizeof(cube.tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(cube.tri->vector) / sizeof(Vector); j++) {
-
-            cube.tri[i].vector[j].x -= 0.1;
-        }
-}
-static void move_right(Cube *c) {
-
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].x += 0.1;
-        }
-}
-static void move_up(Cube *c) {
-
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].y += 0.1;
-        }
-}
-static void move_down(Cube *c) {
-
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].y -= 0.1;
-        }
-}
-static void move_forward(Cube *c) {
-    
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].z += 0.1;
-        }
-}
-static void move_backward(Cube *c) {
-
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].z -= 0.1;
-        }
+    multiply_matrices(&m);
 }
 static void rotate_xmat(void) {
     Mat4x4 m = { 0 };
@@ -404,6 +362,48 @@ static void rotate_zmat(void) {
 
     multiply_matrices(&m);
 }
+static void move_left(Cube *c) {
+    for (int i = 0; i < sizeof(cube.tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(cube.tri->vector) / sizeof(Vector); j++) {
+
+            cube.tri[i].vector[j].x -= 0.1;
+        }
+}
+static void move_right(Cube *c) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].x += 0.1;
+        }
+}
+static void move_up(Cube *c) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].y += 0.1;
+        }
+}
+static void move_down(Cube *c) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].y -= 0.1;
+        }
+}
+static void move_forward(Cube *c) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].z += 0.1;
+        }
+}
+static void move_backward(Cube *c) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            c->tri[i].vector[j].z -= 0.1;
+        }
+}
 // static Mat4x4 m_x_m() {
 //     Mat4x4 res;
 //     for (int i = 0; i < sizeof(res.m) / sizeof(float); i++) 
@@ -415,7 +415,7 @@ static void rotate_zmat(void) {
 // static float len_vector(const Vector v) {
 //     return sqrtf(dot_product(v, v));
 // }
-// static Vector nor_vector(const Vector v) {
+// static Vector norm_vector(const Vector v) {
 //     float len = len_vector(v);
 //     Vector res = { v.x / len, v.y / len, v.z / len };
 //     return res;
@@ -424,7 +424,7 @@ static void rotate_zmat(void) {
 //     Vector res =  { v1.x * v2.x, v1.y * v2.y, v1.z * v2.z };
 //     return res;
 // }
-// static Vector devide_vectors(const Vector v1, const Vector v2) {
+// static Vector divide_vectors(const Vector v1, const Vector v2) {
 //     Vector res =  { v1.x / v2.x, v1.y / v2.y, v1.z / v2.z };
 //     return res;
 // }
@@ -466,15 +466,13 @@ static void paint_mesh(SCCube sc) {
     Vector cp;
     float dp;
     int vecindex = 1;
-
+    // printf("\x1b[H\x1b[J");
     for (int i = 0; i < sizeof(sc.sctri) / sizeof(SCTriangle); i++)
-
+        
         for (int j = 0; j < sizeof(sc.sctri->scvector) / sizeof(XPoint); j++) {
             
-            // Here we count the cross product of the world coordinated cube's triangles. S.O.S
             cp = cross_product(cube.tri[i]);
-
-            if (cp.z > 0.0) {
+            if (dot_product(cp, camera) < 0.0) {
 
                 dp = dot_product(LightSC, cp);
                 gcil.graphics_exposures = False;
@@ -503,7 +501,6 @@ static void paint_mesh(SCCube sc) {
 
 }
 static void norm_mesh(const Cube c) {
-
     for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++)
         for (int j = 0; j < sizeof(c.tri->vector) / sizeof(Vector); j++) {
 
