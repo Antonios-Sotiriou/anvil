@@ -39,12 +39,12 @@ typedef struct {
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define ZNear                     0.001
+#define ZNear                     0.01
 #define ZFar                      1000.00
 #define ZUser                     ( ZFar / (ZFar - ZNear) )
 #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
-#define FovRad                    ( 1 / tan(FieldOfView * 0.5 / 180.0 * 3.14159) )
+#define FovRad                    ( 1 / tanf(FieldOfView * 0.5 / 180.0 * 3.14159) )
 #define FTheta                    ( 1 * 0.2 )
 #define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )  //  ( c.tri[i].vector[j].x + (wa.width / 2.00) )
 #define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) ) // ( c.tri[i].vector[j].y + (wa.height / 2.00) )
@@ -61,7 +61,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector camera = { 0.0, 0.0, -10.0 };
+Vector Camera = { 0.0, 0.0, -1.0, 1.0 }, Up = { 0.0, 1.0, 0.0, 1.0 }, LookDir = { 0.0, 0.0, 1.0, 1.0 }, Target = { 0.0, 0.0, 1.0, 1.0 };
 Vector LightSC = {
     -1.0, -1.0, 1.0, 1.0
 };
@@ -70,6 +70,7 @@ Vector el;
 #define cube_back     0.5
 #define cube_front    0.0
 #define cube_size     0.5
+Cube cache = { 0 };
 Cube cube = {
     {
         // { {{ -cube_size, cube_size, cube_front, 1.0 }, { -cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    // Front Up
@@ -113,6 +114,7 @@ SCCube sccube = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
+static float FYaw;
 
 // initialize the knot object to be transfered because we can't transfer vectorers to vectorers through shared memory.
 static const void clientmessage(XEvent *event);
@@ -123,23 +125,36 @@ static const void resizerequest(XEvent *event);
 static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
-static void multiply_matrices(Mat4x4 *m);
+
+static void vxm(Cube *c, const Mat4x4 m);
 static void perspective_divition(Cube *c);
-// static void identity_mat(void);
 static void projection_mat(void);
-static void rotate_xmat(void);
-static void rotate_ymat(void);
-static void rotate_zmat(void);
-static void move_left(Cube *c);
-static void move_right(Cube *c);
-static void move_up(Cube *c);
-static void move_down(Cube *c);
-static void move_forward(Cube *c);
-static void move_backward(Cube *c);
-static Vector cross_product(const Triangle t);
+static void rotate_xmat(const float angle);
+static void rotate_ymat(const float angle);
+static void rotate_zmat(const float angle);
+
+static void move_left(Vector *vcam);
+static void move_right(Vector *vcam);
+static void move_up(Vector *vcam);
+static void move_down(Vector *vcam);
+static void look_left(float num);
+static void look_right(float num);
+static void move_forward(void);
+static void move_backward(void);
+
+static float len_vector(const Vector v);
+static Vector norm_vector(const Vector v);
+static Vector multiply_vectors(const Vector v1, const float num);
+static Vector divide_vectors(const Vector v1, const float num);
+static Vector add_vectors(const Vector v1, const Vector v2);
+static Vector sub_vectors(const Vector v1, const Vector v2);
+
+static Vector cross_product(const Vector v1, const Vector v2);
 static float dot_product(const Vector v, const Vector nm);
+static void adjust_camera(const Vector vcam);
 static void paint_mesh(SCCube sc);
 static void norm_mesh(const Cube c);
+
 static KeySym get_keysym(XEvent *event);
 static const void pixmapupdate(void);
 static const void pixmapdisplay(void);
@@ -228,23 +243,27 @@ static const void keypress(XEvent *event) {
     KeySym keysym = get_keysym(event);
     switch (keysym) {
 
-        case 119 : move_forward(&cube); // w
+        case 119 : move_forward(); // w
             break;
-        case 115 : move_backward(&cube); // s
+        case 109 : look_left(FYaw); // a
             break;
-        case 65361 : move_left(&cube); // left arrow
+        case 115 : move_backward(); // s
             break;
-        case 65363 : move_right(&cube); // right arrow
+        case 129 : look_right(FYaw); // d
             break;
-        case 65362 : move_up(&cube); // up arror
+        case 65361 : move_left(&Camera); // left arrow
             break;
-        case 65364 : move_down(&cube); // down arrow
+        case 65363 : move_right(&Camera); // right arrow
             break;
-        case 120 : rotate_xmat(); // x
+        case 65362 : move_up(&Camera); // up arror
             break;
-        case 121 : rotate_ymat(); // y
+        case 65364 : move_down(&Camera); // down arrow
             break;
-        case 122 : rotate_zmat(); // z
+        case 120 : rotate_xmat(FTheta); // x
+            break;
+        case 121 : rotate_ymat(FTheta); // y
+            break;
+        case 122 : rotate_zmat(FTheta); // z
             break;
         case 101 : /* rotate Yaxis Backwards */
             break;
@@ -255,81 +274,87 @@ static const void keypress(XEvent *event) {
     }
     
     pixmapdisplay();
-
     // projection_mat();
-    // perspective_divition(&cube);
-
     norm_mesh(cube);
 }
-static void multiply_matrices(Mat4x4 *m) {
+static void vxm(Cube *c, const Mat4x4 m) {
 
-    Cube cache = cube;
-    printf("\x1b[H\x1b[J");
-    for (int i = 0; i < sizeof(cube.tri) / sizeof(Triangle); i++) {
-        for (int j = 0; j < sizeof(cube.tri->vector) / sizeof(Vector); j++) {
-
-            cache.tri[i].vector[j].x = cube.tri[i].vector[j].x * m->m[0][0] + cube.tri[i].vector[j].y * m->m[1][0] + cube.tri[i].vector[j].z * m->m[2][0] + cube.tri[i].vector[j].w * m->m[3][0];
-            cache.tri[i].vector[j].y = cube.tri[i].vector[j].x * m->m[0][1] + cube.tri[i].vector[j].y * m->m[1][1] + cube.tri[i].vector[j].z * m->m[2][1] + cube.tri[i].vector[j].w * m->m[3][1];
-            cache.tri[i].vector[j].z = cube.tri[i].vector[j].x * m->m[0][2] + cube.tri[i].vector[j].y * m->m[1][2] + cube.tri[i].vector[j].z * m->m[2][2] + cube.tri[i].vector[j].w * m->m[3][2];
-            cache.tri[i].vector[j].w = cube.tri[i].vector[j].x * m->m[0][3] + cube.tri[i].vector[j].y * m->m[1][3] + cube.tri[i].vector[j].z * m->m[2][3] + cube.tri[i].vector[j].w * m->m[3][3];
-            if (i == 0 && j == 2) {
-                printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
-                printf("Translated x coordinate : %f\n", (int)cache.tri[i].vector[j].x + (wa.width / 2.00));
-            }
-            // if (cache.tri[i].vector[j].w != 0.00) {
-            //     cache.tri[i].vector[j].x /= cache.tri[i].vector[j].w;
-            //     cache.tri[i].vector[j].y /= cache.tri[i].vector[j].w;
-            //     cache.tri[i].vector[j].z /= cache.tri[i].vector[j].w;
+    cache = *c;
+    // printf("\x1b[H\x1b[J");
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+            
+            cache.tri[i].vector[j].x = c->tri[i].vector[j].x * m.m[0][0] + c->tri[i].vector[j].y * m.m[1][0] + c->tri[i].vector[j].z * m.m[2][0] + c->tri[i].vector[j].w * m.m[3][0];
+            cache.tri[i].vector[j].y = c->tri[i].vector[j].x * m.m[0][1] + c->tri[i].vector[j].y * m.m[1][1] + c->tri[i].vector[j].z * m.m[2][1] + c->tri[i].vector[j].w * m.m[3][1];
+            cache.tri[i].vector[j].z = c->tri[i].vector[j].x * m.m[0][2] + c->tri[i].vector[j].y * m.m[1][2] + c->tri[i].vector[j].z * m.m[2][2] + c->tri[i].vector[j].w * m.m[3][2];
+            cache.tri[i].vector[j].w = c->tri[i].vector[j].x * m.m[0][3] + c->tri[i].vector[j].y * m.m[1][3] + c->tri[i].vector[j].z * m.m[2][3] + c->tri[i].vector[j].w * m.m[3][3];
+            // if (i == 0 && j == 0) {
+            //     printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
             // }
         }
     }
-    cube = cache;
+    *c = cache;
 }
 // static void perspective_divition(Cube *c) {
 //     // printf("\x1b[H\x1b[J");
 //     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) 
 //         for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
 
-//             c->tri[i].vector[j].x /= c->tri[i].vector[j].w;
-//             c->tri[i].vector[j].y /= c->tri[i].vector[j].w;
-//             c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
-
-//             if (i == 0 && j == 2) {
+//             if (i == 2 && j == 0) {
 //                 printf("Reached this point: %f\n", c->tri[i].vector[j].y);
+//             }
+//             if (c->tri[i].vector[j].w != 0.00) {
+//                 c->tri[i].vector[j].x /= c->tri[i].vector[j].w;
+//                 c->tri[i].vector[j].y /= c->tri[i].vector[j].w;
+//                 c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
 //             }
 //         }
 // }
-// static void identity_mat(void) {
-//     Mat4x4 m;
-//     m.m[0][0] = 1.0;
-//     m.m[1][1] = 1.0;
-//     m.m[2][2] = 1.0;
-//     m.m[3][3] = 1.0;
+static Mat4x4 pointat(Vector pos, Vector target, Vector up) {
+    // Calculate new Forward direction.
+    Vector newForward = sub_vectors(target, pos);
+    newForward = norm_vector(newForward);
 
-//     multiply_matrices(&m);
-// }
-// static void translation_mat(float x, float y, float z) {
-//     Mat4x4 m;
-//     m.m[0][0] = 1.0;
-//     m.m[1][1] = 1.0;
-//     m.m[2][2] = 1.0;
-//     m.m[3][3] = 1.0;
-//     m.m[3][0] = x;
-//     m.m[3][1] = y;
-//     m.m[3][2] = z;
-// }
+    // Calculate newUp direction.
+    Vector a = multiply_vectors(newForward, dot_product(up, newForward));
+    Vector newUp = sub_vectors(up, a);
+    newUp = norm_vector(newUp);
+
+    // Calculate new Right direction.
+    Vector newRight = cross_product(newUp, newForward);
+
+    Mat4x4 m;
+    m.m[0][0] = newRight.x;      m.m[0][1] = newRight.y;      m.m[0][2] = newRight.z;      m.m[0][3] = 0.0;
+    m.m[1][0] = newUp.x;         m.m[1][1] = newUp.y;         m.m[1][2] = newUp.z;         m.m[1][3] = 0.0;
+    m.m[2][0] = newForward.x;    m.m[2][1] = newForward.y;    m.m[2][2] = newForward.z;    m.m[2][3] = 0.0;
+    m.m[3][0] = pos.x;           m.m[3][1] = pos.y;           m.m[3][2] = pos.z;           m.m[3][3] = 1.0;
+
+    return m;
+}
+static Mat4x4 inverse_mat(Mat4x4 m) {
+    Mat4x4 rm;
+    rm.m[0][0] = m.m[0][0];    rm.m[0][1] = m.m[1][0];    rm.m[0][2] = m.m[2][0];    rm.m[0][3] = 0.0;
+    rm.m[1][0] = m.m[0][1];    rm.m[1][1] = m.m[1][1];    rm.m[1][2] = m.m[2][1];    rm.m[1][3] = 0.0;
+    rm.m[2][0] = m.m[0][2];    rm.m[2][1] = m.m[1][2];    rm.m[2][2] = m.m[2][2];    rm.m[2][3] = 0.0;
+    rm.m[3][0] = -(m.m[3][0] * rm.m[0][0] + m.m[3][1] * rm.m[1][0] + m.m[3][2] * rm.m[2][0]);
+    rm.m[3][1] = -(m.m[3][0] * rm.m[0][1] + m.m[3][1] * rm.m[1][1] + m.m[3][2] * rm.m[2][1]);
+    rm.m[3][2] = -(m.m[3][0] * rm.m[0][2] + m.m[3][1] * rm.m[1][2] + m.m[3][2] * rm.m[2][2]);
+    rm.m[3][0] = 1.0;
+
+    return rm;
+}
 static void projection_mat(void) {
     Mat4x4 m = { 0 };
     m.m[0][0] = AspectRatio * FovRad;
     m.m[1][1] = FovRad;
     m.m[2][2] = ZFar / (ZFar - ZNear);
     m.m[3][2] = (-ZFar * ZNear) / (ZFar - ZNear);
-    m.m[2][3] = -1.0;
+    m.m[2][3] = 1.0;
     m.m[3][3] = 1.0;
 
-    multiply_matrices(&m);
+    vxm(&cube, m);
 }
-static void rotate_xmat(void) {
+static void rotate_xmat(const float angle) {
     Mat4x4 m = { 0 };
     m.m[0][0] = 1.0;
     m.m[1][1] = cosf(FTheta);
@@ -338,20 +363,20 @@ static void rotate_xmat(void) {
     m.m[2][2] = cosf(FTheta);
     m.m[3][3] = 1.0;
 
-    multiply_matrices(&m);
+    vxm(&cube, m);
 }
-static void rotate_ymat(void) {
+static void rotate_ymat(const float angle) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = cosf(FTheta);
+    m.m[0][0] = cosf(angle);
     m.m[1][1] = 1.00;
-    m.m[0][2] = -sinf(FTheta);
-    m.m[2][0] = sinf(FTheta);
-    m.m[2][2] = cosf(FTheta);
+    m.m[0][2] = -sinf(angle);
+    m.m[2][0] = sinf(angle);
+    m.m[2][2] = cosf(angle);
     m.m[3][3] = 1.0;
 
-    multiply_matrices(&m);
+    vxm(&cube, m);
 }
-static void rotate_zmat(void) {
+static void rotate_zmat(const float angle) {
     Mat4x4 m = { 0 };
     m.m[0][0] = cosf(FTheta);
     m.m[0][1] = sinf(FTheta);
@@ -360,51 +385,49 @@ static void rotate_zmat(void) {
     m.m[2][2] = 1.0;
     m.m[3][3] = 1.0;
 
-    multiply_matrices(&m);
+    vxm(&cube, m);
 }
-static void move_left(Cube *c) {
-    for (int i = 0; i < sizeof(cube.tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(cube.tri->vector) / sizeof(Vector); j++) {
-
-            cube.tri[i].vector[j].x -= 0.1;
-        }
+static void move_left(Vector *vcam) {
+    vcam->x -= 0.1;
+    adjust_camera(*vcam);
 }
-static void move_right(Cube *c) {
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].x += 0.1;
-        }
+static void move_right(Vector *vcam) {
+    vcam->x += 0.1;
+    adjust_camera(*vcam);
 }
-static void move_up(Cube *c) {
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].y += 0.1;
-        }
+static void move_up(Vector *vcam) {
+    vcam->y -= 0.1;
+    adjust_camera(*vcam);
 }
-static void move_down(Cube *c) {
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].y -= 0.1;
-        }
+static void move_down(Vector *vcam) {
+    vcam->y += 0.1;
+    adjust_camera(*vcam);
 }
-static void move_forward(Cube *c) {
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].z += 0.1;
-        }
+static void look_left(float num) {
+    // num -= 0.2;
+    // Mat4x4 matCameraRot = rotate_ymat(num);
+    // vxm(Target, matCameraRot);
+    // LookDir = Target;
+    // Target = add_vectors(Camera, LookDir);
+    // adjust_camera(Camera);
 }
-static void move_backward(Cube *c) {
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            c->tri[i].vector[j].z -= 0.1;
-        }
+static void look_right(float num) {
+    // num += 0.2;
+    // Mat4x4 matCameraRot = rotate_ymat(num);
+    // vxm(Target, matCameraRot);
+    // LookDir = Target;
+    // Target = add_vectors(Camera, LookDir);
+    // adjust_camera(Camera);
 }
-// static Mat4x4 m_x_m() {
+static void move_forward(void) {
+    Vector vForward = multiply_vectors(LookDir, 0.1 * 0.5);
+    Camera = add_vectors(Camera, vForward);
+}
+static void move_backward(void) {
+    Vector vForward = multiply_vectors(LookDir, 0.1 * 0.5);
+    Camera = sub_vectors(Camera, vForward);
+}
+// static Mat4x4 mxm() {
 //     Mat4x4 res;
 //     for (int i = 0; i < sizeof(res.m) / sizeof(float); i++) 
 //         for (int j = 0; j < sizeof(res.m[0]) / sizeof(float); j++) {
@@ -412,43 +435,51 @@ static void move_backward(Cube *c) {
 //         }
 //     return res;
 // }
-// static float len_vector(const Vector v) {
-//     return sqrtf(dot_product(v, v));
-// }
-// static Vector norm_vector(const Vector v) {
-//     float len = len_vector(v);
-//     Vector res = { v.x / len, v.y / len, v.z / len };
-//     return res;
-// }
-// static Vector multiply_vectors(const Vector v1, const Vector v2) {
-//     Vector res =  { v1.x * v2.x, v1.y * v2.y, v1.z * v2.z };
-//     return res;
-// }
-// static Vector divide_vectors(const Vector v1, const Vector v2) {
-//     Vector res =  { v1.x / v2.x, v1.y / v2.y, v1.z / v2.z };
-//     return res;
-// }
-// static Vector add_vectors(const Vector v1, const Vector v2) {
-//     Vector res =  { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
-//     return res;
-// }
+static float len_vector(const Vector v) {
+    return sqrtf(dot_product(v, v));
+}
+static Vector norm_vector(const Vector v) {
+    float len = len_vector(v);
+    printf("\x1b[H\x1b[J");
+    printf("X -----> %f Y -----> %f Z -----> %f\n", v.x, v.y, v.z);
+    Vector res = { v.x / len, v.y / len, v.z / len };
+    printf("X -----> %f  Y -----> %f  Z -----> %f\n", res.x, res.y, res.z);
+    return res;
+}
+static Vector multiply_vectors(const Vector v1, const float num) {
+    Vector res =  { v1.x * num, v1.y * num, v1.z * num };
+    return res;
+}
+static Vector divide_vectors(const Vector v1, const float num) {
+    Vector res =  { v1.x / num, v1.y / num, v1.z / num };
+    return res;
+}
+static Vector add_vectors(const Vector v1, const Vector v2) {
+    Vector res =  { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
+    return res;
+}
 static Vector sub_vectors(const Vector v1, const Vector v2) {
     Vector res = { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
     return res;
 }
-static Vector cross_product(const Triangle t) {
-    Vector cp, line1, line2;
-    line1 = sub_vectors(t.vector[1], t.vector[0]);
-    line2 = sub_vectors(t.vector[2], t.vector[0]);
-
-    cp.x = line1.y * line2.z - line1.z * line2.y;
-    cp.y = line1.z * line2.x - line1.x * line2.z;
-    cp.z = line1.x * line2.y - line1.y * line2.x;
-
+static Vector cross_product(const Vector v1, const Vector v2) {
+    Vector cp;
+    cp.x = v1.y * v2.z - v1.z * v2.y;
+    cp.y = v1.z * v2.x - v1.x * v2.z;
+    cp.z = v1.x * v2.y - v1.y * v2.x;
     return cp;
 }
 static float dot_product(const Vector v1, const Vector v2) {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
+static void adjust_camera(const Vector vcam) {
+    Target = add_vectors(vcam, LookDir);
+    // Make camera Matrix.
+    Mat4x4 matView = pointat(vcam, Target, Up);
+    // Invert Camera matrix.
+    Mat4x4 View = inverse_mat(matView);
+
+    vxm(&cube, View);
 }
 static void paint_mesh(SCCube sc) {
 
@@ -463,16 +494,20 @@ static void paint_mesh(SCCube sc) {
     gcfill.foreground = 0xab00a6;
     GC gcf = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcfill);
 
-    Vector cp;
+    Vector cp, line1, line2;
     float dp;
     int vecindex = 1;
     // printf("\x1b[H\x1b[J");
     for (int i = 0; i < sizeof(sc.sctri) / sizeof(SCTriangle); i++)
         
         for (int j = 0; j < sizeof(sc.sctri->scvector) / sizeof(XPoint); j++) {
+
+            line1 = sub_vectors(cube.tri[i].vector[1], cube.tri[i].vector[0]);
+            line2 = sub_vectors(cube.tri[i].vector[2], cube.tri[i].vector[0]);
             
-            cp = cross_product(cube.tri[i]);
-            if (dot_product(cp, camera) < 0.0) {
+            cp = cross_product(line1, line2);
+
+            if (dot_product(cp, Camera) < 0.0) {
 
                 dp = dot_product(LightSC, cp);
                 gcil.graphics_exposures = False;
