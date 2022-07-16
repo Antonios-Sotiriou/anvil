@@ -283,13 +283,13 @@ static const void keypress(XEvent *event) {
     }
     
     pixmapdisplay();
-    // projection_mat(FieldOfView);
+    projection_mat(FieldOfView);
     norm_mesh(cube);
 }
 static void meshxm(Mesh *c, const Mat4x4 m) {
 
     Mesh cache = *c;
-    // printf("\x1b[H\x1b[J");
+    printf("\x1b[H\x1b[J");
     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
         for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
             
@@ -297,9 +297,11 @@ static void meshxm(Mesh *c, const Mat4x4 m) {
             cache.tri[i].vector[j].y = c->tri[i].vector[j].x * m.m[0][1] + c->tri[i].vector[j].y * m.m[1][1] + c->tri[i].vector[j].z * m.m[2][1] + c->tri[i].vector[j].w * m.m[3][1];
             cache.tri[i].vector[j].z = c->tri[i].vector[j].x * m.m[0][2] + c->tri[i].vector[j].y * m.m[1][2] + c->tri[i].vector[j].z * m.m[2][2] + c->tri[i].vector[j].w * m.m[3][2];
             cache.tri[i].vector[j].w = c->tri[i].vector[j].x * m.m[0][3] + c->tri[i].vector[j].y * m.m[1][3] + c->tri[i].vector[j].z * m.m[2][3] + c->tri[i].vector[j].w * m.m[3][3];
-            // if (i == 0 && j == 2) {
-            //     printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
-            // }
+            if (i == 0 && j == 2) {
+                printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
+                printf("----------------------------------------------------\n");
+                printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
+            }
         }
     }
     *c = cache;
@@ -359,9 +361,9 @@ static void projection_mat(const float fov) {
     m.m[0][0] = AspectRatio * FovRadius;
     m.m[1][1] = FovRadius;
     m.m[2][2] = ZFar / (ZFar - ZNear);
-    m.m[3][2] = (-ZFar * ZNear) / (ZFar - ZNear);
     m.m[2][3] = 1.0;
-    m.m[3][3] = 1.0;
+    m.m[3][2] = (-ZFar * ZNear) / (ZFar - ZNear);
+    m.m[3][3] = 0.0;
     printf("\x1b[H\x1b[J");
     printf("ZFar / (ZFar - ZNear) = %f\n", ZFar / (ZFar - ZNear));
     printf("(-ZFar * ZNear) / (ZFar - ZNear) = %f\n", (-ZFar * ZNear) / (ZFar - ZNear));
