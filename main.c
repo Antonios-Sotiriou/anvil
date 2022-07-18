@@ -40,13 +40,20 @@ typedef struct {
 #define WIDTH                     800
 #define HEIGHT                    800
 #define ZNear                     0.01
-#define ZFar                      1000.00
+#define ZFar                      1000.0
 // #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
-#define FovRadius                 ( 1 / tanf(fov * 0.5 / 180.0 * 3.14159) )
+#define FovRadius                 ( 1 / tanf(fov * 0.5 / (180.0 * 3.14159)) )
 #define FTheta                    ( 1 * 0.2 )
 #define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )
 #define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) )
+
+// #define range                     ( ((num / other) - 0.5) * 2.00 )
+
+// #define NormalizeWorldX           ( (c.tri[i].vector[j].x + (wa.width / 2.00)) / wa.width )
+// #define NormalizeWorldY           ( (c.tri[i].vector[j].y + (wa.height / 2.00)) / wa.height )
+// #define XWorldToScreen            ( normalized.tri[i].vector[j].x * wa.width )
+// #define YWorldToScreen            ( normalized.tri[i].vector[j].y * wa.height )
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
@@ -66,9 +73,9 @@ Vector LightSC = {
 };
 Vector el;
 
-#define cube_back     0.5
-#define cube_front    0.0
-#define cube_size     0.5
+#define cube_back     5.5
+#define cube_front    5.0
+#define cube_size     0.2
 
 // Mesh unity = { 
 //     {
@@ -204,8 +211,7 @@ static const void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         projection_mat(FieldOfView);
-        if (!MAPCOUNT)
-            MAPCOUNT = 1;
+        MAPCOUNT = 1;
     }
 }
 static const void expose(XEvent *event) {
@@ -306,6 +312,19 @@ static void meshxm(Mesh *c, const Mat4x4 m) {
     }
     *c = cache;
 }
+static void ppdiv(Mesh *c) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
+        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
+
+            if (c->tri[i].vector[j].w != 0 ) {
+                // printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
+                c->tri[i].vector[j].x /= c->tri[i].vector[j].w;
+                c->tri[i].vector[j].y /= c->tri[i].vector[j].w;
+                // c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
+            }
+        }
+    }
+}
 static Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2) {
     Mat4x4 res;
     for (int i = 0; i < sizeof(res.m[0]) / sizeof(float); i++) 
@@ -359,15 +378,14 @@ static Mat4x4 inverse_mat(Mat4x4 m) {
 static void projection_mat(const float fov) {
     Mat4x4 m = { 0 };
     m.m[0][0] = AspectRatio * FovRadius;
-    m.m[1][1] = FovRadius;
-    m.m[2][2] = ZFar / (ZFar - ZNear);
+    m.m[1][1] = AspectRatio * FovRadius;
+    m.m[2][2] = (ZFar / (ZFar - ZNear));
     m.m[2][3] = 1.0;
-    m.m[3][2] = (-ZFar * ZNear) / (ZFar - ZNear);
+    m.m[3][2] = ((-ZFar * ZNear) / (ZFar - ZNear));
     m.m[3][3] = 0.0;
-    printf("\x1b[H\x1b[J");
-    printf("ZFar / (ZFar - ZNear) = %f\n", ZFar / (ZFar - ZNear));
-    printf("(-ZFar * ZNear) / (ZFar - ZNear) = %f\n", (-ZFar * ZNear) / (ZFar - ZNear));
+
     meshxm(&cube, m);
+    ppdiv(&cube);
 }
 static void rotate_xmat(const float angle) {
     Mat4x4 m = { 0 };
@@ -511,7 +529,7 @@ static void paint_mesh(SCMesh sc) {
             
             cp = cross_product(line1, line2);
 
-            if (dot_product(cp, Camera) < 0.0) {
+            // if (dot_product(cp, Camera) < 0.0) {
 
                 dp = dot_product(LightSC, cp);
                 gcil.graphics_exposures = False;
@@ -532,7 +550,7 @@ static void paint_mesh(SCMesh sc) {
                 XDrawLine(displ, win, gcl, sc.sctri[i].scvector[j].x, sc.sctri[i].scvector[j].y, sc.sctri[i].scvector[vecindex].x, sc.sctri[i].scvector[vecindex].y);
                 vecindex++;
                 XFreeGC(displ, gci);
-            }
+            // }
         }
 
     XFreeGC(displ, gcl);
