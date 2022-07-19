@@ -37,16 +37,20 @@ typedef struct {
     float m[4][4];
 } Mat4x4;
 
-#define WIDTH                     800
+#define WIDTH                     1000
 #define HEIGHT                    800
 #define ZNear                     0.01
 #define ZFar                      1000.0
 // #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
-#define FovRadius                 ( 1 / tanf(fov * 0.5 / (180.0 * 3.14159)) )
-#define FTheta                    ( 1 * 0.2 )
+#define FovRadius                 ( 1 / tanf(fov * 6.00 / (180.0 * 3.14159)) )
+#define FTheta                    ( 1 * 0.05 )
 #define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )
 #define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) )
+
+// #define TranslateX                ( c->tri[i].vector[j].x )
+// #define TranslateY                ( c->tri[i].vector[j].y )
+// #define TranslateZ                ( c->tri[i].vector[j].z )
 
 // #define range                     ( ((num / other) - 0.5) * 2.00 )
 
@@ -73,9 +77,9 @@ Vector LightSC = {
 };
 Vector el;
 
-#define cube_back     5.5
-#define cube_front    5.0
-#define cube_size     0.2
+#define cube_back     0.5f
+#define cube_front    0.0
+#define cube_size     0.5f
 
 // Mesh unity = { 
 //     {
@@ -124,6 +128,7 @@ Mesh cube = {
     }
 };
 SCMesh sccube = { 0 };
+Mesh cache;
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
@@ -140,13 +145,14 @@ static const void configurenotify(XEvent *event);
 static const void buttonpress(XEvent *event);
 static const void keypress(XEvent *event);
 
-static void meshxm(Mesh *c, const Mat4x4 m);
+static Mesh meshxm(Mesh *c, const Mat4x4 m);
 static Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2);
 static void vecxm(Vector *v, const Mat4x4 m);
-static void projection_mat(const float fov);
-static void rotate_xmat(const float angle);
-static void rotate_ymat(const float angle);
-static void rotate_zmat(const float angle);
+static void translation_mat(Vector v);
+static void projection_mat(Mesh cache, const float fov);
+static void rotate_xmat(Mesh *cache, const float angle);
+static void rotate_ymat(Mesh *cache, const float angle);
+static void rotate_zmat(Mesh *cache, const float angle);
 
 static void move_left(Vector *vcam);
 static void move_right(Vector *vcam);
@@ -210,7 +216,8 @@ static const void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        projection_mat(FieldOfView);
+        cache = cube;
+        // projection_mat(cache, FieldOfView);
         MAPCOUNT = 1;
     }
 }
@@ -230,8 +237,8 @@ static const void expose(XEvent *event) {
     XFreeGC(displ, gc);
 
     pixmapupdate();
-
-    norm_mesh(cube);
+    projection_mat(cache, FieldOfView);
+    // norm_mesh(cube);
     // norm_mesh(unity);
 }
 static const void resizerequest(XEvent *event) {
@@ -254,7 +261,7 @@ static const void buttonpress(XEvent *event) {
     }
 }
 static const void keypress(XEvent *event) {
-    
+
     KeySym keysym = get_keysym(event);
     switch (keysym) {
 
@@ -274,11 +281,11 @@ static const void keypress(XEvent *event) {
             break;
         case 65364 : move_down(&Camera); // down arrow
             break;
-        case 120 : rotate_xmat(FTheta); // x
+        case 120 : rotate_xmat(&cache, FTheta); // x
             break;
-        case 121 : rotate_ymat(FTheta); // y
+        case 121 : rotate_ymat(&cache, FTheta); // y
             break;
-        case 122 : rotate_zmat(FTheta); // z
+        case 122 : rotate_zmat(&cache, FTheta); // z
             break;
         case 101 : /* rotate Yaxis Backwards */
             break;
@@ -289,28 +296,27 @@ static const void keypress(XEvent *event) {
     }
     
     pixmapdisplay();
-    projection_mat(FieldOfView);
-    norm_mesh(cube);
+    projection_mat(cache, FieldOfView);
 }
-static void meshxm(Mesh *c, const Mat4x4 m) {
+static Mesh meshxm(Mesh *c, const Mat4x4 m) {
 
-    Mesh cache = *c;
-    printf("\x1b[H\x1b[J");
+    Mesh ch = *c;
+    // printf("\x1b[H\x1b[J");
     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
         for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-            
-            cache.tri[i].vector[j].x = c->tri[i].vector[j].x * m.m[0][0] + c->tri[i].vector[j].y * m.m[1][0] + c->tri[i].vector[j].z * m.m[2][0] + c->tri[i].vector[j].w * m.m[3][0];
-            cache.tri[i].vector[j].y = c->tri[i].vector[j].x * m.m[0][1] + c->tri[i].vector[j].y * m.m[1][1] + c->tri[i].vector[j].z * m.m[2][1] + c->tri[i].vector[j].w * m.m[3][1];
-            cache.tri[i].vector[j].z = c->tri[i].vector[j].x * m.m[0][2] + c->tri[i].vector[j].y * m.m[1][2] + c->tri[i].vector[j].z * m.m[2][2] + c->tri[i].vector[j].w * m.m[3][2];
-            cache.tri[i].vector[j].w = c->tri[i].vector[j].x * m.m[0][3] + c->tri[i].vector[j].y * m.m[1][3] + c->tri[i].vector[j].z * m.m[2][3] + c->tri[i].vector[j].w * m.m[3][3];
-            if (i == 0 && j == 2) {
-                printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
-                printf("----------------------------------------------------\n");
-                printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
-            }
+            ch.tri[i].vector[j].x = c->tri[i].vector[j].x * m.m[0][0] + c->tri[i].vector[j].y * m.m[1][0] + c->tri[i].vector[j].z * m.m[2][0] + c->tri[i].vector[j].w * m.m[3][0];
+            ch.tri[i].vector[j].y = c->tri[i].vector[j].x * m.m[0][1] + c->tri[i].vector[j].y * m.m[1][1] + c->tri[i].vector[j].z * m.m[2][1] + c->tri[i].vector[j].w * m.m[3][1];
+            ch.tri[i].vector[j].z = c->tri[i].vector[j].x * m.m[0][2] + c->tri[i].vector[j].y * m.m[1][2] + c->tri[i].vector[j].z * m.m[2][2] + c->tri[i].vector[j].w * m.m[3][2];
+            ch.tri[i].vector[j].w = c->tri[i].vector[j].x * m.m[0][3] + c->tri[i].vector[j].y * m.m[1][3] + c->tri[i].vector[j].z * m.m[2][3] + c->tri[i].vector[j].w * m.m[3][3];
+            // if (i == 0 && j == 2) {
+            //     printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
+            //     printf("----------------------------------------------------\n");
+                // printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
+            // }
         }
     }
     *c = cache;
+    return ch;
 }
 static void ppdiv(Mesh *c) {
     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
@@ -320,7 +326,7 @@ static void ppdiv(Mesh *c) {
                 // printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
                 c->tri[i].vector[j].x /= c->tri[i].vector[j].w;
                 c->tri[i].vector[j].y /= c->tri[i].vector[j].w;
-                // c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
+                c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
             }
         }
     }
@@ -375,19 +381,29 @@ static Mat4x4 inverse_mat(Mat4x4 m) {
 
     return rm;
 }
-static void projection_mat(const float fov) {
+static void translation_mat(Vector v) {
+    Mat4x4 m = { 0 };
+    m.m[0][3] = v.x;
+    m.m[1][3] = v.y;
+    m.m[2][3] = v.z;
+    m.m[3][3] = 1.0;
+
+    meshxm(&cube, m);
+}
+static void projection_mat(Mesh cache, const float fov) {
     Mat4x4 m = { 0 };
     m.m[0][0] = AspectRatio * FovRadius;
     m.m[1][1] = AspectRatio * FovRadius;
     m.m[2][2] = (ZFar / (ZFar - ZNear));
     m.m[2][3] = 1.0;
     m.m[3][2] = ((-ZFar * ZNear) / (ZFar - ZNear));
-    m.m[3][3] = 0.0;
+    m.m[3][3] = 1.0;
 
-    meshxm(&cube, m);
-    ppdiv(&cube);
+    cache = meshxm(&cube, m);
+    ppdiv(&cache);
+    norm_mesh(cache);
 }
-static void rotate_xmat(const float angle) {
+static void rotate_xmat(Mesh *cache, const float angle) {
     Mat4x4 m = { 0 };
     m.m[0][0] = 1.0;
     m.m[1][1] = cosf(FTheta);
@@ -396,9 +412,9 @@ static void rotate_xmat(const float angle) {
     m.m[2][2] = cosf(FTheta);
     m.m[3][3] = 1.0;
 
-    meshxm(&cube, m);
+    *cache = meshxm(&cube, m);
 }
-static void rotate_ymat(const float angle) {
+static void rotate_ymat(Mesh *cache, const float angle) {
     Mat4x4 m = { 0 };
     m.m[0][0] = cosf(angle);
     m.m[1][1] = 1.00;
@@ -407,9 +423,9 @@ static void rotate_ymat(const float angle) {
     m.m[2][2] = cosf(angle);
     m.m[3][3] = 1.0;
 
-    meshxm(&cube, m);
+    *cache = meshxm(&cube, m);
 }
-static void rotate_zmat(const float angle) {
+static void rotate_zmat(Mesh *cache, const float angle) {
     Mat4x4 m = { 0 };
     m.m[0][0] = cosf(FTheta);
     m.m[0][1] = sinf(FTheta);
@@ -418,7 +434,7 @@ static void rotate_zmat(const float angle) {
     m.m[2][2] = 1.0;
     m.m[3][3] = 1.0;
 
-    meshxm(&cube, m);
+    *cache = meshxm(&cube, m);
 }
 static void move_left(Vector *vcam) {
     vcam->x -= 0.1;
@@ -519,17 +535,30 @@ static void paint_mesh(SCMesh sc) {
     Vector cp, line1, line2;
     float dp;
     int vecindex = 1;
-    // printf("\x1b[H\x1b[J");
+
     for (int i = 0; i < sizeof(sc.sctri) / sizeof(SCTriangle); i++)
         
         for (int j = 0; j < sizeof(sc.sctri->scvector) / sizeof(XPoint); j++) {
 
-            line1 = sub_vectors(cube.tri[i].vector[1], cube.tri[i].vector[0]);
-            line2 = sub_vectors(cube.tri[i].vector[2], cube.tri[i].vector[0]);
+            line1 = sub_vectors(cache.tri[i].vector[1], cache.tri[i].vector[0]);
+            line2 = sub_vectors(cache.tri[i].vector[2], cache.tri[i].vector[0]);
             
             cp = cross_product(line1, line2);
+            // cp = norm_vector(cp);
 
-            // if (dot_product(cp, Camera) < 0.0) {
+            if (i == 0 && j == 0) {
+                printf("\x1b[H\x1b[J");
+                printf("DotProduct: %f\n", dot_product(cp, Camera));
+                printf("Zvalue Cache: %2f\n", cache.tri[i].vector[j].z);
+                printf("Zvalue Cube: %2f\n", cube.tri[i].vector[j].z);
+                printf("CP X value  : %2f\n", cp.x);
+                printf("CP Y value  : %2f\n", cp.y);
+                printf("CP Z value  : %2f\n", cp.z);
+            }
+            if (dot_product(cp, Camera) < 0.00) {
+            // if (cp.x * (cache.tri[i].vector[j].x - Camera.x) +
+            //     cp.y * (cache.tri[i].vector[j].y - Camera.y) +
+            //     cp.z * (cache.tri[i].vector[j].z - Camera.z) > 0.00) {
 
                 dp = dot_product(LightSC, cp);
                 gcil.graphics_exposures = False;
@@ -550,7 +579,7 @@ static void paint_mesh(SCMesh sc) {
                 XDrawLine(displ, win, gcl, sc.sctri[i].scvector[j].x, sc.sctri[i].scvector[j].y, sc.sctri[i].scvector[vecindex].x, sc.sctri[i].scvector[vecindex].y);
                 vecindex++;
                 XFreeGC(displ, gci);
-            // }
+            }
         }
 
     XFreeGC(displ, gcl);
