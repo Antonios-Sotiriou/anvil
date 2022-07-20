@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <X11/Xlib.h>
 #include <math.h>
+#include <unistd.h>
 
 // Project specific headers
 #include "header_files/locale.h"
@@ -44,7 +45,7 @@ typedef struct {
 // #define FieldOfView               90.0
 #define AspectRatio               ( ((float)wa.width / (float)wa.height) )
 #define FovRadius                 ( 1 / tanf(fov * 6.00 / (180.0 * 3.14159)) )
-#define FTheta                    ( 1 * 0.05 )
+#define FTheta                    ( 1 * 0.1 )
 #define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )
 #define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) )
 
@@ -114,11 +115,11 @@ Mesh cube = {
         { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    // Back Up
         { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     // Back Down
 
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },     // West Up
-        { {{ 0.00,  0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },       // East Down
+        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },     // West Up
+        { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },       // East Down
 
-        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },    // East Up
-        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },     // East Down
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },    // East Up
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },     // East Down
 
         { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   // North Up
         { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   // North Down
@@ -331,6 +332,58 @@ static void ppdiv(Mesh *c) {
         }
     }
 }
+float depth(Triangle t) {
+    float res = 0;
+    int count = 0;
+    for (int i = 0; i < sizeof(t) / sizeof(Vector); i++) {
+        res += t.vector[i].z;
+        count++;
+    }
+    return res / count;
+}
+static Mesh sort_vectors(Mesh c) {
+
+    Mesh res = { 0 };
+    Triangle value = { 0 };
+    int pos = 0;
+
+    for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++) {
+        
+        for (int j = pos; j < sizeof(c.tri) / sizeof(Triangle); j++) {
+
+            printf("c.tri[i].depth: %f\n", depth(c.tri[i]));
+            if (depth(c.tri[i]) > depth(c.tri[j])) {
+                value = c.tri[i];
+                res.tri[i] = c.tri[j];
+                res.tri[j] = value;
+                printf("res.tri[i].depth: %f\n", depth(res.tri[i]));
+            }
+        }
+        pos++;
+    }
+
+    for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++) {
+        printf("Count: %f\n", res.tri[i].vector[0].z);
+    }
+    return res;
+
+    // for (int i = 0; i < sizeof(num_arr) / sizeof(int); i++) {
+
+    //     for (int j = pos; j < sizeof(num_arr) / sizeof(int); j++) {
+
+    //         if (num_arr[i] > num_arr[j]) {
+    //             value = num_arr[i];
+    //             num_arr[i] = num_arr[j];
+    //             num_arr[j] = value;
+    //         }
+    //     }
+    //     pos++;
+    // }
+
+    // for (int i = 0; i < sizeof(num_arr) / sizeof(int); i++) {
+    //     printf("%2d ---> %2d\n", i, num_arr[i]);
+    // }
+}
 static Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2) {
     Mat4x4 res;
     for (int i = 0; i < sizeof(res.m[0]) / sizeof(float); i++) 
@@ -401,6 +454,7 @@ static void projection_mat(Mesh cache, const float fov) {
 
     cache = meshxm(&cube, m);
     ppdiv(&cache);
+    // cache = sort_vectors(cache);
     norm_mesh(cache);
 }
 static void rotate_xmat(Mesh *cache, const float angle) {
@@ -539,22 +593,21 @@ static void paint_mesh(SCMesh sc) {
     for (int i = 0; i < sizeof(sc.sctri) / sizeof(SCTriangle); i++)
         
         for (int j = 0; j < sizeof(sc.sctri->scvector) / sizeof(XPoint); j++) {
-
             line1 = sub_vectors(cache.tri[i].vector[1], cache.tri[i].vector[0]);
             line2 = sub_vectors(cache.tri[i].vector[2], cache.tri[i].vector[0]);
             
             cp = cross_product(line1, line2);
             // cp = norm_vector(cp);
 
-            if (i == 0 && j == 0) {
-                printf("\x1b[H\x1b[J");
-                printf("DotProduct: %f\n", dot_product(cp, Camera));
-                printf("Zvalue Cache: %2f\n", cache.tri[i].vector[j].z);
-                printf("Zvalue Cube: %2f\n", cube.tri[i].vector[j].z);
-                printf("CP X value  : %2f\n", cp.x);
-                printf("CP Y value  : %2f\n", cp.y);
-                printf("CP Z value  : %2f\n", cp.z);
-            }
+            // if (i == 0 && j == 0) {
+            //     printf("\x1b[H\x1b[J");
+            //     printf("DotProduct: %f\n", dot_product(cp, Camera));
+            //     printf("Zvalue Cache: %2f\n", cache.tri[i].vector[j].z);
+            //     printf("Zvalue Cube: %2f\n", cube.tri[i].vector[j].z);
+            //     printf("CP X value  : %2f\n", cp.x);
+            //     printf("CP Y value  : %2f\n", cp.y);
+            //     printf("CP Z value  : %2f\n", cp.z);
+            // }
             if (dot_product(cp, Camera) < 0.00) {
             // if (cp.x * (cache.tri[i].vector[j].x - Camera.x) +
             //     cp.y * (cache.tri[i].vector[j].y - Camera.y) +
