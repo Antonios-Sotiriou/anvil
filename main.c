@@ -30,7 +30,8 @@ typedef struct {
 } Mesh;
 // Screen Mesh
 typedef struct {
-    SCTriangle sctri[LastTriangle];
+    SCTriangle *sctri;
+    int indexes;
 } SCMesh;
 // 1st frame Initialization matrix
 typedef struct {
@@ -96,7 +97,6 @@ Mesh cube = {
         { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} }      // South Down
     }
 };
-SCMesh sccube = { 0 };
 Mesh cache = { 0 };
 
 static int MAPCOUNT = 0;
@@ -227,7 +227,7 @@ static Mesh meshxm(Mesh *c, const Mat4x4 m) {
     Mesh ch = *c;
     // printf("\x1b[H\x1b[J");
     for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
-        for (int j = 0; j < sizeof(c->tri->vec) / sizeof(Vector); j++) {
+        for (int j = 0; j < 3; j++) {
             
             ch.tri[i].vec[j].x = c->tri[i].vec[j].x * m.m[0][0] + c->tri[i].vec[j].y * m.m[1][0] + c->tri[i].vec[j].z * m.m[2][0] + c->tri[i].vec[j].w * m.m[3][0];
             ch.tri[i].vec[j].y = c->tri[i].vec[j].x * m.m[0][1] + c->tri[i].vec[j].y * m.m[1][1] + c->tri[i].vec[j].z * m.m[2][1] + c->tri[i].vec[j].w * m.m[3][1];
@@ -237,8 +237,8 @@ static Mesh meshxm(Mesh *c, const Mat4x4 m) {
     }
     return ch;
 }
-static void ppdiv(BF *c) {
-    for (int i = 0; i < c->indexes; i++) {
+static void ppdiv(Mesh *c) {
+    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
         for (int j = 0; j < 3; j++) {
 
             if (c->tri[i].vec[j].w != 0 ) {
@@ -255,12 +255,13 @@ static BF bfculling(const Mesh c) {
     int counter = 1;
     int index = 0;
     res.tri = malloc(sizeof(Triangle));
-
+    printf("\x1b[H\x1b[J");
     for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++) {
         line1 = sub_vecs(c.tri[i].vec[1], c.tri[i].vec[0]);
         line2 = sub_vecs(c.tri[i].vec[2], c.tri[i].vec[0]);
 
         cp = cross_product(line1, line2);
+        printf("DOT product : %f\n", dot_product(cp, Camera));
         if (dot_product(cp, Camera) < 0.00) {
             res.tri = realloc(res.tri, sizeof(Triangle) * counter);
             res.tri[index] = c.tri[i];
@@ -268,13 +269,14 @@ static BF bfculling(const Mesh c) {
             index++;
         }
     }
+    printf("Number of triangles: %d\n", counter - 1);
     res.indexes = index;
     return res;
 }
 float depth(Triangle t) {
     float res = 0;
     int count = 0;
-    for (int i = 0; i < sizeof(t) / sizeof(Vector); i++) {
+    for (int i = 0; i < 3; i++) {
         res += t.vec[i].z;
         count++;
     }
@@ -302,13 +304,13 @@ static BF sort_vectors(BF *c) {
 static void project(Mesh c) {
     Mat4x4 m = projection_mat(FOV);
     c = meshxm(&cube, m);
-
+    ppdiv(&c);
     // Triangles must be checked for cross product.
     BF res = bfculling(c);
     // Applying perspective division.
-    ppdiv(&res);
+    // ppdiv(&res);
     // Triangles must possibly be sorted according to z value and then be passed to rasterizer.
-    res = sort_vectors(&res);
+    // res = sort_vectors(&res);
     // Sending to translation to Screen Coordinates.
     norm_mesh(res);
     
@@ -417,9 +419,9 @@ static void paint_mesh(SCMesh sc) {
     float dp;
     int vecindex = 1;
 
-    for (int i = 0; i < sizeof(sc.sctri) / sizeof(SCTriangle); i++)
-        
-        for (int j = 0; j < sizeof(sc.sctri->scvec) / sizeof(XPoint); j++) {
+    for (int i = 0; i < sc.indexes; i++) {
+        printf("Triangle : %d\n", i);
+        for (int j = 0; j < 3; j++) {
 
             line1 = sub_vecs(cache.tri[i].vec[1], cache.tri[i].vec[0]);
             line2 = sub_vecs(cache.tri[i].vec[2], cache.tri[i].vec[0]);
@@ -434,11 +436,11 @@ static void paint_mesh(SCMesh sc) {
             } else 
                 gcil.foreground = 0xff00fb;
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
-            if (i == 0) {
+            // if (i == 0) {
                 // gcil.foreground = 0x0377eb;
                 // GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
                 XFillPolygon(displ, win, gci, sc.sctri[i].scvec, 3, Convex, CoordModeOrigin);
-            }
+            // }
 
             if (j == 2)
                 vecindex = 0;
@@ -446,19 +448,26 @@ static void paint_mesh(SCMesh sc) {
             vecindex++;
             XFreeGC(displ, gci);
         }
+    }
 
     XFreeGC(displ, gcl);
     XFreeGC(displ, gcf);
 
 }
 static void norm_mesh(const BF c) {
-    for (int i = 0; i < c.indexes; i++)
+    SCMesh scmesh;
+    scmesh.sctri = calloc(c.indexes, sizeof(SCTriangle));
+    scmesh.indexes = c.indexes;
+
+    for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            sccube.sctri[i].scvec[j].x = XWorldToScreen;
-            sccube.sctri[i].scvec[j].y = YWorldToScreen;
+            scmesh.sctri[i].scvec[j].x = XWorldToScreen;
+            scmesh.sctri[i].scvec[j].y = YWorldToScreen;
         }
-    paint_mesh(sccube);
+    }
+    paint_mesh(scmesh);
+    free(scmesh.sctri);
 }
 static KeySym get_keysym(XEvent *event) {
 
