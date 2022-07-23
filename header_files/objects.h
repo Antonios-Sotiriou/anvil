@@ -1,0 +1,44 @@
+#ifndef _OBJECTS_H
+#define _OBJECTS_H 1
+
+#ifndef _XLIB_H
+    #include <X11/Xlib.h>
+#endif
+
+enum { AVector, BVector, CVector, LastVector};
+enum { FrontUp, FrontDown, BackUp, BackDown, WestUp, WestDown, EastUp, EastDown, NorthUp, NorthDown, SouthUp, SouthDown, LastTriangle};
+
+// World Vector
+typedef struct {
+    float x, y, z, w;
+} Vector;
+// World Triangle
+typedef struct {
+    Vector vec[LastVector];
+} Triangle;
+// Screen Triangle
+typedef struct {
+    // Importand! XPoint here so we can use the xlib build in function to fill the triangles.
+    XPoint scvec[LastVector];
+} SCTriangle;
+// World Mesh
+typedef struct {
+    Triangle tri[LastTriangle];
+} Mesh;
+// Screen Mesh
+typedef struct {
+    SCTriangle *sctri;
+    int indexes;
+} SCMesh;
+// 1st frame Initialization matrix
+typedef struct {
+    float m[4][4];
+} Mat4x4;
+
+typedef struct {
+    Triangle *tri;
+    int indexes;
+} BackFace;
+
+#endif /* _OBJECTS_H */
+
