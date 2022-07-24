@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <X11/Xlib.h>
 #include <math.h>
+#include <unistd.h>
 
 /* Project specific headers */
 #include "header_files/locale.h"
@@ -17,6 +18,17 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 #define TranslateX                ( v.x )
 #define TranslateY                ( v.y )
 #define TranslateZ                ( v.z )
+
+// #define TranslateX                ( c->tri[i].vector[j].x )
+// #define TranslateY                ( c->tri[i].vector[j].y )
+// #define TranslateZ                ( c->tri[i].vector[j].z )
+
+// #define range                     ( ((num / other) - 0.5) * 2.00 )
+
+// #define NormalizeWorldX           ( (c.tri[i].vector[j].x + (wa.width / 2.00)) / wa.width )
+// #define NormalizeWorldY           ( (c.tri[i].vector[j].y + (wa.height / 2.00)) / wa.height )
+// #define XWorldToScreen            ( normalized.tri[i].vector[j].x * wa.width )
+// #define YWorldToScreen            ( normalized.tri[i].vector[j].y * wa.height )
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
@@ -35,9 +47,10 @@ Vector LightSC = {
     -1.0, -1.0, 1.0, 1.0
 };
 
-#define cube_back     0.5
+#define cube_back     0.5f
 #define cube_front    0.0
 #define cube_size     0.5
+
 Mesh cube = {
     {
         { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
@@ -167,10 +180,10 @@ const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
 }
+
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
-    
     switch (keysym) {
 
         case 120 : rotate_x(&cache, ANGLE); /* x */
