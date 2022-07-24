@@ -48,13 +48,13 @@ const Mat4x4 projection_mat(const float fov, const float aspectratio) {
 Mesh meshxm(Mesh *c, const Mat4x4 m) {
 
     Mesh ch = *c;
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
+    for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
             
-            ch.tri[i].vec[j].x = c->tri[i].vec[j].x * m.m[0][0] + c->tri[i].vec[j].y * m.m[1][0] + c->tri[i].vec[j].z * m.m[2][0] + c->tri[i].vec[j].w * m.m[3][0];
-            ch.tri[i].vec[j].y = c->tri[i].vec[j].x * m.m[0][1] + c->tri[i].vec[j].y * m.m[1][1] + c->tri[i].vec[j].z * m.m[2][1] + c->tri[i].vec[j].w * m.m[3][1];
-            ch.tri[i].vec[j].z = c->tri[i].vec[j].x * m.m[0][2] + c->tri[i].vec[j].y * m.m[1][2] + c->tri[i].vec[j].z * m.m[2][2] + c->tri[i].vec[j].w * m.m[3][2];
-            ch.tri[i].vec[j].w = c->tri[i].vec[j].x * m.m[0][3] + c->tri[i].vec[j].y * m.m[1][3] + c->tri[i].vec[j].z * m.m[2][3] + c->tri[i].vec[j].w * m.m[3][3];
+            ch.t[i].v[j].x = c->t[i].v[j].x * m.m[0][0] + c->t[i].v[j].y * m.m[1][0] + c->t[i].v[j].z * m.m[2][0] + c->t[i].v[j].w * m.m[3][0];
+            ch.t[i].v[j].y = c->t[i].v[j].x * m.m[0][1] + c->t[i].v[j].y * m.m[1][1] + c->t[i].v[j].z * m.m[2][1] + c->t[i].v[j].w * m.m[3][1];
+            ch.t[i].v[j].z = c->t[i].v[j].x * m.m[0][2] + c->t[i].v[j].y * m.m[1][2] + c->t[i].v[j].z * m.m[2][2] + c->t[i].v[j].w * m.m[3][2];
+            ch.t[i].v[j].w = c->t[i].v[j].x * m.m[0][3] + c->t[i].v[j].y * m.m[1][3] + c->t[i].v[j].z * m.m[2][3] + c->t[i].v[j].w * m.m[3][3];
         }
     }
     return ch;
