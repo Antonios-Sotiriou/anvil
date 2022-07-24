@@ -1,7 +1,9 @@
 #ifndef _MATRICES_H
 #define _MATRICES_H 1
 
-#include "objects.h"
+#ifndef _OBJECTS_H
+    #include "objects.h"
+#endif
 
 #ifndef _MATH_H
     #include <math.h>

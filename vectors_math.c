@@ -3,7 +3,7 @@
 const float depth(const Triangle t) {
     float res = 0;
     for (int i = 0; i < 3; i++) {
-        res += t.vec[i].z;
+        res += t.v[i].z;
     }
     return res / 3;
 }
@@ -17,10 +17,10 @@ BackFace sort_vectors(BackFace *c) {
         
         for (int j = pos; j < c->indexes; j++) {
 
-            if (depth(c->tri[i]) > depth(c->tri[j])) {
-                temp = c->tri[i];
-                c->tri[i] = c->tri[j];
-                c->tri[j] = temp;
+            if (depth(c->t[i]) > depth(c->t[j])) {
+                temp = c->t[i];
+                c->t[i] = c->t[j];
+                c->t[j] = temp;
             }
         }
         pos++;
@@ -72,8 +72,8 @@ float dot_product(const Vector v1, const Vector v2) {
 /* Computes the Cross Product of a given Triangle.Returns a Vector which represents the Cross Product. */
 const Vector triangle_cp(const Triangle t) {
     Vector cp, line1, line2;
-    line1 = sub_vecs(t.vec[1], t.vec[0]);
-    line2 = sub_vecs(t.vec[2], t.vec[0]);
+    line1 = sub_vecs(t.v[1], t.v[0]);
+    line2 = sub_vecs(t.v[2], t.v[0]);
 
     cp = cross_product(line1, line2);
     return cp;

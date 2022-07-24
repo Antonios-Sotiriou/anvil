@@ -8,35 +8,42 @@
 enum { AVector, BVector, CVector, LastVector};
 enum { FrontUp, FrontDown, BackUp, BackDown, WestUp, WestDown, EastUp, EastDown, NorthUp, NorthDown, SouthUp, SouthDown, LastTriangle};
 
-// World Vector
+/* World Vector */
 typedef struct {
     float x, y, z, w;
 } Vector;
-// World Triangle
+
+/* World Triangle */
 typedef struct {
-    Vector vec[LastVector];
+    Vector v[LastVector];
 } Triangle;
-// Screen Triangle
+
+/* Screen Triangle */
 typedef struct {
-    // Importand! XPoint here so we can use the xlib build in function to fill the triangles.
-    XPoint scvec[LastVector];
+    /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
+    XPoint scv[LastVector];
 } SCTriangle;
-// World Mesh
+
+/* World Mesh */
 typedef struct {
-    Triangle tri[LastTriangle];
+    Triangle t[LastTriangle];
+    int indexes;
 } Mesh;
-// Screen Mesh
+
+/* Screen Mesh */
 typedef struct {
-    SCTriangle *sctri;
+    SCTriangle *sct;
     int indexes;
 } SCMesh;
-// 1st frame Initialization matrix
+
+/* Initialization matrix */
 typedef struct {
     float m[4][4];
 } Mat4x4;
 
+/* Struct which holds the back face culling triangles. */
 typedef struct {
-    Triangle *tri;
+    Triangle *t;
     int indexes;
 } BackFace;
 

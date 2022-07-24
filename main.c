@@ -12,8 +12,8 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define XWorldToScreen            ( (1 + c.tri[i].vec[j].x) * (wa.width / 2.00) )
-#define YWorldToScreen            ( (1 + c.tri[i].vec[j].y) * (wa.height / 2.00) )
+#define XWorldToScreen            ( (1 + c.t[i].v[j].x) * (wa.width / 2.00) )
+#define YWorldToScreen            ( (1 + c.t[i].v[j].y) * (wa.height / 2.00) )
 #define TranslateX                ( v.x )
 #define TranslateY                ( v.y )
 #define TranslateZ                ( v.z )
@@ -56,31 +56,33 @@ Mesh cube = {
         { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   /* North Down */
 
         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       /* South Up */
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} }      /* South Down */
-    }
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },      /* South Down */
+    },
+    .indexes = 12
 };
+// Mesh cube = { 0 };
 Mesh cache = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
 float AspectRatio = 0;
-float FOV = 120.0;
+float FOV = 90.0;
 static float ANGLE = 0.05;
 
 /* Event handling functions. */
-static const void clientmessage(XEvent *event);
-static const void reparentnotify(XEvent *event);
-static const void mapnotify(XEvent *event);
-static const void expose(XEvent *event);
-static const void resizerequest(XEvent *event);
-static const void configurenotify(XEvent *event);
-static const void buttonpress(XEvent *event);
-static const void keypress(XEvent *event);
+const static void clientmessage(XEvent *event);
+const static void reparentnotify(XEvent *event);
+const static void mapnotify(XEvent *event);
+const static void expose(XEvent *event);
+const static void resizerequest(XEvent *event);
+const static void configurenotify(XEvent *event);
+const static void buttonpress(XEvent *event);
+const static void keypress(XEvent *event);
 
 /* Moving functions */
-void rotate_x(Mesh *c, const float angle);
-void rotate_y(Mesh *c, const float angle);
-void rotate_z(Mesh *c, const float angle);
+static void rotate_x(Mesh *c, const float angle);
+static void rotate_y(Mesh *c, const float angle);
+static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
 static void project(Mesh c);
@@ -91,10 +93,10 @@ const static void rasterize(const BackFace c);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
-static const void pixmapupdate(void);
-static const void pixmapdisplay(void);
-static const void atomsinit(void);
-static const int board(void);
+const static void pixmapupdate(void);
+const static void pixmapdisplay(void);
+const static void atomsinit(void);
+const static int board(void);
 static void (*handler[LASTEvent]) (XEvent *event) = {
     [ClientMessage] = clientmessage,
     [ReparentNotify] = reparentnotify,
@@ -109,12 +111,14 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 /* Project specific inludes. */
 #include "header_files/matrices.h"
 #include "header_files/vectors_math.h"
+#include "header_files/obj_parser.h"
 
-static const void clientmessage(XEvent *event) {
+const static void clientmessage(XEvent *event) {
 
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
+        // free(cube.t);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         XCloseDisplay(displ);
@@ -122,34 +126,36 @@ static const void clientmessage(XEvent *event) {
         RUNNING = 0;
     }
 }
-static const void reparentnotify(XEvent *event) {
+const static void reparentnotify(XEvent *event) {
 
     printf("reparentnotify event received\n");
     XGetWindowAttributes(displ, win, &wa);
     AspectRatio = ((float)wa.width / (float)wa.height);
 }
-static const void mapnotify(XEvent *event) {
+const static void mapnotify(XEvent *event) {
 
     printf("mapnotify event received\n");
 
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
+        // cube = load_obj("/home/as/Desktop/spaceship.obj");
+
         cache = cube;  /* Importand spot. */
         MAPCOUNT = 1;
     }
 }
-static const void expose(XEvent *event) {
+const static void expose(XEvent *event) {
 
     printf("expose event received\n");
     pixmapupdate();
     project(cache);
 }
-static const void resizerequest(XEvent *event) {
+const static void resizerequest(XEvent *event) {
 
     printf("resizerequest event received\n");
 }
-static const void configurenotify(XEvent *event) {
+const static void configurenotify(XEvent *event) {
 
     if (!event->xconfigure.send_event) {
         printf("configurenotify event received\n");
@@ -157,11 +163,11 @@ static const void configurenotify(XEvent *event) {
         AspectRatio = ((float)wa.width / (float)wa.height);
     }
 }
-static const void buttonpress(XEvent *event) {
+const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
 }
-static const void keypress(XEvent *event) {
+const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
     
@@ -179,20 +185,21 @@ static const void keypress(XEvent *event) {
     cube = cache;  /* Importand spot. */
 
     pixmapdisplay();
+
     project(cache);
 }
 /* Rotates object according to World X axis. */
-void rotate_x(Mesh *c, const float angle) {
+static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
     *c = meshxm(&cube, m);
 }
 /* Rotates object according to World Y axis. */
-void rotate_y(Mesh *c, const float angle) {
+static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
     *c = meshxm(&cube, m);
 }
 /* Rotates object according to World Z axis. */
-void rotate_z(Mesh *c, const float angle) {
+static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(&cube, m);
 }
@@ -205,51 +212,51 @@ static void project(Mesh c) {
     /* Triangles must be checked for cross product. */
     BackFace bf = bfculling(c);
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    /* res = sort_vectors(&res); */
+    // bf = sort_vectors(&bf);
     /* Sending to translation to Screen Coordinates. */
     rasterize(bf);
     
-    free(bf.tri);
+    free(bf.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
+    for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->tri[i].vec[j].w != 0) {
-                c->tri[i].vec[j].x /= c->tri[i].vec[j].w;
-                c->tri[i].vec[j].y /= c->tri[i].vec[j].w;
-                c->tri[i].vec[j].z /= c->tri[i].vec[j].w;
+            if (c->t[i].v[j].w != 0) {
+                c->t[i].v[j].x /= c->t[i].v[j].w;
+                c->t[i].v[j].y /= c->t[i].v[j].w;
+                c->t[i].v[j].z /= c->t[i].v[j].w;
             }
         }
     }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic BackFace stucture Triangles array. */
 const static BackFace bfculling(const Mesh c) {
-    BackFace res = { 0 };
+    BackFace r = { 0 };
     Vector cp;
     int counter = 1;
     int index = 0;
-    res.tri = malloc(sizeof(Triangle));
-    if (!res.tri)
+    r.t = malloc(sizeof(Triangle));
+    if (!r.t)
         fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
-    for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++) {
+    for (int i = 0; i < c.indexes; i++) {
 
-        cp = triangle_cp(c.tri[i]);
+        cp = triangle_cp(c.t[i]);
         if (dot_product(cp, Camera) < 0.00) {
-            res.tri = realloc(res.tri, sizeof(Triangle) * counter);
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
 
-            if (!res.tri)
+            if (!r.t)
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
-            res.tri[index] = c.tri[i];
+            r.t[index] = c.t[i];
             counter++;
             index++;
         }
     }
-    res.indexes = index;
-    return res;
+    r.indexes = index;
+    return r;
 }
 /* Draws the Mesh's Triangles on screen in 2D coordinates. */
 const static void draw(const SCMesh sc, const BackFace c) {
@@ -262,13 +269,13 @@ const static void draw(const SCMesh sc, const BackFace c) {
 
     Vector cp;
     float dp;
-    int vecindex = 1;
+    int vindex = 1;
 
     for (int i = 0; i < sc.indexes; i++) {
 
         for (int j = 0; j < 3; j++) {
-            /* Attention here.We compute the cross product of the world coordinates mesh not the screen. */
-            cp = triangle_cp(c.tri[i]);
+            /* Attention here.We compute the cross product of the world coordinates BackFace not the screen. */
+            cp = triangle_cp(c.t[i]);
             dp = dot_product(cp, LightSC);
             gcil.graphics_exposures = False;
             
@@ -278,12 +285,12 @@ const static void draw(const SCMesh sc, const BackFace c) {
                 gcil.foreground = 0xff00fb;
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
-            XFillPolygon(displ, win, gci, sc.sctri[i].scvec, 3, Convex, CoordModeOrigin);
+            XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
             if (j == 2)
-                vecindex = 0;
-            XDrawLine(displ, win, gcl, sc.sctri[i].scvec[j].x, sc.sctri[i].scvec[j].y, sc.sctri[i].scvec[vecindex].x, sc.sctri[i].scvec[vecindex].y);
-            vecindex++;
+                vindex = 0;
+            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
+            vindex++;
             XFreeGC(displ, gci);
         }
     }
@@ -293,9 +300,9 @@ const static void draw(const SCMesh sc, const BackFace c) {
 const static void rasterize(const BackFace c) {
 
     SCMesh scmesh;
-    scmesh.sctri = calloc(c.indexes, sizeof(SCTriangle));
+    scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
 
-    if (!scmesh.sctri)
+    if (!scmesh.sct)
         fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
 
     scmesh.indexes = c.indexes;
@@ -303,12 +310,12 @@ const static void rasterize(const BackFace c) {
     for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            scmesh.sctri[i].scvec[j].x = XWorldToScreen;
-            scmesh.sctri[i].scvec[j].y = YWorldToScreen;
+            scmesh.sct[i].scv[j].x = XWorldToScreen;
+            scmesh.sct[i].scv[j].y = YWorldToScreen;
         }
     }
     draw(scmesh, c);
-    free(scmesh.sctri);
+    free(scmesh.sct);
 }
 static KeySym get_keysym(XEvent *event) {
 
@@ -341,7 +348,7 @@ static KeySym get_keysym(XEvent *event) {
     }
     return keysym;
 }
-static const void pixmapupdate(void) {
+const static void pixmapupdate(void) {
 
     XGCValues gc_vals;
     gc_vals.graphics_exposures = False;
@@ -351,7 +358,7 @@ static const void pixmapupdate(void) {
     XCopyArea(displ, win, pixmap, pix, 0, 0, wa.width, wa.height, 0, 0);
     XFreeGC(displ, pix);
 }
-static const void pixmapdisplay(void) {
+const static void pixmapdisplay(void) {
 
     XGCValues gc_vals;
     gc_vals.graphics_exposures = False;
@@ -360,7 +367,7 @@ static const void pixmapdisplay(void) {
     XCopyArea(displ, pixmap, win, pix, 0, 0, wa.width, wa.height, 0, 0);
     XFreeGC(displ, pix);
 }
-static const void atomsinit(void) {
+const static void atomsinit(void) {
 
     wmatom[Win_Close] = XInternAtom(displ, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(displ, win, &wmatom[Win_Close], 1);
@@ -370,7 +377,7 @@ static const void atomsinit(void) {
     XChangeProperty(displ, win, wmatom[Win_Name], wmatom[Atom_Type], 8, PropModeReplace, (unsigned char*)"Anvil", 5);
 }
 /* General initialization and event handling. */
-const int board(void) {
+const static int board(void) {
 
     XEvent event;
 
