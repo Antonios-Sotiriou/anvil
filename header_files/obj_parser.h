@@ -13,6 +13,11 @@
     #include "objects.h"
 #endif
 
+/* Usefull struct to parse the obj file Faces */
+typedef struct {
+    int a, b, c;
+} Face;
+
 Mesh load_obj(const char path[]);
 
 #endif /* _OBJ_PARSER_H */

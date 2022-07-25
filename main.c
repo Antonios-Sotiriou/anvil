@@ -15,9 +15,6 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 #define HEIGHT                    800
 #define XWorldToScreen            ( (1 + c.t[i].v[j].x) * (wa.width / 2.00) )
 #define YWorldToScreen            ( (1 + c.t[i].v[j].y) * (wa.height / 2.00) )
-#define TranslateX                ( v.x )
-#define TranslateY                ( v.y )
-#define TranslateZ                ( v.z )
 
 // #define TranslateX                ( c->tri[i].vector[j].x )
 // #define TranslateY                ( c->tri[i].vector[j].y )
@@ -42,7 +39,14 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector Camera = { 0.0, 0.0, -1.0, 1.0 }, Up = { 0.0, -1.0, 0.0, 1.0 }, LookDir = { 0.0, 0.0, 1.0, 1.0 }, Target = { 0.0, 0.0, 1.0, 1.0 };
+Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
+        LookDir  =   { 0.0, 0.0, 1.0, 1.0 };
+
+// Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
+//         U        =   { 0.0, 0.0, 0.0, 1.0 }, 
+//         V        =   { 0.0, 0.0, 0.0, 1.0 }, 
+//         N        =   { 0.0, 0.0, -1.0, 1.0 };
+
 Vector LightSC = {
     -1.0, -1.0, 1.0, 1.0
 };
@@ -81,6 +85,7 @@ static int RUNNING = 1;
 float AspectRatio = 0;
 float FOV = 90.0;
 static float ANGLE = 0.05;
+static float FYaw = 0;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -93,6 +98,7 @@ const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
 
 /* Moving functions */
+static void look_left(Mesh *c, float fyaw);
 static void rotate_x(Mesh *c, const float angle);
 static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
@@ -124,7 +130,7 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 /* Project specific inludes. */
 #include "header_files/matrices.h"
 #include "header_files/vectors_math.h"
-#include "header_files/obj_parser.h"
+// #include "header_files/obj_parser.h"
 
 const static void clientmessage(XEvent *event) {
 
@@ -132,6 +138,7 @@ const static void clientmessage(XEvent *event) {
         printf("WM_DELETE_WINDOW");
 
         // free(cube.t);
+
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         XCloseDisplay(displ);
@@ -152,7 +159,7 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // cube = load_obj("/home/as/Desktop/spaceship.obj");
+        // cube = load_obj("/home/as/Desktop/cube.obj");
 
         cache = cube;  /* Importand spot. */
         MAPCOUNT = 1;
@@ -186,6 +193,14 @@ const static void keypress(XEvent *event) {
     KeySym keysym = get_keysym(event);
     switch (keysym) {
 
+        // case 119 : move_forward(); // w
+        //     break;
+        case 97 : look_left(&cache, FYaw); // a
+            break;
+        // case 115 : move_backward(); // s
+        //     break;
+        // case 100 : look_right(FYaw); // d
+            break;
         case 120 : rotate_x(&cache, ANGLE); /* x */
             break;
         case 121 : rotate_y(&cache, ANGLE); /* y */
@@ -201,25 +216,59 @@ const static void keypress(XEvent *event) {
 
     project(cache);
 }
+/* Rotates the camera to look left. */
+static void look_left(Mesh *c, float fyaw) {
+    fyaw -= 0.05;
+
+    Vector Up = { 0.0, 1.0, 0.0, 1.0 };
+    Vector Target = { 1.0, 0.0, 0.0, 1.0 };
+    
+    Mat4x4 matCameraRot = rotate_ymat(fyaw);
+    LookDir = vecxm(Target, matCameraRot);
+    Target = add_vecs(Camera, LookDir);
+
+    // Calculate new forward direction
+    Vector newForward = sub_vecs(Target, Camera);
+    newForward = norm_vec(newForward);
+
+    // Calculate new Up direction
+    Vector a = multiply_vec(newForward, dot_product(Up, newForward));
+    Vector newUp = sub_vecs(Up, a);
+    newUp = norm_vec(newUp);
+
+    // New Right direction is easy, its just cross product
+    Vector newRight = cross_product(newUp, newForward);
+
+    Mat4x4 matCamera = camera_mat(Camera, newRight, newUp, newForward);
+
+    Mat4x4 reView = mxm(matCamera, matCameraRot);
+    // Make view matrix from camera
+    Mat4x4 matView = inverse_mat(reView);
+
+    *c = meshxm(cube, matView);
+}
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
-    *c = meshxm(&cube, m);
+    *c = meshxm(cube, m);
 }
 /* Rotates object according to World Y axis. */
 static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
-    *c = meshxm(&cube, m);
+    *c = meshxm(cube, m);
 }
 /* Rotates object according to World Z axis. */
 static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
-    *c = meshxm(&cube, m);
+    *c = meshxm(cube, m);
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
+    // Mat4x4 tm = translation_mat(0.0, 0.0, 10.0);
+    // c = meshxm(cube, tm);
+
     Mat4x4 m = projection_mat(FOV, AspectRatio);
-    c = meshxm(&cube, m);
+    c = meshxm(cube, m);
     /* Applying perspective division. */
     ppdiv(&c);
     /* Triangles must be checked for cross product. */
