@@ -1,65 +1,130 @@
 #include "header_files/obj_parser.h"
 
+static Vector *get_vectors(const char path[]);
+static Face *get_faces(const char path[]);
+
+/* Vector and Face arrays indexes */
+static int v_indexes = 0;
+static int f_indexes = 0;
+
 Mesh load_obj(const char path[]) {
 
+    Vector *v = get_vectors(path);
+    if (!v)
+        fprintf(stderr, "Could not create Vectors array. load_obj() - get_vectors()\n");
+
+    Face *f = get_faces(path);
+    if (!f)
+        fprintf(stderr, "Could not create Faces array. load_obj() - get_faces()\n");
+
     Mesh c;
+    c.indexes = f_indexes;
+    c.t = malloc(sizeof(Triangle) * f_indexes);
+    if (!c.t)
+        fprintf(stderr, "Could not allocate memory for Triangles array. load_obj()\n");
+
+    /* Assign the Faces of the Vectors to the Mesh triangle array creating the final object. */
+    for (int i = 0; i < c.indexes; i++) {
+        c.t[i].v[0] = v[f[i].a];
+        c.t[i].v[1] = v[f[i].b];
+        c.t[i].v[2] = v[f[i].c];
+    }
+    
+    /* Free The Vectors and Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */
+    free(v);
+    free(f);
+    return c;
+}
+static Vector *get_vectors(const char path[]) {
+
     FILE *fp = fopen(path, "r");
     if (!fp) {
         fprintf(stderr, "Could not open file : %s.\n", path);
-        return c;
+        return NULL;
     }
-    printf("Reached this point\n");
-    // c.t = malloc(sizeof(Triangle));
-    if (!c.t) {
-        fprintf(stderr, "Could not allocate memory for struct. load_obj() -- malloc().\n");
-        fclose(fp);
-        return c;
-    }
-    int dynamic_inc = 1;
-    int t_index = 0;
-    int v_index = 0;
 
+    Vector *v;
+    v = malloc(sizeof(Vector));
+    if (!v) {
+        fprintf(stderr, "Could not allocate memory for Vector struct. load_obj() -- malloc().\n");
+        fclose(fp);
+        return NULL;
+    }
+
+    int dynamic_inc = 1;
+    int index = 0;
     char ch;
     float tempx, tempy, tempz;
 
     while (!feof(fp)) {
         if ( (ch = getc(fp)) == 'v' )
             if ( (ch = getc(fp)) == ' ' )
-                if (fscanf(fp, "%f %f %f", &tempx, &tempy, &tempz) == 3){
+                if (fscanf(fp, "%f %f %f", &tempx, &tempy, &tempz) == 3) {
 
-                    /* We must prevent no reason reallocations here. */
-                    if (!v_index) {
-                        // c.t = realloc(c.t, sizeof(Triangle) * dynamic_inc);
-                        if (!c.t) {
-                            fprintf(stderr, "Could not reallocate memory for struct. load_obj() -- realloc().\n");
-                            fclose(fp);
-                            free(c.t);
-                            return c;
-                        }
+                    v = realloc(v, sizeof(Vector) * dynamic_inc);
+                    if (!v) {
+                        fprintf(stderr, "Could not reallocate memory for Vector struct array. load_obj() -- realloc().\n");
+                        fclose(fp);
+                        free(v);
+                        return NULL;
                     }
 
-                    c.t[t_index].v[v_index].x = tempx;
-                    c.t[t_index].v[v_index].y = tempy;
-                    c.t[t_index].v[v_index].z = tempz;
+                    v[index].x = tempx;
+                    v[index].y = tempy;
+                    v[index].z = tempz;
 
-                    v_index++;
-
-                    if (v_index > 2) {
-                        t_index++;
-                        dynamic_inc++;
-                        v_index = 0;
-                    }
+                    index++;
+                    dynamic_inc++;
                 }
+    }
+    v_indexes = index;
+    fclose(fp);
+    return v;
+}
+static Face *get_faces(const char path[]) {
 
-
-        if ( (ch = getc(fp)) == 's' )
-            if ( (ch = getc(fp)) == ' ' )
-                printf("Offset\n");
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        fprintf(stderr, "Could not open file : %s.\n", path);
+        return NULL;
     }
 
-    c.indexes = t_index;
-    fclose(fp);
+    Face *f;
+    f = malloc(sizeof(Face));
+    if (!f) {
+        fprintf(stderr, "Could not allocate memory for Face struct. load_obj() -- malloc().\n");
+        fclose(fp);
+        return NULL;
+    }
+    int dynamic_inc = 1;
+    int index = 0;
 
-    return c;
+    char ch;
+    int tempa, tempb, tempc;
+
+    while (!feof(fp)) {
+        if ( (ch = getc(fp)) == 'f' )
+            if ( (ch = getc(fp)) == ' ' )
+                if (fscanf(fp, "%d %d %d", &tempa, &tempb, &tempc) == 3){
+
+                    f = realloc(f, sizeof(Face) * dynamic_inc);
+                    if (!f) {
+                        fprintf(stderr, "Could not reallocate memory for Face struct array. load_obj() -- realloc().\n");
+                        fclose(fp);
+                        free(f);
+                        return NULL;
+                    }
+
+                    f[index].a = tempa;
+                    f[index].b = tempb;
+                    f[index].c = tempc;
+
+                    index++;
+                    dynamic_inc++;
+                }
+    }
+    f_indexes = index;
+    fclose(fp);
+    return f;
 }
 

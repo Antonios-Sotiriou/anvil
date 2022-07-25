@@ -33,6 +33,18 @@ const Mat4x4 rotate_zmat(const float angle) {
     m.m[3][3] = 1.0;
     return m;
 }
+/* Translation Matrix. */
+const Mat4x4 translation_mat(const float x, const float y, const float z) {
+    Mat4x4 m = { 0 };
+    m.m[0][0] = 1.0;
+    m.m[1][1] = 1.0;
+    m.m[2][2] = 1.0;
+    m.m[3][3] = 1.0;
+    m.m[3][0] = x;
+    m.m[3][1] = y;
+    m.m[3][2] = z;
+    return m;
+}
 /* Projection Matrix. */
 const Mat4x4 projection_mat(const float fov, const float aspectratio) {
     Mat4x4 m = { 0 };
@@ -45,18 +57,63 @@ const Mat4x4 projection_mat(const float fov, const float aspectratio) {
     return m;
 }
 /* Multiplies a Mesh *c with the given Matrix and returns a new Mesh, leaving the original unmodified. */
-Mesh meshxm(Mesh *c, const Mat4x4 m) {
+const Mesh meshxm(const Mesh c, const Mat4x4 m) {
 
-    Mesh ch = *c;
-    for (int i = 0; i < c->indexes; i++) {
+    Mesh r = c;
+    for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
             
-            ch.t[i].v[j].x = c->t[i].v[j].x * m.m[0][0] + c->t[i].v[j].y * m.m[1][0] + c->t[i].v[j].z * m.m[2][0] + c->t[i].v[j].w * m.m[3][0];
-            ch.t[i].v[j].y = c->t[i].v[j].x * m.m[0][1] + c->t[i].v[j].y * m.m[1][1] + c->t[i].v[j].z * m.m[2][1] + c->t[i].v[j].w * m.m[3][1];
-            ch.t[i].v[j].z = c->t[i].v[j].x * m.m[0][2] + c->t[i].v[j].y * m.m[1][2] + c->t[i].v[j].z * m.m[2][2] + c->t[i].v[j].w * m.m[3][2];
-            ch.t[i].v[j].w = c->t[i].v[j].x * m.m[0][3] + c->t[i].v[j].y * m.m[1][3] + c->t[i].v[j].z * m.m[2][3] + c->t[i].v[j].w * m.m[3][3];
+            r.t[i].v[j].x = c.t[i].v[j].x * m.m[0][0] + c.t[i].v[j].y * m.m[1][0] + c.t[i].v[j].z * m.m[2][0] + c.t[i].v[j].w * m.m[3][0];
+            r.t[i].v[j].y = c.t[i].v[j].x * m.m[0][1] + c.t[i].v[j].y * m.m[1][1] + c.t[i].v[j].z * m.m[2][1] + c.t[i].v[j].w * m.m[3][1];
+            r.t[i].v[j].z = c.t[i].v[j].x * m.m[0][2] + c.t[i].v[j].y * m.m[1][2] + c.t[i].v[j].z * m.m[2][2] + c.t[i].v[j].w * m.m[3][2];
+            r.t[i].v[j].w = c.t[i].v[j].x * m.m[0][3] + c.t[i].v[j].y * m.m[1][3] + c.t[i].v[j].z * m.m[2][3] + c.t[i].v[j].w * m.m[3][3];
         }
     }
-    return ch;
+    return r;
+}
+/* Multiplies a Vector with the given Matrix and returns a new Vector, leaving the original unmodified. */
+const Vector vecxm(const Vector v, const Mat4x4 m) {
+    
+    Vector r;
+    r.x = v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + v.w * m.m[3][0];
+    r.y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + v.w * m.m[3][1];
+    r.z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + v.w * m.m[3][2];
+    r.w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + v.w * m.m[3][3];
+    return r;
+}
+// const Mat4x4 camera_mat(const Vector Cam, const Vector X, const Vector Y, const Vector Z) {
+const Mat4x4 camera_mat(const Vector pos, const Vector newRight, const Vector newUp, const Vector newForward) {
+    Mat4x4 m;
+    m.m[0][0] = newRight.x;      m.m[0][1] = newRight.y;      m.m[0][2] = newRight.z;      m.m[0][3] = 0.0;
+    m.m[1][0] = newUp.x;         m.m[1][1] = newUp.y;         m.m[1][2] = newUp.z;         m.m[1][3] = 0.0;
+    m.m[2][0] = newForward.x;    m.m[2][1] = newForward.y;    m.m[2][2] = newForward.z;    m.m[2][3] = 0.0;
+    m.m[3][0] = pos.x;           m.m[3][1] = pos.y;           m.m[3][2] = pos.z;           m.m[3][3] = 1.0;
+
+    // m.m[0][0] = X.x;      m.m[0][1] = X.y;      m.m[0][2] = X.z;      m.m[0][3] = Cam.x;
+    // m.m[1][0] = Y.x;      m.m[1][1] = Y.y;      m.m[1][2] = Y.z;      m.m[1][3] = Cam.y;
+    // m.m[2][0] = Z.x;      m.m[2][1] = Z.y;      m.m[2][2] = Z.z;      m.m[2][3] = Cam.z;
+    // m.m[3][0] = 0.0;      m.m[3][1] = 0.0;      m.m[3][2] = 0.0;      m.m[3][3] = 1.0;
+
+    return m;
+}
+const Mat4x4 inverse_mat(const Mat4x4 m) {
+    Mat4x4 rm = m;
+    rm.m[0][0] = m.m[0][0];    rm.m[0][1] = m.m[1][0];    rm.m[0][2] = m.m[2][0];    rm.m[0][3] = 0.0;
+    rm.m[1][0] = m.m[0][1];    rm.m[1][1] = m.m[1][1];    rm.m[1][2] = m.m[2][1];    rm.m[1][3] = 0.0;
+    rm.m[2][0] = m.m[0][2];    rm.m[2][1] = m.m[1][2];    rm.m[2][2] = m.m[2][2];    rm.m[2][3] = 0.0;
+    rm.m[3][0] = -(m.m[3][0] * rm.m[0][0] + m.m[3][1] * rm.m[1][0] + m.m[3][2] * rm.m[2][0]);
+    rm.m[3][1] = -(m.m[3][0] * rm.m[0][1] + m.m[3][1] * rm.m[1][1] + m.m[3][2] * rm.m[2][1]);
+    rm.m[3][2] = -(m.m[3][0] * rm.m[0][2] + m.m[3][1] * rm.m[1][2] + m.m[3][2] * rm.m[2][2]);
+    rm.m[3][3] = 1.0;
+
+    return rm;
+}
+const Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2) {
+    Mat4x4 r;
+    for (int i = 0; i < 4; i++) 
+        for (int j = 0; j < 4; j++) {
+            r.m[j][i] = m1.m[j][0] * m2.m[0][i] + m1.m[j][1] * m2.m[1][i] + m1.m[j][2] * m2.m[2][i] + m1.m[j][3] * m2.m[3][i];
+        }
+    return r;
 }
 
