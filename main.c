@@ -85,12 +85,18 @@ const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
 
 /* Moving functions */
-static void look_left(Mesh *c, float fyaw);
+static void look_left(float fyaw);
+static void look_right(float fyaw);
+static void move_left(Vector *v);
+static void move_right(Vector *v);
+static void move_up(Vector *v);
+static void move_down(Vector *v);
 static void rotate_x(Mesh *c, const float angle);
 static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
+static void adjust_camera(Mesh *c);
 static void project(Mesh c);
 static void ppdiv(Mesh *c);
 const static BackFace bfculling(const Mesh c);
@@ -182,11 +188,19 @@ const static void keypress(XEvent *event) {
 
         // case 119 : move_forward(); // w
         //     break;
-        case 97 : look_left(&cache, FYaw); // a
+        case 97 : look_left(FYaw); // a
             break;
         // case 115 : move_backward(); // s
         //     break;
-        // case 100 : look_right(FYaw); // d
+        case 100 : look_right(FYaw); // d
+            break;
+        case 65361 : move_left(&Camera); // left arrow
+            break;
+        case 65363 : move_right(&Camera); // right arrow
+            break;
+        case 65362 : move_up(&Camera); // up arror
+            break;
+        case 65364 : move_down(&Camera); // down arrow
             break;
         case 120 : rotate_x(&cache, ANGLE); /* x */
             break;
@@ -204,13 +218,55 @@ const static void keypress(XEvent *event) {
     project(cache);
 }
 /* Rotates the camera to look left. */
-static void look_left(Mesh *c, float fyaw) {
+static void look_left(float fyaw) {
+    fyaw += 0.05;
+    adjust_camera(&cache);
+}
+/* Rotates the camera to look right. */
+static void look_right(float fyaw) {
     fyaw -= 0.05;
-
-    Vector Up = { 0.0, 1.0, 0.0, 1.0 };
-    Vector Target = { 1.0, 0.0, 0.0, 1.0 };
+    adjust_camera(&cache);
+}
+/* Moves camera position left. */
+static void move_left(Vector *v) {
+    v->x -= 0.005;
+    adjust_camera(&cache);
+}
+/* Moves camera position right. */
+static void move_right(Vector *v) {
+    v->x += 0.005;
+    adjust_camera(&cache);
+}
+/* Moves camera position Up. */
+static void move_up(Vector *v) {
+    v->y += 0.005;
+    adjust_camera(&cache);
+}
+/* Moves camera position Down. */
+static void move_down(Vector *v) {
+    v->y += 0.005;
+    adjust_camera(&cache);
+}
+/* Rotates object according to World X axis. */
+static void rotate_x(Mesh *c, const float angle) {
+    Mat4x4 m = rotate_xmat(angle);
+    *c = meshxm(cube, m);
+}
+/* Rotates object according to World Y axis. */
+static void rotate_y(Mesh *c, const float angle) {
+    Mat4x4 m = rotate_ymat(angle);
+    *c = meshxm(cube, m);
+}
+/* Rotates object according to World Z axis. */
+static void rotate_z(Mesh *c, const float angle) {
+    Mat4x4 m = rotate_zmat(angle);
+    *c = meshxm(cube, m);
+}
+static void adjust_camera(Mesh *c) {
+    Vector Up = { 0.0, -1.0, 0.0, 1.0 };
+    Vector Target = { -1.0, 0.0, 0.0, 1.0 };
     
-    Mat4x4 matCameraRot = rotate_ymat(fyaw);
+    Mat4x4 matCameraRot = rotate_ymat(FYaw);
     LookDir = vecxm(Target, matCameraRot);
     Target = add_vecs(Camera, LookDir);
 
@@ -233,21 +289,6 @@ static void look_left(Mesh *c, float fyaw) {
     Mat4x4 matView = inverse_mat(reView);
 
     *c = meshxm(cube, matView);
-}
-/* Rotates object according to World X axis. */
-static void rotate_x(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_xmat(angle);
-    *c = meshxm(cube, m);
-}
-/* Rotates object according to World Y axis. */
-static void rotate_y(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_ymat(angle);
-    *c = meshxm(cube, m);
-}
-/* Rotates object according to World Z axis. */
-static void rotate_z(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_zmat(angle);
-    *c = meshxm(cube, m);
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
