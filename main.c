@@ -28,6 +28,8 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
 Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
+        Target   =   { 1.0, 0.0, 0.0, 1.0 },
+        Up       =   { 0.0, 1.0, 0.0, 1.0 },
         LookDir  =   { 0.0, 0.0, 1.0, 1.0 };
 
 // Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
@@ -72,7 +74,7 @@ static int RUNNING = 1;
 float AspectRatio = 0;
 float FOV = 90.0;
 static float ANGLE = 0.05;
-static float FYaw = 0;
+static float FYaw = 0.05;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -229,22 +231,22 @@ static void look_right(float fyaw) {
 }
 /* Moves camera position left. */
 static void move_left(Vector *v) {
-    v->x -= 0.005;
+    v->x -= 0.5;
     adjust_camera(&cache);
 }
 /* Moves camera position right. */
 static void move_right(Vector *v) {
-    v->x += 0.005;
+    v->x += 0.5;
     adjust_camera(&cache);
 }
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
-    v->y += 0.005;
+    v->y -= 0.5;
     adjust_camera(&cache);
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
-    v->y += 0.005;
+    v->y += 0.5;
     adjust_camera(&cache);
 }
 /* Rotates object according to World X axis. */
@@ -263,21 +265,20 @@ static void rotate_z(Mesh *c, const float angle) {
     *c = meshxm(cube, m);
 }
 static void adjust_camera(Mesh *c) {
-    Vector Up = { 0.0, -1.0, 0.0, 1.0 };
-    Vector Target = { -1.0, 0.0, 0.0, 1.0 };
-    
-    Mat4x4 matCameraRot = rotate_ymat(FYaw);
-    LookDir = vecxm(Target, matCameraRot);
-    Target = add_vecs(Camera, LookDir);
 
-    // Calculate new forward direction
-    Vector newForward = sub_vecs(Target, Camera);
-    newForward = norm_vec(newForward);
+        /* before point at. */
+    Mat4x4 matCameraRot = rotate_ymat(FYaw);
+    Vector vLookDir = vecxm(Target, matCameraRot);
+    Vector vTarget = add_vecs(Camera, vLookDir);
+
+        /* Point at initialization. */   
+    Vector newForward = sub_vecs(vTarget, Camera);
+    // newForward = norm_vec(newForward);
 
     // Calculate new Up direction
     Vector a = multiply_vec(newForward, dot_product(Up, newForward));
     Vector newUp = sub_vecs(Up, a);
-    newUp = norm_vec(newUp);
+    // newUp = norm_vec(newUp);
 
     // New Right direction is easy, its just cross product
     Vector newRight = cross_product(newUp, newForward);

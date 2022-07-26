@@ -83,16 +83,16 @@ const Vector vecxm(const Vector v, const Mat4x4 m) {
 }
 /* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix representing the camera. */
 // const Mat4x4 camera_mat(const Vector Cam, const Vector X, const Vector Y, const Vector Z) {
-const Mat4x4 camera_mat(const Vector pos, const Vector newRight, const Vector newUp, const Vector newForward) {
+const Mat4x4 camera_mat(const Vector P, const Vector U, const Vector V, const Vector N) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = newRight.x;      m.m[0][1] = newRight.y;      m.m[0][2] = newRight.z;      m.m[0][3] = -pos.x;
-    m.m[1][0] = newUp.x;         m.m[1][1] = newUp.y;         m.m[1][2] = newUp.z;         m.m[1][3] = -pos.y;
-    m.m[2][0] = newForward.x;    m.m[2][1] = newForward.y;    m.m[2][2] = newForward.z;    m.m[2][3] = -pos.z;
-    m.m[3][0] = 0.0;             m.m[3][1] = 0.0;             m.m[3][2] = 0.0;             m.m[3][3] = 1.0;
+    m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;    m.m[0][3] = 0.0;
+    m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;    m.m[1][3] = 0.0;
+    m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;    m.m[2][3] = 0.0;
+    m.m[3][0] = P.x;      m.m[3][1] = P.y;      m.m[3][2] = P.z;    m.m[3][3] = 1.0;
 
-    // m.m[0][0] = X.x;      m.m[0][1] = X.y;      m.m[0][2] = X.z;      m.m[0][3] = Cam.x;
-    // m.m[1][0] = Y.x;      m.m[1][1] = Y.y;      m.m[1][2] = Y.z;      m.m[1][3] = Cam.y;
-    // m.m[2][0] = Z.x;      m.m[2][1] = Z.y;      m.m[2][2] = Z.z;      m.m[2][3] = Cam.z;
+    // m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;      m.m[0][3] = -P.x;
+    // m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;      m.m[1][3] = -P.y;
+    // m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;      m.m[2][3] = -P.z;
     // m.m[3][0] = 0.0;      m.m[3][1] = 0.0;      m.m[3][2] = 0.0;      m.m[3][3] = 1.0;
 
     return m;
