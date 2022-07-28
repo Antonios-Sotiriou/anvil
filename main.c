@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <X11/Xlib.h>
 #include <math.h>
+#include <unistd.h>
 
 /* Project specific headers */
 #include "header_files/locale.h"
@@ -187,10 +188,10 @@ const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
 }
+
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
-    
     switch (keysym) {
 
         // case 119 : move_forward(); // w
