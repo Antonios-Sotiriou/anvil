@@ -16,16 +16,10 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 #define XWorldToScreen            ( (1 + c.t[i].v[j].x) * (wa.width / 2.00) )
 #define YWorldToScreen            ( (1 + c.t[i].v[j].y) * (wa.height / 2.00) )
 
-// #define TranslateX                ( c->tri[i].vector[j].x )
-// #define TranslateY                ( c->tri[i].vector[j].y )
-// #define TranslateZ                ( c->tri[i].vector[j].z )
-
-// #define range                     ( ((num / other) - 0.5) * 2.00 )
-
-// #define NormalizeWorldX           ( (c.tri[i].vector[j].x + (wa.width / 2.00)) / wa.width )
-// #define NormalizeWorldY           ( (c.tri[i].vector[j].y + (wa.height / 2.00)) / wa.height )
-// #define XWorldToScreen            ( normalized.tri[i].vector[j].x * wa.width )
-// #define YWorldToScreen            ( normalized.tri[i].vector[j].y * wa.height )
+// #define NormalizeWorldX           ( (c.t[i].v[j].x + (wa.width / 2.00)) / wa.width )
+// #define NormalizeWorldY           ( (c.t[i].v[j].y + (wa.height / 2.00)) / wa.height )
+// #define XWorldToScreen            ( normalized.t[i].v[j].x * wa.width )
+// #define YWorldToScreen            ( normalized.t[i].v[j].y * wa.height )
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
@@ -40,8 +34,8 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
 Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
-        Target   =   { 1.0, 0.0, 0.0, 1.0 },
-        Up       =   { 0.0, 1.0, 0.0, 1.0 },
+        Target   =   { -1.0, 0.0, -1.0, 1.0 },
+        Up       =   { 0.0, -1.0, -1.0, 1.0 },
         LookDir  =   { 0.0, 0.0, 1.0, 1.0 };
 
 // Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
@@ -53,10 +47,9 @@ Vector LightSC = {
     -1.0, -1.0, 1.0, 1.0
 };
 
-#define cube_back     0.5f
-#define cube_front    0.0
-#define cube_size     0.5
-
+#define cube_back     10.2
+#define cube_front    10.0
+#define cube_size     10.2
 Mesh cube = {
     {
         { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
@@ -85,7 +78,7 @@ Mesh cache = { 0 };
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
 float AspectRatio = 0;
-float FOV = 90.0;
+float FOV = 60.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.05;
 
@@ -102,8 +95,8 @@ const static void keypress(XEvent *event);
 /* Moving functions */
 static void look_left(float fyaw);
 static void look_right(float fyaw);
-static void move_left(Vector *v);
-static void move_right(Vector *v);
+static void move_left(Mesh *c, Vector *v);
+static void move_right(Mesh *c, Vector *v);
 static void move_up(Vector *v);
 static void move_down(Vector *v);
 static void rotate_x(Mesh *c, const float angle);
@@ -167,8 +160,8 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // cube = load_obj("/home/as/Desktop/cube.obj");
-
+        // cube = load_obj("/home/as/Desktop/axis.obj");
+        
         cache = cube;  /* Importand spot. */
         MAPCOUNT = 1;
     }
@@ -209,9 +202,9 @@ const static void keypress(XEvent *event) {
         //     break;
         case 100 : look_right(FYaw); // d
             break;
-        case 65361 : move_left(&Camera); // left arrow
+        case 65361 : move_left(&cache, &Camera); // left arrow
             break;
-        case 65363 : move_right(&Camera); // right arrow
+        case 65363 : move_right(&cache, &Camera); // right arrow
             break;
         case 65362 : move_up(&Camera); // up arror
             break;
@@ -234,32 +227,67 @@ const static void keypress(XEvent *event) {
 }
 /* Rotates the camera to look left. */
 static void look_left(float fyaw) {
-    fyaw += 0.05;
+    fyaw -= 0.05;
     adjust_camera(&cache);
 }
 /* Rotates the camera to look right. */
 static void look_right(float fyaw) {
-    fyaw -= 0.05;
+    fyaw += 0.05;
     adjust_camera(&cache);
 }
 /* Moves camera position left. */
-static void move_left(Vector *v) {
-    v->x -= 0.5;
-    adjust_camera(&cache);
+static void move_left(Mesh *c, Vector *v) {
+    v->x -= 0.001;
+
+        /* Camera Direction */
+    // Vector Target = { -1.0, 0.0, -1.0 };
+    Target = norm_vec(sub_vecs(*v, Target));
+
+    //     /* Right Axis */   
+    LookDir = norm_vec(cross_product(Up, Target));
+
+    //     /* Camera Up */
+    Up = norm_vec(cross_product(LookDir, Target));
+
+    // Mat4x4 matCamera = camera_mat(*v, Target, Up, LookDir);
+
+    // // Make view matrix from camera
+    // Mat4x4 matView = inverse_mat(matCamera);
+
+    // *c = meshxm(cube, matView);
+
+    // adjust_camera(&cache);
 }
 /* Moves camera position right. */
-static void move_right(Vector *v) {
-    v->x += 0.5;
-    adjust_camera(&cache);
+static void move_right(Mesh *c, Vector *v) {
+    v->x += 0.001;
+
+        /* Camera Direction */
+    Vector cameraTarget = { 1.0, 0.0, 0.0 };
+    Vector cameraDirection = norm_vec(sub_vecs(*v, cameraTarget));
+
+        /* Right Axis */   
+    Vector Up = { 0.0, -1.0, 0.0 };
+    Vector cameraRight = norm_vec(cross_product(Up, cameraDirection));
+
+        /* Camera Up */
+    Vector cameraUp = cross_product(cameraDirection, cameraRight);
+
+    Mat4x4 matCamera = camera_mat(*v, cameraRight, cameraUp, cameraDirection);
+
+    // Make view matrix from camera
+    Mat4x4 matView = inverse_mat(matCamera);
+
+    *c = meshxm(cube, matView);
 }
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
-    v->y -= 0.5;
+    v->y -= 0.1;
     adjust_camera(&cache);
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
-    v->y += 0.5;
+    v->y += 0.1;
     adjust_camera(&cache);
 }
 /* Rotates object according to World X axis. */
@@ -306,17 +334,21 @@ static void adjust_camera(Mesh *c) {
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
-    // Mat4x4 tm = translation_mat(0.0, 0.0, 10.0);
+
+    // Mat4x4 tm = translation_mat(1.0, 1.0, 1.0);
     // c = meshxm(cube, tm);
 
     Mat4x4 m = projection_mat(FOV, AspectRatio);
+
+    // Mat4x4 nm = mxm(tm, m);
+
     c = meshxm(cube, m);
     /* Applying perspective division. */
     ppdiv(&c);
     /* Triangles must be checked for cross product. */
     BackFace bf = bfculling(c);
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    // bf = sort_vectors(&bf);
+    bf = sort_triangles(&bf);
     /* Sending to translation to Screen Coordinates. */
     rasterize(bf);
     
@@ -404,6 +436,7 @@ const static void draw(const SCMesh sc, const BackFace c) {
 const static void rasterize(const BackFace c) {
 
     SCMesh scmesh;
+    // BackFace normalized = c;
     scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
 
     if (!scmesh.sct)
@@ -413,6 +446,9 @@ const static void rasterize(const BackFace c) {
 
     for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
+
+            // normalized.t[i].v[j].x = NormalizeWorldX;
+            // normalized.t[i].v[j].y = NormalizeWorldY;           
 
             scmesh.sct[i].scv[j].x = XWorldToScreen;
             scmesh.sct[i].scv[j].y = YWorldToScreen;
