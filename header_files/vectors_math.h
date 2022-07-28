@@ -10,7 +10,7 @@
 
 /* 3D graphics Vector computation functions */
 const float depth(const Triangle t);
-BackFace sort_vectors(BackFace *c);
+BackFace sort_triangles(BackFace *c);
 const float len_vec(const Vector v);
 const Vector norm_vec(const Vector v);
 const Vector multiply_vec(const Vector v1, const float num);

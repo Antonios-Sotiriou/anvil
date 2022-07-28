@@ -8,7 +8,7 @@ const float depth(const Triangle t) {
     return res / 3;
 }
 /* Sorts Mesh's Triangles according to Triangle's Vectors Z value average. */
-BackFace sort_vectors(BackFace *c) {
+BackFace sort_triangles(BackFace *c) {
 
     Triangle temp = { 0 };
     int pos = 0;

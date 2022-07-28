@@ -40,9 +40,9 @@ const Mat4x4 translation_mat(const float x, const float y, const float z) {
     m.m[1][1] = 1.0;
     m.m[2][2] = 1.0;
     m.m[3][3] = 1.0;
-    m.m[3][0] = x;
-    m.m[3][1] = y;
-    m.m[3][2] = z;
+    m.m[0][3] = x;
+    m.m[1][3] = y;
+    m.m[2][3] = z;
     return m;
 }
 /* Projection Matrix. */
@@ -53,7 +53,7 @@ const Mat4x4 projection_mat(const float fov, const float aspectratio) {
     m.m[2][2] = (ZFar / (ZFar - ZNear));
     m.m[2][3] = 1.0;
     m.m[3][2] = ((-ZFar * ZNear) / (ZFar - ZNear));
-    m.m[3][3] = 1.0;
+    m.m[3][3] = 0.0;
     return m;
 }
 /* Multiplies a Mesh c with the given Matrix and returns a new Mesh, leaving the original unmodified. */
@@ -82,13 +82,17 @@ const Vector vecxm(const Vector v, const Mat4x4 m) {
     return r;
 }
 /* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix representing the camera. */
-// const Mat4x4 camera_mat(const Vector Cam, const Vector X, const Vector Y, const Vector Z) {
 const Mat4x4 camera_mat(const Vector P, const Vector U, const Vector V, const Vector N) {
     Mat4x4 m = { 0 };
     m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;    m.m[0][3] = 0.0;
     m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;    m.m[1][3] = 0.0;
     m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;    m.m[2][3] = 0.0;
     m.m[3][0] = P.x;      m.m[3][1] = P.y;      m.m[3][2] = P.z;    m.m[3][3] = 1.0;
+
+    // m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;    m.m[0][3] = P.x;
+    // m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;    m.m[1][3] = P.y;
+    // m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;    m.m[2][3] = P.z;
+    // m.m[3][0] = 0.0;      m.m[3][1] = 0.0;      m.m[3][2] = 0.0;    m.m[3][3] = 1.0;
 
     // m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;      m.m[0][3] = -P.x;
     // m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;      m.m[1][3] = -P.y;
@@ -107,7 +111,6 @@ const Mat4x4 inverse_mat(const Mat4x4 m) {
     rm.m[3][1] = -(m.m[3][0] * rm.m[0][1] + m.m[3][1] * rm.m[1][1] + m.m[3][2] * rm.m[2][1]);
     rm.m[3][2] = -(m.m[3][0] * rm.m[0][2] + m.m[3][1] * rm.m[1][2] + m.m[3][2] * rm.m[2][2]);
     rm.m[3][3] = 1.0;
-
     return rm;
 }
 /* Multiplies two given Matrices m1, m2.Returns a new 4x4 Matrix. */
