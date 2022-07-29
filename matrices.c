@@ -88,17 +88,6 @@ const Mat4x4 camera_mat(const Vector P, const Vector U, const Vector V, const Ve
     m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;    m.m[1][3] = 0.0;
     m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;    m.m[2][3] = 0.0;
     m.m[3][0] = P.x;      m.m[3][1] = P.y;      m.m[3][2] = P.z;    m.m[3][3] = 1.0;
-
-    // m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;    m.m[0][3] = P.x;
-    // m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;    m.m[1][3] = P.y;
-    // m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;    m.m[2][3] = P.z;
-    // m.m[3][0] = 0.0;      m.m[3][1] = 0.0;      m.m[3][2] = 0.0;    m.m[3][3] = 1.0;
-
-    // m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;      m.m[0][3] = -P.x;
-    // m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;      m.m[1][3] = -P.y;
-    // m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;      m.m[2][3] = -P.z;
-    // m.m[3][0] = 0.0;      m.m[3][1] = 0.0;      m.m[3][2] = 0.0;      m.m[3][3] = 1.0;
-
     return m;
 }
 /* Inverts the given Matrix m returning a new 4x4 Matrix. */

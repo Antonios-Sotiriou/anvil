@@ -32,23 +32,18 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
-        Target   =   { -1.0, 0.0, -1.0, 1.0 },
-        Up       =   { 0.0, -1.0, -1.0, 1.0 },
-        LookDir  =   { 0.0, 0.0, 1.0, 1.0 };
-
-// Vector  Camera   =   { 0.0, 0.0, -1.0, 1.0 }, 
-//         U        =   { 0.0, 0.0, 0.0, 1.0 }, 
-//         V        =   { 0.0, 0.0, 0.0, 1.0 }, 
-//         N        =   { 0.0, 0.0, -1.0, 1.0 };
+Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 }, 
+        U    =   { 1.0, 0.0, 0.0, 0.0 },
+        V       =   { 0.0, 1.0, 0.0, 0.0 },
+        N  =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC = {
-    -1.0, -1.0, 1.0, 1.0
+    -1.0, -1.0, 0.0, 0.0
 };
 
-#define cube_back     10.2
-#define cube_front    10.0
-#define cube_size     10.2
+#define cube_back    0.25
+#define cube_front   0.0
+#define cube_size    0.25
 Mesh cube = {
     {
         { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
@@ -77,9 +72,9 @@ Mesh cache = { 0 };
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
 float AspectRatio = 0;
-float FOV = 60.0;
+float FOV = 90.0;
 static float ANGLE = 0.05;
-static float FYaw = 0.05;
+static float FYaw = 0.1;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -93,9 +88,11 @@ const static void keypress(XEvent *event);
 
 /* Moving functions */
 static void look_left(float fyaw);
+static void move_backward(Vector *v);
 static void look_right(float fyaw);
-static void move_left(Mesh *c, Vector *v);
-static void move_right(Mesh *c, Vector *v);
+static void move_forward(Vector *v);
+static void move_left(Vector *v);
+static void move_right(Vector *v);
 static void move_up(Vector *v);
 static void move_down(Vector *v);
 static void rotate_x(Mesh *c, const float angle);
@@ -103,7 +100,6 @@ static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
-static void adjust_camera(Mesh *c);
 static void project(Mesh c);
 static void ppdiv(Mesh *c);
 const static BackFace bfculling(const Mesh c);
@@ -193,27 +189,27 @@ const static void keypress(XEvent *event) {
     
     switch (keysym) {
 
-        // case 119 : move_forward(); // w
-        //     break;
-        case 97 : look_left(FYaw); // a
+        case 119 : move_forward(&Camera);         /* w */
             break;
-        // case 115 : move_backward(); // s
-        //     break;
-        case 100 : look_right(FYaw); // d
+        case 97 : look_left(FYaw);                /* a */
             break;
-        case 65361 : move_left(&cache, &Camera); // left arrow
+        case 115 : move_backward(&Camera);        /* s */
             break;
-        case 65363 : move_right(&cache, &Camera); // right arrow
+        case 100 : look_right(FYaw);              /* d */
             break;
-        case 65362 : move_up(&Camera); // up arror
+        case 65361 : move_left(&Camera);          /* left arrow */
             break;
-        case 65364 : move_down(&Camera); // down arrow
+        case 65363 : move_right(&Camera);         /* right arrow */
             break;
-        case 120 : rotate_x(&cache, ANGLE); /* x */
+        case 65362 : move_up(&Camera);            /* up arror */
             break;
-        case 121 : rotate_y(&cache, ANGLE); /* y */
+        case 65364 : move_down(&Camera);          /* down arrow */
             break;
-        case 122 : rotate_z(&cache, ANGLE); /* z */
+        case 120 : rotate_x(&cache, ANGLE);       /* x */
+            break;
+        case 121 : rotate_y(&cache, ANGLE);       /* y */
+            break;
+        case 122 : rotate_z(&cache, ANGLE);       /* z */
             break;
         default :
             return;
@@ -227,67 +223,39 @@ const static void keypress(XEvent *event) {
 /* Rotates the camera to look left. */
 static void look_left(float fyaw) {
     fyaw -= 0.05;
-    adjust_camera(&cache);
+    Mat4x4 m = rotate_ymat(fyaw);
+    U = vecxm(U, m);
+    N = vecxm(N, m);
+}
+static void move_backward(Vector *v) {
+    v->z -= 0.1;
 }
 /* Rotates the camera to look right. */
 static void look_right(float fyaw) {
+    fyaw = -FYaw;
     fyaw += 0.05;
-    adjust_camera(&cache);
+    Mat4x4 m = rotate_ymat(fyaw);
+    U = vecxm(U, m);
+    N = vecxm(N, m);
+}
+static void move_forward(Vector *v) {
+    v->z += 0.1;
 }
 /* Moves camera position left. */
-static void move_left(Mesh *c, Vector *v) {
-    v->x -= 0.001;
-
-        /* Camera Direction */
-    // Vector Target = { -1.0, 0.0, -1.0 };
-    Target = norm_vec(sub_vecs(*v, Target));
-
-    //     /* Right Axis */   
-    LookDir = norm_vec(cross_product(Up, Target));
-
-    //     /* Camera Up */
-    Up = norm_vec(cross_product(LookDir, Target));
-
-    // Mat4x4 matCamera = camera_mat(*v, Target, Up, LookDir);
-
-    // // Make view matrix from camera
-    // Mat4x4 matView = inverse_mat(matCamera);
-
-    // *c = meshxm(cube, matView);
-
-    // adjust_camera(&cache);
+static void move_left(Vector *v) {
+    v->x -= 0.005;
 }
 /* Moves camera position right. */
-static void move_right(Mesh *c, Vector *v) {
-    v->x += 0.001;
-
-        /* Camera Direction */
-    Vector cameraTarget = { 1.0, 0.0, 0.0 };
-    Vector cameraDirection = norm_vec(sub_vecs(*v, cameraTarget));
-
-        /* Right Axis */   
-    Vector Up = { 0.0, -1.0, 0.0 };
-    Vector cameraRight = norm_vec(cross_product(Up, cameraDirection));
-
-        /* Camera Up */
-    Vector cameraUp = cross_product(cameraDirection, cameraRight);
-
-    Mat4x4 matCamera = camera_mat(*v, cameraRight, cameraUp, cameraDirection);
-
-    // Make view matrix from camera
-    Mat4x4 matView = inverse_mat(matCamera);
-
-    *c = meshxm(cube, matView);
+static void move_right(Vector *v) {
+    v->x += 0.005;
 }
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
-    v->y -= 0.1;
-    adjust_camera(&cache);
+    v->y -= 0.005;
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
-    v->y += 0.1;
-    adjust_camera(&cache);
+    v->y += 0.005;
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -304,44 +272,19 @@ static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(cube, m);
 }
-static void adjust_camera(Mesh *c) {
-
-        /* before point at. */
-    Mat4x4 matCameraRot = rotate_ymat(FYaw);
-    Vector vLookDir = vecxm(Target, matCameraRot);
-    Vector vTarget = add_vecs(Camera, vLookDir);
-
-        /* Point at initialization. */   
-    Vector newForward = sub_vecs(vTarget, Camera);
-    // newForward = norm_vec(newForward);
-
-    // Calculate new Up direction
-    Vector a = multiply_vec(newForward, dot_product(Up, newForward));
-    Vector newUp = sub_vecs(Up, a);
-    // newUp = norm_vec(newUp);
-
-    // New Right direction is easy, its just cross product
-    Vector newRight = cross_product(newUp, newForward);
-
-    Mat4x4 matCamera = camera_mat(Camera, newRight, newUp, newForward);
-
-    Mat4x4 reView = mxm(matCamera, matCameraRot);
-    // Make view matrix from camera
-    Mat4x4 matView = inverse_mat(reView);
-
-    *c = meshxm(cube, matView);
-}
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
 
-    // Mat4x4 tm = translation_mat(1.0, 1.0, 1.0);
-    // c = meshxm(cube, tm);
+    Mat4x4 matCamera = camera_mat(Camera, U, V, N);
+
+    // Make view matrix from camera
+    Mat4x4 reView = inverse_mat(matCamera);
 
     Mat4x4 m = projection_mat(FOV, AspectRatio);
 
-    // Mat4x4 nm = mxm(tm, m);
+    Mat4x4 nm = mxm(reView, m);
 
-    c = meshxm(cube, m);
+    c = meshxm(cube, nm);
     /* Applying perspective division. */
     ppdiv(&c);
     /* Triangles must be checked for cross product. */
@@ -413,7 +356,9 @@ const static void draw(const SCMesh sc, const BackFace c) {
             cp = triangle_cp(c.t[i]);
             dp = dot_product(cp, LightSC);
             gcil.graphics_exposures = False;
-            
+
+            printf("\x1b[H\x1b[J");
+            printf("LightSc Dot product: %f\n", dp);
             if (dp > 0.00) {
                 gcil.foreground = 0xbb09b8;
             } else 
