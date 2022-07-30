@@ -156,7 +156,7 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // cube = load_obj("/home/as/Desktop/axis.obj");
+        // cube = load_obj("/home/as/Desktop/spaceship.obj");
         
         cache = cube;  /* Importand spot. */
         MAPCOUNT = 1;
@@ -223,40 +223,42 @@ const static void keypress(XEvent *event) {
 }
 /* Rotates the camera to look left. */
 static void look_left(float fyaw) {
-    fyaw -= 0.05;
-    Mat4x4 m = rotate_ymat(fyaw);
-    U = vecxm(U, m);
-    N = vecxm(N, m);
-}
-static void move_backward(Vector *v) {
-    v->z -= 0.1;
-}
-/* Rotates the camera to look right. */
-static void look_right(float fyaw) {
     fyaw = -FYaw;
     fyaw += 0.05;
     Mat4x4 m = rotate_ymat(fyaw);
     U = vecxm(U, m);
     N = vecxm(N, m);
 }
+static void move_backward(Vector *v) {
+    Vector tempN = multiply_vec(N, 0.1);
+    Camera = sub_vecs(Camera, tempN);
+}
+/* Rotates the camera to look right. */
+static void look_right(float fyaw) {
+    fyaw -= 0.05;
+    Mat4x4 m = rotate_ymat(fyaw);
+    U = vecxm(U, m);
+    N = vecxm(N, m);
+}
 static void move_forward(Vector *v) {
-    v->z += 0.1;
+    Vector tempN = multiply_vec(N, 0.1);
+    Camera = add_vecs(Camera, tempN);
 }
 /* Moves camera position left. */
 static void move_left(Vector *v) {
-    v->x -= 0.005;
+    v->x -= 0.1;
 }
 /* Moves camera position right. */
 static void move_right(Vector *v) {
-    v->x += 0.005;
+    v->x += 0.1;
 }
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
-    v->y -= 0.005;
+    v->y -= 0.1;
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
-    v->y += 0.005;
+    v->y += 0.1;
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -275,6 +277,9 @@ static void rotate_z(Mesh *c, const float angle) {
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
+
+    // Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
+    // c = meshxm(cube, tm);
 
     Mat4x4 matCamera = camera_mat(Camera, U, V, N);
 
