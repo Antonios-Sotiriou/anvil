@@ -33,6 +33,15 @@ const Mat4x4 rotate_zmat(const float angle) {
     m.m[3][3] = 1.0;
     return m;
 }
+/* Scale Matrix. */
+const Mat4x4 scale_mat(const float scale) {
+    Mat4x4 m = { 0 };
+    m.m[0][0] = scale;
+    m.m[1][1] = scale;
+    m.m[2][2] = scale;
+    m.m[3][3] = 1.0;
+    return m;
+}
 /* Translation Matrix. */
 const Mat4x4 translation_mat(const float x, const float y, const float z) {
     Mat4x4 m = { 0 };
