@@ -17,6 +17,7 @@
 const Mat4x4 rotate_xmat(const float angle);
 const Mat4x4 rotate_ymat(const float angle);
 const Mat4x4 rotate_zmat(const float angle);
+const Mat4x4 scale_mat(const float scale);
 const Mat4x4 translation_mat(const float x, const float y, const float z);
 const Mat4x4 projection_mat(const float fov, const float aspectratio);
 const Mesh meshxm(const Mesh c, const Mat4x4 m);

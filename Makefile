@@ -13,7 +13,7 @@ uninstall:
 	sudo apt remove libx11-dev;
 
 all:
-	$(CC) $(CFLAGS) main.c locale.c matrices.c vectors_math.c -o $(OBJ) $(LINKS);
+	$(CC) $(CFLAGS) main.c locale.c matrices.c vectors_math.c obj_parser.c -o $(OBJ) $(LINKS);
 
 exec:
 	./anvil

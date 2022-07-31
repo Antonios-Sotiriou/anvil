@@ -34,41 +34,40 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
 Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 }, 
-        U    =   { 1.0, 0.0, 0.0, 0.0 },
-        V       =   { 0.0, 1.0, 0.0, 0.0 },
-        N  =   { 0.0, 0.0, 1.0, 0.0 };
+        U        =   { 1.0, 0.0, 0.0, 0.0 },
+        V        =   { 0.0, 1.0, 0.0, 0.0 },
+        N        =   { 0.0, 0.0, 1.0, 0.0 };
 
-Vector LightSC = {
-    -1.0, -1.0, 0.0, 0.0
-};
+Vector LightSC   = { -1.0, -1.0, 0.0, 0.0 };
 
-#define cube_back    0.25
-#define cube_front   0.0
-#define cube_size    0.25
-Mesh cube = {
-    {
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },      /* Front Down */
+// #define cube_back    0.25
+// #define cube_front   0.0
+// #define cube_size    0.25
+// Mesh cube = {
+//     {
+//         { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
+//         { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },      /* Front Down */
 
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    /* Back Up */
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     /* Back Down */
+//         { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    /* Back Up */
+//         { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     /* Back Down */
 
-        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },     /* West Up */
-        { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },       /* East Down */
+//         { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },     /* West Up */
+//         { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },       /* East Down */
 
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },    /* East Up */
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },     /* East Down */
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },    /* East Up */
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },     /* East Down */
 
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   /* North Up */
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   /* North Down */
+//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   /* North Up */
+//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   /* North Down */
 
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       /* South Up */
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },      /* South Down */
-    },
-    .indexes = 12
-};
-// Mesh cube = { 0 };
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       /* South Up */
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },      /* South Down */
+//     },
+//     .indexes = 12
+// };
+Mesh cube = { 0 };
 Mesh cache = { 0 };
+Mat4x4 WorldMat = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
@@ -127,14 +126,14 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 /* Project specific inludes. */
 #include "header_files/matrices.h"
 #include "header_files/vectors_math.h"
-// #include "header_files/obj_parser.h"
+#include "header_files/obj_parser.h"
 
 const static void clientmessage(XEvent *event) {
 
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
-        // free(cube.t);
+        free(cube.t);
 
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
@@ -156,9 +155,14 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // cube = load_obj("/home/as/Desktop/spaceship.obj");
+        cube = load_obj("/home/as/Desktop/spaceship.obj");
         
         cache = cube;  /* Importand spot. */
+
+        Mat4x4 sm = scale_mat(1.5);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 1.0);
+        Mat4x4 WorldMat = mxm(sm, tm);
+        cache = meshxm(cube, WorldMat);
         MAPCOUNT = 1;
     }
 }
@@ -278,13 +282,16 @@ static void rotate_z(Mesh *c, const float angle) {
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
 
-    // Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
-    // c = meshxm(cube, tm);
+    /* Translation Matrix doesn't working without ppdiv. */
+    // Mat4x4 sm = scale_mat(0.2);
+    // Mat4x4 tm = translation_mat(0.0, 0.0, 1.0);
+    // Mat4x4 lm = mxm(sm, tm);
 
     Mat4x4 matCamera = camera_mat(Camera, U, V, N);
 
     // Make view matrix from camera
     Mat4x4 reView = inverse_mat(matCamera);
+    
 
     Mat4x4 m = projection_mat(FOV, AspectRatio);
 
@@ -295,8 +302,10 @@ static void project(Mesh c) {
     ppdiv(&c);
     /* Triangles must be checked for cross product. */
     BackFace bf = bfculling(c);
+
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     bf = sort_triangles(&bf);
+
     /* Sending to translation to Screen Coordinates. */
     rasterize(bf);
     
@@ -347,7 +356,7 @@ const static void draw(const SCMesh sc, const BackFace c) {
 
     XGCValues gclines, gcil;
     gclines.graphics_exposures = False;
-    gclines.line_width = 3;
+    gclines.line_width = 1;
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
 
@@ -363,8 +372,6 @@ const static void draw(const SCMesh sc, const BackFace c) {
             dp = dot_product(cp, LightSC);
             gcil.graphics_exposures = False;
 
-            printf("\x1b[H\x1b[J");
-            printf("LightSc Dot product: %f\n", dp);
             if (dp > 0.00) {
                 gcil.foreground = 0xbb09b8;
             } else 
