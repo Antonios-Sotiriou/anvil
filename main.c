@@ -37,41 +37,41 @@ Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
-Vector LightSC   = { -1.0, -1.0, 0.0, 0.0 };
+Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-// #define cube_back    0.25
-// #define cube_front   0.0
-// #define cube_size    0.25
-// Mesh cube = {
-//     {
-//         { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
-//         { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },      /* Front Down */
+#define cube_back    0.25
+#define cube_front   0.0
+#define cube_size    0.25
+Mesh cube = {
+    {
+        { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
+        { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },      /* Front Down */
 
-//         { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    /* Back Up */
-//         { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     /* Back Down */
+        { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    /* Back Up */
+        { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     /* Back Down */
 
-//         { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },     /* West Up */
-//         { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },       /* East Down */
+        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },     /* West Up */
+        { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },       /* East Down */
 
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },    /* East Up */
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },     /* East Down */
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },    /* East Up */
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },     /* East Down */
 
-//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   /* North Up */
-//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   /* North Down */
+        { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   /* North Up */
+        { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   /* North Down */
 
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       /* South Up */
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },      /* South Down */
-//     },
-//     .indexes = 12
-// };
-Mesh cube = { 0 };
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       /* South Up */
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },      /* South Down */
+    },
+    .indexes = 12
+};
+// Mesh cube = { 0 };
 Mesh cache = { 0 };
 Mat4x4 WorldMat = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
 float AspectRatio = 0;
-float FOV = 90.0;
+float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
 
@@ -132,7 +132,7 @@ const static void clientmessage(XEvent *event) {
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
-        free(cube.t);
+        // free(cube.t);
 
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
@@ -154,14 +154,14 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        cube = load_obj("/home/as/Desktop/spaceship.obj");
+        // cube = load_obj("/home/as/Desktop/axis.obj");
         
         cache = cube;  /* Importand spot. */
 
-        Mat4x4 sm = scale_mat(1.5);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 1.0);
-        Mat4x4 WorldMat = mxm(sm, tm);
-        cache = meshxm(cube, WorldMat);
+        // Mat4x4 sm = scale_mat(0.5);
+        // Mat4x4 tm = translation_mat(10.0, 0.0, 100.0);
+        // Mat4x4 WorldMat = mxm(sm, tm);
+        // cache = meshxm(cube, WorldMat);
         MAPCOUNT = 1;
     }
 }
@@ -249,11 +249,13 @@ static void move_forward(Vector *v) {
 }
 /* Moves camera position left. */
 static void move_left(Vector *v) {
-    v->x -= 0.1;
+    Vector tempU = multiply_vec(U, 0.1);
+    Camera = sub_vecs(Camera, tempU);
 }
 /* Moves camera position right. */
 static void move_right(Vector *v) {
-    v->x += 0.1;
+    Vector tempU = multiply_vec(U, 0.1);
+    Camera = add_vecs(Camera, tempU);
 }
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
@@ -282,23 +284,28 @@ static void rotate_z(Mesh *c, const float angle) {
 static void project(Mesh c) {
 
     /* Translation Matrix doesn't working without ppdiv. */
-    // Mat4x4 sm = scale_mat(0.2);
-    // Mat4x4 tm = translation_mat(0.0, 0.0, 1.0);
-    // Mat4x4 lm = mxm(sm, tm);
+    Mat4x4 sm = scale_mat(0.1);
+    Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
+    Mat4x4 WorldMat = mxm(sm, tm);
+    c = meshxm(cube, WorldMat);
+
+    // Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
+    // cache = meshxm(cube, tm);
 
     Mat4x4 matCamera = camera_mat(Camera, U, V, N);
 
     // Make view matrix from camera
     Mat4x4 reView = inverse_mat(matCamera);
     
-
     Mat4x4 m = projection_mat(FOV, AspectRatio);
 
     Mat4x4 nm = mxm(reView, m);
 
     c = meshxm(cube, nm);
+
     /* Applying perspective division. */
     ppdiv(&c);
+
     /* Triangles must be checked for cross product. */
     BackFace bf = bfculling(c);
 

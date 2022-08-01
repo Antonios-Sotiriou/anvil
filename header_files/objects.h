@@ -26,7 +26,7 @@ typedef struct {
 
 /* World Mesh */
 typedef struct {
-    Triangle *t;//t[LastTriangle];
+    Triangle t[LastTriangle];
     int indexes;
 } Mesh;
 
