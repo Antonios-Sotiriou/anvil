@@ -49,9 +49,9 @@ const Mat4x4 translation_mat(const float x, const float y, const float z) {
     m.m[1][1] = 1.0;
     m.m[2][2] = 1.0;
     m.m[3][3] = 1.0;
-    m.m[0][3] = x;
-    m.m[1][3] = y;
-    m.m[2][3] = z;
+    m.m[3][0] = x;
+    m.m[3][1] = y;
+    m.m[3][2] = z;
     return m;
 }
 /* Projection Matrix. */
