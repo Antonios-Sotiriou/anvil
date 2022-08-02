@@ -126,6 +126,7 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 #include "header_files/matrices.h"
 #include "header_files/vectors_math.h"
 #include "header_files/obj_parser.h"
+#include "header_files/clipping.h"
 
 const static void clientmessage(XEvent *event) {
 
@@ -283,15 +284,6 @@ static void rotate_z(Mesh *c, const float angle) {
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
 
-    /* Translation Matrix doesn't working without ppdiv. */
-    Mat4x4 sm = scale_mat(0.1);
-    Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
-    Mat4x4 WorldMat = mxm(sm, tm);
-    c = meshxm(cube, WorldMat);
-
-    // Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
-    // cache = meshxm(cube, tm);
-
     Mat4x4 matCamera = camera_mat(Camera, U, V, N);
 
     // Make view matrix from camera
@@ -308,6 +300,9 @@ static void project(Mesh c) {
 
     /* Triangles must be checked for cross product. */
     BackFace bf = bfculling(c);
+
+    /* At this Point triangles must be clipped against near plane for start and a new mesh with the clipped triangles must be created. */
+    clipp(&bf);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     bf = sort_triangles(&bf);
@@ -362,7 +357,7 @@ const static void draw(const SCMesh sc, const BackFace c) {
 
     XGCValues gclines, gcil;
     gclines.graphics_exposures = False;
-    gclines.line_width = 1;
+    gclines.line_width = 3;
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
 
