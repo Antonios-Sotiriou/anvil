@@ -16,6 +16,8 @@ typedef struct {
 /* World Triangle */
 typedef struct {
     Vector v[LastVector];
+    wchar_t sym;
+    short col;
 } Triangle;
 
 /* Screen Triangle */
