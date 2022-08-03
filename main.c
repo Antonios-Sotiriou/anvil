@@ -303,15 +303,16 @@ static void project(Mesh c) {
     BackFace bf = bfculling(c);
 
     /* At this Point triangles must be clipped against near plane for start and a new mesh with the clipped triangles must be created. */
-    clipp(&bf);
+    BackFace nf = clipp(bf);
+    free(bf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    bf = sort_triangles(&bf);
+    nf = sort_triangles(&nf);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(bf);
+    rasterize(nf);
     
-    free(bf.t);
+    free(nf.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {

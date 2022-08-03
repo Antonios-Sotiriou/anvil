@@ -4,26 +4,46 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void clipp(BackFace *bf) {
+BackFace clipp(BackFace bf) {
 
-    Vector plane_p = { 0.0f, 0.0f, 0.5f },
-           plane_n = { 0.0f, 0.0f, 1.0f };
+    BackFace r;
+    r.t = malloc(sizeof(Triangle));
+    int index = 0;
+    int dynamic_inc = 1;
+
+    Vector plane_p = { 1.0, 0.0, 0.0 },
+           plane_n = { 0.999, 0.0, 0.0 };
 
     int clipped_count = 0;
-    Triangle clipped[2] = { { {{ 0 }} }, { {{ 0 }} } };
-    for (int i = 0; i < bf->indexes; i++) {
-        clipped_count = clipp_triangle(plane_n, plane_p, bf->t[i], &clipped[0], &clipped[1]);
+    Triangle clipped[2];
+    for (int i = 0; i < bf.indexes; i++) {
 
-        if (clipped_count == 1) {
-            bf->t[i] = clipped[0];
-        } else if (clipped_count == 2) {
-            bf->t = realloc(bf->t, sizeof(Triangle) * (bf->indexes + 1));
-            bf->t[i] = clipped[0]; 
-            bf->t[i + 1] = clipped[1];
-            i++;     
+        clipped_count = clipp_triangle(plane_n, plane_p, bf.t[i], &clipped[0], &clipped[1]);
+        r.t = realloc(r.t, sizeof(Triangle) * dynamic_inc);
+
+        if (clipped_count) {
+            printf("\x1b[H\x1b[J");
+            if (clipped_count == 1) {
+                r.t[index] = clipped[0];
+                printf("Clipped_count: %d\n", clipped_count);
+                index++;
+                dynamic_inc++;
+            } else if (clipped_count == 2) {
+                r.t = realloc(r.t, sizeof(Triangle) * (dynamic_inc + 1));
+                r.t[index] = clipped[0]; 
+                r.t[index + 1] = clipped[1];
+                index += 2;
+                dynamic_inc += 2;
+                printf("Clipped_count: %d\n", clipped_count);   
+            }
+        } else {
+            r.t[index] = bf.t[i];
+            index++;
+            dynamic_inc++;
         }
-        printf("Clipped_count: %d\n", clipped_count);
     }
+    r.indexes = index;
+    return r;
 }
 
 Vector plane_intersect(Vector plane_n, Vector plane_p, Vector line_start, Vector line_end) {
@@ -42,13 +62,13 @@ Vector plane_intersect(Vector plane_n, Vector plane_p, Vector line_start, Vector
 float dist(Vector plane_p, Vector plane_n, Vector v) {
 
     // v = norm_vec(v);
-    return (plane_n.x * v.x + plane_n.y * v.y + plane_n.z * v.z - dot_product(plane_n, plane_p));
+    return ( ((plane_n.x * v.x) + (plane_n.y * v.y) + (plane_n.z * v.z)) - dot_product(plane_n, plane_p) );
 }
 
 int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2) {
 
     // Make sure plane normal is indeed normal.
-    plane_n = norm_vec(plane_n);
+    // plane_n = norm_vec(plane_n);
 
     // Create two temporary storage arrays to classify points either side of plane
     // If distance sign is positive, point lies on "inside" of plane.
@@ -60,18 +80,27 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
     float d1 = dist(plane_p, plane_n, in_t.v[1]);
     float d2 = dist(plane_p, plane_n, in_t.v[2]);
 
-    if (d0 >= 0)
-        inside_points[inside_count++] = in_t.v[0];
-    else
-        outside_points[outside_count++] = in_t.v[0];
-    if (d1 >= 0)
-        inside_points[inside_count++] = in_t.v[1];
-    else
-        outside_points[outside_count++] = in_t.v[1];
-    if (d2 >= 0)
-        inside_points[inside_count++] = in_t.v[2];
-    else
-        outside_points[outside_count++] = in_t.v[2];
+    if (d0 <= 0) {
+        inside_points[inside_count] = in_t.v[0];
+        inside_count++;
+    } else {
+        outside_points[outside_count] = in_t.v[0];
+        outside_count++;
+    }
+    if (d1 <= 0) {
+        inside_points[inside_count] = in_t.v[1];
+        inside_count++;
+    } else {
+        outside_points[outside_count] = in_t.v[1];
+        outside_count++;
+    }
+    if (d2 <= 0) {
+        inside_points[inside_count] = in_t.v[2];
+        inside_count++;
+    } else {
+        outside_points[outside_count] = in_t.v[2];
+        outside_count++;
+    }
 
     // Now classify triangle points, and break the input triangle into 
     // smaller output triangles if required. There are four possible
@@ -91,10 +120,6 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         // Triangle should be clipped. As two points lie outside
         // the plane, the triangle simply becomes a smaller triangle
 
-        // Copy appearance info to new triangle
-        out_t1->col =  in_t.col;
-        out_t1->sym = in_t.sym;
-
         // The inside point is valid, so keep that...
         out_t1->v[0] = inside_points[0];
 
@@ -108,13 +133,6 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         // Triangle should be clipped. As two points lie inside the plane,
         // the clipped triangle becomes a "quad". Fortunately, we can
         // represent a quad with two new triangles
-
-        // Copy appearance info to new triangles
-        out_t1->col =  in_t.col;
-        out_t1->sym = in_t.sym;
-
-        out_t2->col =  in_t.col;
-        out_t2->sym = in_t.sym;
 
         // The first triangle consists of the two inside points and a new
         // point determined by the location where one side of the triangle
