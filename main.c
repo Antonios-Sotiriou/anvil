@@ -33,7 +33,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 }, 
+Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 }, 
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
@@ -161,9 +161,9 @@ const static void mapnotify(XEvent *event) {
         cache = cube;  /* Importand spot. */
 
         // Mat4x4 sm = scale_mat(0.5);
-        // Mat4x4 tm = translation_mat(10.0, 0.0, 100.0);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 10.0);
         // Mat4x4 WorldMat = mxm(sm, tm);
-        // cache = meshxm(cube, WorldMat);
+        cache = meshxm(cube, tm);
         MAPCOUNT = 1;
     }
 }
@@ -302,17 +302,39 @@ static void project(Mesh c) {
     /* Triangles must be checked for cross product. */
     BackFace bf = bfculling(c);
 
-    /* At this Point triangles must be clipped against near plane for start and a new mesh with the clipped triangles must be created. */
-    BackFace nf = clipp(bf);
+    /* At this Point triangles must be clipped against near plane. */
+    Vector plane_near_a = { 0.0, 0.0, 0.1 },
+           plane_near_b = { 0.0, 0.0, 1.0 };
+    BackFace nf = clipp(bf, plane_near_a, plane_near_b);
     free(bf.t);
 
+    Vector plane_right_a = { 0.999, 0.0, 0.0 },
+           plane_right_b = { 1.0, 0.0, 0.0 };
+    BackFace rf = clipp(nf, plane_right_a, plane_right_b);
+    free(nf.t);
+
+    Vector plane_left_a = { -0.999, 0.0, 0.0 },
+           plane_left_b = { -1.0, 0.0, 0.0 };
+    BackFace lf = clipp(rf, plane_left_a, plane_left_b);
+    free(rf.t);
+
+    Vector plane_up_a = { 0.0, -0.999, 0.0 },
+           plane_up_b = { 0.0, -1.0, 0.0 };
+    BackFace uf = clipp(lf, plane_up_a, plane_up_b);
+    free(lf.t);
+
+    Vector plane_down_a = { 0.0, 0.999, 0.0 },
+           plane_down_b = { 0.0, 1.0, 0.0 };
+    BackFace df = clipp(uf, plane_down_a, plane_down_b);
+    free(uf.t);
+
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    nf = sort_triangles(&nf);
+    df = sort_triangles(&df);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(nf);
+    rasterize(df);
     
-    free(nf.t);
+    free(df.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
