@@ -4,42 +4,35 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-BackFace clipp(BackFace bf) {
+BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
 
     BackFace r;
-    r.t = malloc(sizeof(Triangle));
+    r.t = malloc(sizeof(Triangle) * bf.indexes);
     int index = 0;
     int dynamic_inc = 1;
-
-    Vector plane_p = { 1.0, 0.0, 0.0 },
-           plane_n = { 0.999, 0.0, 0.0 };
 
     int clipped_count = 0;
     Triangle clipped[2];
     for (int i = 0; i < bf.indexes; i++) {
 
         clipped_count = clipp_triangle(plane_n, plane_p, bf.t[i], &clipped[0], &clipped[1]);
-        r.t = realloc(r.t, sizeof(Triangle) * dynamic_inc);
 
         if (clipped_count) {
-            printf("\x1b[H\x1b[J");
+            
             if (clipped_count == 1) {
                 r.t[index] = clipped[0];
-                printf("Clipped_count: %d\n", clipped_count);
                 index++;
                 dynamic_inc++;
             } else if (clipped_count == 2) {
-                r.t = realloc(r.t, sizeof(Triangle) * (dynamic_inc + 1));
+                r.t = realloc(r.t, sizeof(Triangle) * (bf.indexes + dynamic_inc));
                 r.t[index] = clipped[0]; 
                 r.t[index + 1] = clipped[1];
                 index += 2;
-                dynamic_inc += 2;
-                printf("Clipped_count: %d\n", clipped_count);   
+                dynamic_inc++;
             }
         } else {
             r.t[index] = bf.t[i];
             index++;
-            dynamic_inc++;
         }
     }
     r.indexes = index;
