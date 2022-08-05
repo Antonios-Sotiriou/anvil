@@ -32,7 +32,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 }, 
+Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
@@ -160,9 +160,9 @@ const static void mapnotify(XEvent *event) {
         cache = cube;  /* Importand spot. */
 
         // Mat4x4 sm = scale_mat(0.5);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 10.0);
+        // Mat4x4 tm = translation_mat(0.0, 0.0, 10.0);
         // Mat4x4 WorldMat = mxm(sm, tm);
-        cache = meshxm(cube, tm);
+        // cache = meshxm(cube, tm);
         MAPCOUNT = 1;
     }
 }
@@ -328,7 +328,17 @@ static void project(Mesh c) {
     free(uf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    df = sort_triangles(&df);
+    // df = sort_triangles(&df);
+
+    printf("\x1b[H\x1b[J");
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
+    printf("------------------------------------------------------\n");
+    printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
+    printf("------------------------------------------------------\n");
+    printf("V X: %f\nV Y: %f\nV Z: %f\nV W: %f\n", V.x, V.y, V.z, V.w);
+    printf("------------------------------------------------------\n");
+    printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
+    printf("------------------------------------------------------\n");
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -340,7 +350,7 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w != 0) {
+            if (c->t[i].v[j].w != 0.00) {
                 c->t[i].v[j].x /= c->t[i].v[j].w;
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
@@ -403,6 +413,10 @@ const static void draw(const SCMesh sc, const BackFace c) {
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+            if (i == 0 && j == 0) {
+                printf("X: %f\nY: %f\nZ: %f\nW: %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
+                printf("------------------------------------------------------\n");
+            }
 
             if (j == 2)
                 vindex = 0;
