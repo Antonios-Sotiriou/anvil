@@ -44,23 +44,23 @@ Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 #define cube_size    0.25
 Mesh cube = {
     {
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    /* Front Up */
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },      /* Front Down */
+        { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* Front Up */
+        { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },      /* Front Down */
 
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    /* Back Up */
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     /* Back Down */
+        { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },    /* Back Up */
+        { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },     /* Back Down */
 
-        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },     /* West Up */
-        { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },       /* East Down */
+        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },     /* West Up */
+        { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },       /* East Down */
 
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },    /* East Up */
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },     /* East Down */
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* East Up */
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },     /* East Down */
 
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   /* North Up */
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   /* North Down */
+        { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },   /* North Up */
+        { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },   /* North Down */
 
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       /* South Up */
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },      /* South Down */
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },       /* South Up */
+        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },      /* South Down */
     },
     .indexes = 12
 };
@@ -128,6 +128,9 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 #include "header_files/obj_parser.h"
 #include "header_files/clipping.h"
 
+/* Testing */
+#include "header_files/test_cube.h"
+
 const static void clientmessage(XEvent *event) {
 
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
@@ -156,13 +159,14 @@ const static void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         // cube = load_obj("/home/as/Desktop/axis.obj");
+        // cube = cube_create();
         
         cache = cube;  /* Importand spot. */
 
         // Mat4x4 sm = scale_mat(0.5);
         // Mat4x4 tm = translation_mat(0.0, 0.0, 10.0);
         // Mat4x4 WorldMat = mxm(sm, tm);
-        // cache = meshxm(cube, tm);
+        // cache = meshxm(cube, WorldMat);
         MAPCOUNT = 1;
     }
 }
@@ -394,22 +398,23 @@ const static void draw(const SCMesh sc, const BackFace c) {
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
 
-    Vector cp;
-    float dp;
+    // Vector cp;
+    // float dp;
     int vindex = 1;
 
     for (int i = 0; i < sc.indexes; i++) {
 
         for (int j = 0; j < 3; j++) {
-            /* Attention here.We compute the cross product of the world coordinates BackFace not the screen. */
-            cp = triangle_cp(c.t[i]);
-            dp = dot_product(cp, LightSC);
+            /* Attention here.We compute the cross product of the world coordinates Mesh not the screen. */
+            // cp = triangle_cp(c.t[i]);
+            // dp = dot_product(cp, LightSC);
             gcil.graphics_exposures = False;
-
-            if (dp > 0.00) {
-                gcil.foreground = 0xbb09b8;
-            } else 
-                gcil.foreground = 0xff00fb;
+            gcil.foreground = c.t[i].color;
+            // if (dp > 0.00) {
+            //     gcil.foreground = c.t[i].color;
+            // } else {
+            //     gcil.foreground = 0xff00fb;
+            // }
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
