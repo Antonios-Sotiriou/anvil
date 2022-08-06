@@ -21,17 +21,21 @@ BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
             
             if (clipped_count == 1) {
                 r.t[index] = clipped[0];
+                r.t[index].color = 0xdf0909;
                 index++;
                 dynamic_inc++;
             } else if (clipped_count == 2) {
                 r.t = realloc(r.t, sizeof(Triangle) * (bf.indexes + dynamic_inc));
                 r.t[index] = clipped[0]; 
                 r.t[index + 1] = clipped[1];
+                r.t[index].color = 0x09df67;
+                r.t[index + 1].color = 0x092fdf;
                 index += 2;
                 dynamic_inc++;
             }
         } else {
             r.t[index] = bf.t[i];
+            r.t[index].color = 0xf9d905;
             index++;
         }
     }

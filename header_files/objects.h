@@ -16,6 +16,7 @@ typedef struct {
 /* World Triangle */
 typedef struct {
     Vector v[LastVector];
+    unsigned int color;
 } Triangle;
 
 /* Screen Triangle */
