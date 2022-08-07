@@ -1,9 +1,8 @@
 #include "header_files/test_cube.h"
 
-Mesh cube_create(void) {
+void cube_create(Mesh *c) {
 
-    Mesh obj = { 0 };
-    obj.t = malloc(sizeof(Triangle) * 12);
+    c->t = malloc(sizeof(Triangle) * 12);
 
     Shape cube = {
         { 
@@ -29,11 +28,8 @@ Mesh cube_create(void) {
     };
 
     for (int i = 0; i < cube.indexes; i++) {
-        obj.t[i] = cube.t[i];
+        c->t[i] = cube.t[i];
     }
-
-    obj.indexes = cube.indexes;
-
-    return obj;
+    c->indexes = cube.indexes;
 }
 

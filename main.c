@@ -39,32 +39,32 @@ Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-#define cube_back    0.25
-#define cube_front   0.0
-#define cube_size    0.25
-Mesh cube = {
-    {
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* Front Up */
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },      /* Front Down */
+// #define cube_back    0.25
+// #define cube_front   0.0
+// #define cube_size    0.25
+// Mesh cube = {
+//     {
+//         { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* Front Up */
+//         { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },      /* Front Down */
 
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },    /* Back Up */
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },     /* Back Down */
+//         { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },    /* Back Up */
+//         { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },     /* Back Down */
 
-        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },     /* West Up */
-        { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },       /* East Down */
+//         { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },     /* West Up */
+//         { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },       /* East Down */
 
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* East Up */
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },     /* East Down */
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* East Up */
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },     /* East Down */
 
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },   /* North Up */
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },   /* North Down */
+//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },   /* North Up */
+//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },   /* North Down */
 
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },       /* South Up */
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },      /* South Down */
-    },
-    .indexes = 12
-};
-// Mesh cube = { 0 };
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },       /* South Up */
+//         { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },      /* South Down */
+//     },
+//     .indexes = 12
+// };
+Mesh cube = { 0 };
 Mesh cache = { 0 };
 Mat4x4 WorldMat = { 0 };
 
@@ -136,7 +136,7 @@ const static void clientmessage(XEvent *event) {
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
-        // free(cube.t);
+        free(cube.t);
 
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
@@ -159,14 +159,14 @@ const static void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         // cube = load_obj("/home/as/Desktop/axis.obj");
-        // cube = cube_create();
+        cube_create(&cube);
         
         cache = cube;  /* Importand spot. */
 
-        // Mat4x4 sm = scale_mat(0.5);
-        // Mat4x4 tm = translation_mat(0.0, 0.0, 10.0);
+        // Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
         // Mat4x4 WorldMat = mxm(sm, tm);
-        // cache = meshxm(cube, WorldMat);
+        cache = meshxm(cube, tm);
         MAPCOUNT = 1;
     }
 }
@@ -306,30 +306,30 @@ static void project(Mesh c) {
     BackFace bf = bfculling(c);
 
     /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_a = { 0.0, 0.0, 0.1 },
-           plane_near_b = { 0.0, 0.0, 1.0 };
-    BackFace nf = clipp(bf, plane_near_a, plane_near_b);
-    free(bf.t);
+    // Vector plane_near_a = { 0.0, 0.0, 0.1 },
+    //        plane_near_b = { 0.0, 0.0, 1.0 };
+    // BackFace nf = clipp(bf, plane_near_a, plane_near_b);
+    // free(bf.t);
 
-    Vector plane_right_a = { 0.999, 0.0, 0.0 },
-           plane_right_b = { 1.0, 0.0, 0.0 };
-    BackFace rf = clipp(nf, plane_right_a, plane_right_b);
-    free(nf.t);
+    // Vector plane_right_a = { 0.999, 0.0, 0.0 },
+    //        plane_right_b = { 1.0, 0.0, 0.0 };
+    // BackFace rf = clipp(nf, plane_right_a, plane_right_b);
+    // free(nf.t);
 
-    Vector plane_left_a = { -0.999, 0.0, 0.0 },
-           plane_left_b = { -1.0, 0.0, 0.0 };
-    BackFace lf = clipp(rf, plane_left_a, plane_left_b);
-    free(rf.t);
+    // Vector plane_left_a = { -0.999, 0.0, 0.0 },
+    //        plane_left_b = { -1.0, 0.0, 0.0 };
+    // BackFace lf = clipp(rf, plane_left_a, plane_left_b);
+    // free(rf.t);
 
-    Vector plane_up_a = { 0.0, -0.999, 0.0 },
-           plane_up_b = { 0.0, -1.0, 0.0 };
-    BackFace uf = clipp(lf, plane_up_a, plane_up_b);
-    free(lf.t);
+    // Vector plane_up_a = { 0.0, -0.999, 0.0 },
+    //        plane_up_b = { 0.0, -1.0, 0.0 };
+    // BackFace uf = clipp(lf, plane_up_a, plane_up_b);
+    // free(lf.t);
 
-    Vector plane_down_a = { 0.0, 0.999, 0.0 },
-           plane_down_b = { 0.0, 1.0, 0.0 };
-    BackFace df = clipp(uf, plane_down_a, plane_down_b);
-    free(uf.t);
+    // Vector plane_down_a = { 0.0, 0.999, 0.0 },
+    //        plane_down_b = { 0.0, 1.0, 0.0 };
+    // BackFace df = clipp(uf, plane_down_a, plane_down_b);
+    // free(uf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     // df = sort_triangles(&df);
@@ -344,10 +344,13 @@ static void project(Mesh c) {
     printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
     printf("------------------------------------------------------\n");
 
+    /* Applying perspective division. */
+    // ppdiv(&c);
+
     /* Sending to translation to Screen Coordinates. */
-    rasterize(df);
+    rasterize(bf);
     
-    free(df.t);
+    free(bf.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
@@ -359,6 +362,7 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
+            c->t[i].v[j].w = 1.00;
         }
     }
 }
