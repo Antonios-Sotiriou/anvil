@@ -18,6 +18,6 @@ typedef struct {
     int indexes;
 } Shape;
 
-Mesh cube_create(void);
+void cube_create(Mesh *c);
 
 #endif /* _TEST_CUBE_H */
