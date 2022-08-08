@@ -39,33 +39,8 @@ Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-// #define cube_back    0.25
-// #define cube_front   0.0
-// #define cube_size    0.25
-// Mesh cube = {
-//     {
-//         { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* Front Up */
-//         { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },      /* Front Down */
-
-//         { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },    /* Back Up */
-//         { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },     /* Back Down */
-
-//         { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },     /* West Up */
-//         { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },       /* East Down */
-
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },    /* East Up */
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },     /* East Down */
-
-//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }}, .color = 0xda29f3 },   /* North Up */
-//         { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}, .color = 0xda29f3 },   /* North Down */
-
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }}, .color = 0xda29f3 },       /* South Up */
-//         { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }}, .color = 0xda29f3 },      /* South Down */
-//     },
-//     .indexes = 12
-// };
-Mesh cube = { 0 };
-Mesh cache = { 0 };
+Mesh cube;
+Mesh cache;
 Mat4x4 WorldMat = { 0 };
 
 static int MAPCOUNT = 0;
@@ -129,7 +104,7 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 #include "header_files/clipping.h"
 
 /* Testing */
-#include "header_files/test_cube.h"
+#include "header_files/test_shape.h"
 
 const static void clientmessage(XEvent *event) {
 
@@ -158,15 +133,13 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // cube = load_obj("/home/as/Desktop/axis.obj");
-        cube_create(&cube);
-        
-        cache = cube;  /* Importand spot. */
+        load_obj(&cube, "/home/as/Desktop/spaceship.obj");
+        // shape_create(&cube);
 
-        // Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(0.1);
         Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
-        // Mat4x4 WorldMat = mxm(sm, tm);
-        cache = meshxm(cube, tm);
+        Mat4x4 WorldMat = mxm(sm, tm);
+        cube = meshxm(cube, WorldMat);
         MAPCOUNT = 1;
     }
 }
@@ -174,7 +147,7 @@ const static void expose(XEvent *event) {
 
     printf("expose event received\n");
     pixmapupdate();
-    project(cache);
+    project(cube);
 }
 const static void resizerequest(XEvent *event) {
 
@@ -214,20 +187,19 @@ const static void keypress(XEvent *event) {
             break;
         case 65364 : move_down(&Camera);          /* down arrow */
             break;
-        case 120 : rotate_x(&cache, ANGLE);       /* x */
+        case 120 : rotate_x(&cube, ANGLE);       /* x */
             break;
-        case 121 : rotate_y(&cache, ANGLE);       /* y */
+        case 121 : rotate_y(&cube, ANGLE);       /* y */
             break;
-        case 122 : rotate_z(&cache, ANGLE);       /* z */
+        case 122 : rotate_z(&cube, ANGLE);       /* z */
             break;
         default :
             return;
     }
-    cube = cache;  /* Importand spot. */
 
     pixmapdisplay();
-
-    project(cache);
+    
+    project(cube);
 }
 /* Rotates the camera to look left. */
 static void look_left(float fyaw) {
@@ -297,13 +269,14 @@ static void project(Mesh c) {
 
     Mat4x4 nm = mxm(reView, m);
 
-    c = meshxm(cube, nm);
+    cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    ppdiv(&c);
+    ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
-    BackFace bf = bfculling(c);
+    BackFace bf = bfculling(cache);
+    free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
     // Vector plane_near_a = { 0.0, 0.0, 0.1 },
@@ -362,7 +335,7 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
-            c->t[i].v[j].w = 1.00;
+            // c->t[i].v[j].w = 1.00;
         }
     }
 }
@@ -398,7 +371,7 @@ const static void draw(const SCMesh sc, const BackFace c) {
 
     XGCValues gclines, gcil;
     gclines.graphics_exposures = False;
-    gclines.line_width = 3;
+    gclines.line_width = 1;
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
 
@@ -415,9 +388,9 @@ const static void draw(const SCMesh sc, const BackFace c) {
             gcil.graphics_exposures = False;
             gcil.foreground = c.t[i].color;
             // if (dp > 0.00) {
-            //     gcil.foreground = c.t[i].color;
-            // } else {
             //     gcil.foreground = 0xff00fb;
+            // } else {
+            //     gcil.foreground = c.t[i].color;
             // }
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);

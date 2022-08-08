@@ -18,7 +18,7 @@ typedef struct {
     int a, b, c;
 } Face;
 
-Mesh load_obj(const char path[]);
+void load_obj(Mesh *c, const char path[]);
 
 #endif /* _OBJ_PARSER_H */
 

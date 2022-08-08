@@ -35,7 +35,7 @@ BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
             }
         } else {
             r.t[index] = bf.t[i];
-            // r.t[index].color = 0xf9d905;
+            r.t[index].color = 0xf9d905;
             index++;
         }
     }

@@ -58,17 +58,25 @@ const Mat4x4 translation_mat(const float x, const float y, const float z) {
 const Mat4x4 projection_mat(const float fov, const float aspectratio) {
     Mat4x4 m = { 0 };
     m.m[0][0] = aspectratio * FovRadius;
-    m.m[1][1] = FovRadius;
+    m.m[1][1] = aspectratio * FovRadius;
     m.m[2][2] = (ZFar / (ZFar - ZNear));
     m.m[2][3] = 1.0;
-    m.m[3][2] = ((-ZFar * ZNear) / (ZFar - ZNear));
+    m.m[3][2] = ((ZFar * ZNear) / (ZFar - ZNear));
     m.m[3][3] = 0.0;
     return m;
 }
 /* Multiplies a Mesh c with the given Matrix and returns a new Mesh, leaving the original unmodified. */
 const Mesh meshxm(const Mesh c, const Mat4x4 m) {
 
-    Mesh r = c; /* Importand spot.We initialize the result Mesh r with the provided c.Thats importand to return a proper Mesh otherwise we get a segmentation fault in calling function project(). */
+    Mesh r = { 0 };
+    
+    r.t = malloc(sizeof(Triangle) * c.indexes);
+    if (!r.t)
+        fprintf(stderr, "Could not allocate memory for Cache Mesh. meshxm() -- malloc().\n");
+
+    if (!memcpy(r.t, c.t, sizeof(Triangle) * c.indexes))
+        fprintf(stderr, "Could not copy memory for Cache Mesh. meshxm() -- memcpy().\n");
+    
     for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
             
@@ -78,6 +86,7 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
             r.t[i].v[j].w = c.t[i].v[j].x * m.m[0][3] + c.t[i].v[j].y * m.m[1][3] + c.t[i].v[j].z * m.m[2][3] + c.t[i].v[j].w * m.m[3][3];
         }
     }
+    r.indexes = c.indexes;
     return r;
 }
 /* Multiplies a Vector with the given Matrix and returns a new Vector, leaving the original unmodified. */
@@ -93,10 +102,10 @@ const Vector vecxm(const Vector v, const Mat4x4 m) {
 /* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix representing the camera. */
 const Mat4x4 camera_mat(const Vector P, const Vector U, const Vector V, const Vector N) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = U.x;      m.m[0][1] = U.y;      m.m[0][2] = U.z;    m.m[0][3] = 0.0;
-    m.m[1][0] = V.x;      m.m[1][1] = V.y;      m.m[1][2] = V.z;    m.m[1][3] = 0.0;
-    m.m[2][0] = N.x;      m.m[2][1] = N.y;      m.m[2][2] = N.z;    m.m[2][3] = 0.0;
-    m.m[3][0] = P.x;      m.m[3][1] = P.y;      m.m[3][2] = P.z;    m.m[3][3] = 1.0;
+    m.m[0][0] = U.x;    m.m[0][1] = U.y;    m.m[0][2] = U.z;    m.m[0][3] = 0.0;
+    m.m[1][0] = V.x;    m.m[1][1] = V.y;    m.m[1][2] = V.z;    m.m[1][3] = 0.0;
+    m.m[2][0] = N.x;    m.m[2][1] = N.y;    m.m[2][2] = N.z;    m.m[2][3] = 0.0;
+    m.m[3][0] = P.x;    m.m[3][1] = P.y;    m.m[3][2] = P.z;    m.m[3][3] = 1.0;
     return m;
 }
 /* Inverts the given Matrix m returning a new 4x4 Matrix. */

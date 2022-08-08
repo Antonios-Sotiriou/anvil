@@ -7,7 +7,7 @@ static Face *get_faces(const char path[]);
 static int v_indexes = 0;
 static int f_indexes = 0;
 
-Mesh load_obj(const char path[]) {
+void load_obj(Mesh *c, const char path[]) {
 
     Vector *v = get_vectors(path);
     if (!v)
@@ -17,23 +17,22 @@ Mesh load_obj(const char path[]) {
     if (!f)
         fprintf(stderr, "Could not create Faces array. load_obj() - get_faces()\n");
 
-    Mesh c;
-    c.indexes = f_indexes;
-    c.t = malloc(sizeof(Triangle) * f_indexes);
-    if (!c.t)
+    c->indexes = f_indexes;
+    c->t = malloc(sizeof(Triangle) * f_indexes);
+    if (!c->t)
         fprintf(stderr, "Could not allocate memory for Triangles array. load_obj()\n");
 
     /* Assign the Faces of the Vectors to the Mesh triangle array creating the final object. */
-    for (int i = 0; i < c.indexes; i++) {
-        c.t[i].v[0] = v[f[i].a - 1];
-        c.t[i].v[1] = v[f[i].b - 1];
-        c.t[i].v[2] = v[f[i].c - 1];
+    for (int i = 0; i < c->indexes; i++) {
+        c->t[i].v[0] = v[f[i].a - 1];    c->t[i].v[0].w = 1.00;
+        c->t[i].v[1] = v[f[i].b - 1];    c->t[i].v[1].w = 1.00;
+        c->t[i].v[2] = v[f[i].c - 1];    c->t[i].v[2].w = 1.00;
+        c->t[i].color = 0xa517a2;
     }
     
     /* Free The Vectors and Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */
     free(v);
     free(f);
-    return c;
 }
 static Vector *get_vectors(const char path[]) {
 
