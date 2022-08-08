@@ -5,6 +5,18 @@
     #include "objects.h"
 #endif
 
+#ifndef _STDIO_H
+    #include <stdio.h>
+#endif
+
+#ifndef _STDLIB_H
+    #include <stdlib.h>
+#endif
+
+#ifndef _STRING_H
+    #include <string.h>
+#endif
+
 #ifndef _MATH_H
     #include <math.h>
 #endif
