@@ -32,7 +32,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
+Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
@@ -76,9 +76,9 @@ static void rotate_z(Mesh *c, const float angle);
 /* Represantation functions */
 static void project(Mesh c);
 static void ppdiv(Mesh *c);
-const static BackFace bfculling(const Mesh c);
-const static void draw(const SCMesh sc, const BackFace c);
-const static void rasterize(const BackFace c);
+const static Mesh bfculling(const Mesh c);
+const static void draw(const SCMesh sc, const Mesh c);
+const static void rasterize(const Mesh c);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
@@ -133,11 +133,11 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&cube, "/home/as/Desktop/spaceship.obj");
-        // shape_create(&cube);
+        // load_obj(&cube, "/home/as/Desktop/spaceship.obj");
+        shape_create(&cube);
 
-        Mat4x4 sm = scale_mat(0.1);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
+        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 2.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
         MAPCOUNT = 1;
@@ -275,37 +275,37 @@ static void project(Mesh c) {
     ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
-    BackFace bf = bfculling(cache);
+    Mesh bf = bfculling(cache);
     free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
-    // Vector plane_near_a = { 0.0, 0.0, 0.1 },
-    //        plane_near_b = { 0.0, 0.0, 1.0 };
-    // BackFace nf = clipp(bf, plane_near_a, plane_near_b);
-    // free(bf.t);
+    Vector plane_near_p = { 0.0, 0.0, 0.001 },
+           plane_near_n = { 0.0, 0.0, 1.0 };
+    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
+    free(bf.t);
 
-    // Vector plane_right_a = { 0.999, 0.0, 0.0 },
-    //        plane_right_b = { 1.0, 0.0, 0.0 };
-    // BackFace rf = clipp(nf, plane_right_a, plane_right_b);
-    // free(nf.t);
+    Vector plane_right_p = { 0.995, 0.0, 0.0 },
+           plane_right_n = { -1.0, 0.0, 0.0 };
+    Mesh rf = clipp(nf, plane_right_p, plane_right_n);
+    free(nf.t);
 
-    // Vector plane_left_a = { -0.999, 0.0, 0.0 },
-    //        plane_left_b = { -1.0, 0.0, 0.0 };
-    // BackFace lf = clipp(rf, plane_left_a, plane_left_b);
-    // free(rf.t);
+    Vector plane_left_p = { -0.995, 0.0, 0.0 },
+           plane_left_n = { 1.0, 0.0, 0.0 };
+    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
+    free(rf.t);
 
-    // Vector plane_up_a = { 0.0, -0.999, 0.0 },
-    //        plane_up_b = { 0.0, -1.0, 0.0 };
-    // BackFace uf = clipp(lf, plane_up_a, plane_up_b);
-    // free(lf.t);
+    Vector plane_up_p = { 0.0, -0.995, 0.0 },
+           plane_up_n = { 0.0, 1.0, 0.0 };
+    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+    free(lf.t);
 
-    // Vector plane_down_a = { 0.0, 0.999, 0.0 },
-    //        plane_down_b = { 0.0, 1.0, 0.0 };
-    // BackFace df = clipp(uf, plane_down_a, plane_down_b);
-    // free(uf.t);
+    Vector plane_down_p = { 0.0, 0.995, 0.0 },
+           plane_down_n = { 0.0, -1.0, 0.0 };
+    Mesh df = clipp(uf, plane_down_p, plane_down_n);
+    free(uf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    // df = sort_triangles(&df);
+    df = sort_triangles(&df);
 
     printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
@@ -321,9 +321,9 @@ static void project(Mesh c) {
     // ppdiv(&c);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(bf);
+    rasterize(df);
     
-    free(bf.t);
+    free(df.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
@@ -339,10 +339,11 @@ static void ppdiv(Mesh *c) {
         }
     }
 }
-/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic BackFace stucture Triangles array. */
-const static BackFace bfculling(const Mesh c) {
-    BackFace r = { 0 };
+/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
+const static Mesh bfculling(const Mesh c) {
+    Mesh r = { 0 };
     Vector cp;
+    float dp;
     int counter = 1;
     int index = 0;
     r.t = malloc(sizeof(Triangle));
@@ -352,7 +353,12 @@ const static BackFace bfculling(const Mesh c) {
     for (int i = 0; i < c.indexes; i++) {
 
         cp = triangle_cp(c.t[i]);
-        if (dot_product(cp, Camera) < 0.00) {
+        dp = dot_product(cp, Camera);
+
+        if (Camera.z < 0.00)
+            dp *= -1;
+
+        if (dp >= 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)
@@ -367,7 +373,7 @@ const static BackFace bfculling(const Mesh c) {
     return r;
 }
 /* Draws the Mesh's Triangles on screen in 2D coordinates. */
-const static void draw(const SCMesh sc, const BackFace c) {
+const static void draw(const SCMesh sc, const Mesh c) {
 
     XGCValues gclines, gcil;
     gclines.graphics_exposures = False;
@@ -395,8 +401,10 @@ const static void draw(const SCMesh sc, const BackFace c) {
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+
             if (i == 0 && j == 0) {
-                printf("X: %f\nY: %f\nZ: %f\nW: %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
+                // printf("\x1b[H\x1b[J");
+                printf("X: %f\nY: %f\nZ: %f\nW: %f\nColor : %u", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w, c.t[i].color);
                 printf("------------------------------------------------------\n");
             }
 
@@ -410,10 +418,10 @@ const static void draw(const SCMesh sc, const BackFace c) {
     XFreeGC(displ, gcl);
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
-const static void rasterize(const BackFace c) {
+const static void rasterize(const Mesh c) {
 
     SCMesh scmesh;
-    // BackFace normalized = c;
+    // Mesh normalized = c;
     scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
 
     if (!scmesh.sct)

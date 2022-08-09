@@ -6,7 +6,6 @@
 #endif
 
 enum { AVector, BVector, CVector, LastVector};
-enum { FrontUp, FrontDown, BackUp, BackDown, WestUp, WestDown, EastUp, EastDown, NorthUp, NorthDown, SouthUp, SouthDown, LastTriangle};
 
 /* World Vector */
 typedef struct {
@@ -27,7 +26,7 @@ typedef struct {
 
 /* World Mesh */
 typedef struct {
-    Triangle *t; //t[LastTriangle];
+    Triangle *t;
     int indexes;
 } Mesh;
 
@@ -41,12 +40,6 @@ typedef struct {
 typedef struct {
     float m[4][4];
 } Mat4x4;
-
-/* Struct which holds the back face culling triangles. */
-typedef struct {
-    Triangle *t;
-    int indexes;
-} BackFace;
 
 #endif /* _OBJECTS_H */
 

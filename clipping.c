@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
+Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
-    BackFace r;
+    Mesh r;
     r.t = malloc(sizeof(Triangle) * bf.indexes);
     int index = 0;
     int dynamic_inc = 1;
@@ -15,7 +15,7 @@ BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
     Triangle clipped[2];
     for (int i = 0; i < bf.indexes; i++) {
 
-        clipped_count = clipp_triangle(plane_n, plane_p, bf.t[i], &clipped[0], &clipped[1]);
+        clipped_count = clipp_triangle(plane_p, plane_n, bf.t[i], &clipped[0], &clipped[1]);
 
         if (clipped_count) {
             
@@ -23,7 +23,6 @@ BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
                 r.t[index] = clipped[0];
                 r.t[index].color = 0xdf0909;
                 index++;
-                dynamic_inc++;
             } else if (clipped_count == 2) {
                 r.t = realloc(r.t, sizeof(Triangle) * (bf.indexes + dynamic_inc));
                 r.t[index] = clipped[0]; 
@@ -35,7 +34,7 @@ BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
             }
         } else {
             r.t[index] = bf.t[i];
-            r.t[index].color = 0xf9d905;
+            // r.t[index].color = 0xf9d905;
             index++;
         }
     }
@@ -43,9 +42,9 @@ BackFace clipp(BackFace bf, Vector plane_n, Vector plane_p) {
     return r;
 }
 
-Vector plane_intersect(Vector plane_n, Vector plane_p, Vector line_start, Vector line_end) {
+Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end) {
 
-    plane_n = norm_vec(plane_n);
+    // plane_n = norm_vec(plane_n);
     float plane_d = -dot_product(plane_n, plane_p);
     float ad = dot_product(line_start, plane_n);
     float bd = dot_product(line_end, plane_n);
