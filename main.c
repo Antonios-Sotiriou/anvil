@@ -308,15 +308,15 @@ static void project(Mesh c) {
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     df = sort_triangles(&df);
 
-    printf("\x1b[H\x1b[J");
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
-    printf("------------------------------------------------------\n");
-    printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
-    printf("------------------------------------------------------\n");
-    printf("V X: %f\nV Y: %f\nV Z: %f\nV W: %f\n", V.x, V.y, V.z, V.w);
-    printf("------------------------------------------------------\n");
-    printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
-    printf("------------------------------------------------------\n");
+    // printf("\x1b[H\x1b[J");
+    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
+    // printf("------------------------------------------------------\n");
+    // printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
+    // printf("------------------------------------------------------\n");
+    // printf("V X: %f\nV Y: %f\nV Z: %f\nV W: %f\n", V.x, V.y, V.z, V.w);
+    // printf("------------------------------------------------------\n");
+    // printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
+    // printf("------------------------------------------------------\n");
 
     /* Applying perspective division. */
     // ppdiv(&c);
