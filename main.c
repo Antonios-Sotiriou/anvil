@@ -403,11 +403,11 @@ const static void draw(const SCMesh sc, const Mesh c) {
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
-            if (i == 0 && j == 0) {
+            // if (i == 0 && j == 0) {
                 // printf("\x1b[H\x1b[J");
-                printf("X: %f\nY: %f\nZ: %f\nW: %f\nColor : %u", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w, c.t[i].color);
-                printf("------------------------------------------------------\n");
-            }
+                // printf("X: %f\nY: %f\nZ: %f\nW: %f\nColor : %u", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w, c.t[i].color);
+                // printf("------------------------------------------------------\n");
+            // }
 
             if (j == 2)
                 vindex = 0;
