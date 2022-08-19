@@ -31,11 +31,11 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
                 r.t[index + 1].color = 0x092fdf;
                 index += 2;
                 dynamic_inc++;
+            } else if (clipped_count == 3) {
+                r.t[index] = clipped[0];
+                r.t[index].color = clipped[0].color;
+                index++;
             }
-        } else {
-            r.t[index] = bf.t[i];
-            // r.t[index].color = 0xf9d905;
-            index++;
         }
     }
     r.indexes = index;
@@ -76,21 +76,21 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
     float d1 = dist(plane_p, plane_n, in_t.v[1]);
     float d2 = dist(plane_p, plane_n, in_t.v[2]);
 
-    if (d0 <= 0) {
+    if (d0 >= 0) {
         inside_points[inside_count] = in_t.v[0];
         inside_count++;
     } else {
         outside_points[outside_count] = in_t.v[0];
         outside_count++;
     }
-    if (d1 <= 0) {
+    if (d1 >= 0) {
         inside_points[inside_count] = in_t.v[1];
         inside_count++;
     } else {
         outside_points[outside_count] = in_t.v[1];
         outside_count++;
     }
-    if (d2 <= 0) {
+    if (d2 >= 0) {
         inside_points[inside_count] = in_t.v[2];
         inside_count++;
     } else {
@@ -111,7 +111,7 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         // and allow the triangle to simply pass through
         *out_t1 = in_t;
 
-        return 1; // Just the one returned original triangle is valid
+        return 3; // Just the one returned original triangle is valid
     } else if (inside_count == 1 && outside_count == 2) {
         // Triangle should be clipped. As two points lie outside
         // the plane, the triangle simply becomes a smaller triangle
