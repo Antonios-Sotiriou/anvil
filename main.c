@@ -134,8 +134,8 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "/home/as/Desktop/spaceship.obj");
-        shape_create(&cube);
+        load_obj(&cube, "/home/as/Desktop/teapot.obj");
+        // shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 2.0);
@@ -280,7 +280,7 @@ static void project(Mesh c) {
     free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = { 0.0, 0.0, 0.001 },
+    Vector plane_near_p = { 0.0, 0.0, 1.0 },
            plane_near_n = { 0.0, 0.0, 1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
@@ -308,15 +308,15 @@ static void project(Mesh c) {
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     df = sort_triangles(&df);
 
-    // printf("\x1b[H\x1b[J");
-    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
-    // printf("------------------------------------------------------\n");
-    // printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
-    // printf("------------------------------------------------------\n");
-    // printf("V X: %f\nV Y: %f\nV Z: %f\nV W: %f\n", V.x, V.y, V.z, V.w);
-    // printf("------------------------------------------------------\n");
-    // printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
-    // printf("------------------------------------------------------\n");
+    printf("\x1b[H\x1b[J");
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
+    printf("------------------------------------------------------\n");
+    printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
+    printf("------------------------------------------------------\n");
+    printf("V X: %f\nV Y: %f\nV Z: %f\nV W: %f\n", V.x, V.y, V.z, V.w);
+    printf("------------------------------------------------------\n");
+    printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
+    printf("------------------------------------------------------\n");
 
     /* Applying perspective division. */
     // ppdiv(&c);
@@ -331,7 +331,7 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w != 0.00) {
+            if (c->t[i].v[j].w > 0.00) {
                 c->t[i].v[j].x /= c->t[i].v[j].w;
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
@@ -358,6 +358,8 @@ const static Mesh bfculling(const Mesh c) {
 
         if (Camera.z < 0.00)
             dp *= -1;
+        else if (Camera.z == 0.00)
+            Camera.z += 0.001;
 
         if (dp >= 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -403,11 +405,11 @@ const static void draw(const SCMesh sc, const Mesh c) {
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
-            // if (i == 0 && j == 0) {
+            if (i == 0 && j == 0) {
                 // printf("\x1b[H\x1b[J");
-                // printf("X: %f\nY: %f\nZ: %f\nW: %f\nColor : %u", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w, c.t[i].color);
+                printf("X: %f\nY: %f\nZ: %f\nW: %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
                 // printf("------------------------------------------------------\n");
-            // }
+            }
 
             if (j == 2)
                 vindex = 0;
