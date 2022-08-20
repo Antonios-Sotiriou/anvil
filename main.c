@@ -41,7 +41,6 @@ Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 },
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
 Mesh cube;
-Mesh cache;
 Mat4x4 WorldMat = { 0 };
 
 static int MAPCOUNT = 0;
@@ -134,7 +133,7 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&cube, "/home/as/Desktop/teapot.obj");
+        load_obj(&cube, "/home/as/Desktop/axis.obj");
         // shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
@@ -270,6 +269,7 @@ static void project(Mesh c) {
 
     Mat4x4 nm = mxm(reView, m);
 
+    Mesh cache = { 0 };
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
@@ -318,9 +318,6 @@ static void project(Mesh c) {
     printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
     printf("------------------------------------------------------\n");
 
-    /* Applying perspective division. */
-    // ppdiv(&c);
-
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
     
@@ -336,7 +333,6 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
-            // c->t[i].v[j].w = 1.00;
         }
     }
 }
@@ -394,8 +390,9 @@ const static void draw(const SCMesh sc, const Mesh c) {
             /* Attention here.We compute the cross product of the world coordinates Mesh not the screen. */
             // cp = triangle_cp(c.t[i]);
             // dp = dot_product(cp, LightSC);
+
             gcil.graphics_exposures = False;
-            gcil.foreground = c.t[i].color;
+            gcil.foreground = c.t[i].color; /* To be removes when illumination is ready. */
             // if (dp > 0.00) {
             //     gcil.foreground = 0xff00fb;
             // } else {
@@ -404,12 +401,6 @@ const static void draw(const SCMesh sc, const Mesh c) {
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
-
-            if (i == 0 && j == 0) {
-                // printf("\x1b[H\x1b[J");
-                printf("X: %f\nY: %f\nZ: %f\nW: %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
-                // printf("------------------------------------------------------\n");
-            }
 
             if (j == 2)
                 vindex = 0;
