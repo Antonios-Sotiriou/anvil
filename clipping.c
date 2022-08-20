@@ -1,9 +1,5 @@
 #include "header_files/clipping.h"
 
-/* These headers must be removed when clipping is implemented and working correctly */
-#include <stdio.h>
-#include <stdlib.h>
-
 Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
     Mesh r;
@@ -63,11 +59,6 @@ float dist(Vector plane_p, Vector plane_n, Vector v) {
 
 int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2) {
 
-    // Make sure plane normal is indeed normal.
-    // plane_n = norm_vec(plane_n);
-
-    // Create two temporary storage arrays to classify points either side of plane
-    // If distance sign is positive, point lies on "inside" of plane.
     Vector inside_points[3];     int inside_count = 0;
     Vector outside_points[3];    int outside_count = 0;
 
@@ -98,53 +89,25 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         outside_count++;
     }
 
-    // Now classify triangle points, and break the input triangle into 
-    // smaller output triangles if required. There are four possible
-    // outcomes...
     if (inside_count == 0) {
-        // All points lie on the outside of plane, so clip whole triangle
-        // It ceases to exist
-
-        return 0; // No returned triangles are valid
+        return 0; /* Triangle is outside and must be ignored. */
     } else if (inside_count == 3) {
-        // All points lie on the inside of plane, so do nothing
-        // and allow the triangle to simply pass through
         *out_t1 = in_t;
-
-        return 3; // Just the one returned original triangle is valid
+        return 3; /* Triangle is inside and it needs no clipping. */
     } else if (inside_count == 1 && outside_count == 2) {
-        // Triangle should be clipped. As two points lie outside
-        // the plane, the triangle simply becomes a smaller triangle
-
-        // The inside point is valid, so keep that...
         out_t1->v[0] = inside_points[0];
-
-        // but the two new points are at the locations where the 
-        // original sides of the triangle (lines) intersect with the plane
         out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
         out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1]);
-
-        return 1; // Return the newly formed single triangle
+        return 1; /* A new Triangle is created. */
     } else if (inside_count == 2 && outside_count == 1) {
-        // Triangle should be clipped. As two points lie inside the plane,
-        // the clipped triangle becomes a "quad". Fortunately, we can
-        // represent a quad with two new triangles
-
-        // The first triangle consists of the two inside points and a new
-        // point determined by the location where one side of the triangle
-        // intersects with the plane
         out_t1->v[0] = inside_points[0];
         out_t1->v[1] = inside_points[1];
         out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
 
-        // The second triangle is composed of one of he inside points, a
-        // new point determined by the intersection of the other side of the 
-        // triangle and the plane, and the newly created point above
         out_t2->v[0] = inside_points[1];
         out_t2->v[1] = out_t1->v[2];
         out_t2->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
-
-        return 2; // Return two newly formed triangles which form a quad
+        return 2; /* Two new Triangles are created. */
     }
     return 0;
 }
