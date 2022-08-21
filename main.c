@@ -1,70 +1,31 @@
-// general headers
+/* general headers */
 #include <stdio.h>
 #include <stdlib.h>
 #include <X11/Xlib.h>
 #include <math.h>
 #include <unistd.h>
 
-// Project specific headers
+/* Project specific headers */
 #include "header_files/locale.h"
+#include "header_files/objects.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
-enum { AVector, BVector, CVector, LastVector};
-enum { FrontUp, FrontDown, BackUp, BackDown, WestUp, WestDown, EastUp, EastDown, NorthUp, NorthDown, SouthUp, SouthDown, LastTriangle};
 
-// World Vector
-typedef struct {
-    float x, y, z, w;
-} Vector;
-// World Triangle
-typedef struct {
-    Vector vector[LastVector];
-} Triangle;
-// Screen Triangle
-typedef struct {
-    // Importand! XPoint here so we can use the xlib build in function to fill the triangles.
-    XPoint scvector[LastVector];
-} SCTriangle;
-// World Mesh
-typedef struct {
-    Triangle tri[LastTriangle];
-} Mesh;
-// Screen Mesh
-typedef struct {
-    SCTriangle sctri[LastTriangle];
-} SCMesh;
-// 1st frame Initialization matrix
-typedef struct {
-    float m[4][4];
-} Mat4x4;
-
-#define WIDTH                     1000
+#define WIDTH                     800
 #define HEIGHT                    800
-#define ZNear                     0.01
-#define ZFar                      1000.0
-// #define FieldOfView               90.0
-#define AspectRatio               ( ((float)wa.width / (float)wa.height) )
-#define FovRadius                 ( 1 / tanf(fov * 6.00 / (180.0 * 3.14159)) )
-#define FTheta                    ( 1 * 0.1 )
-#define XWorldToScreen            ( (1 + c.tri[i].vector[j].x) * (wa.width / 2.00) )
-#define YWorldToScreen            ( (1 + c.tri[i].vector[j].y) * (wa.height / 2.00) )
+#define XWorldToScreen            ( (1 + c.t[i].v[j].x) * (wa.width / 2.00) )
+#define YWorldToScreen            ( (1 + c.t[i].v[j].y) * (wa.height / 2.00) )
 
-// #define TranslateX                ( c->tri[i].vector[j].x )
-// #define TranslateY                ( c->tri[i].vector[j].y )
-// #define TranslateZ                ( c->tri[i].vector[j].z )
-
-// #define range                     ( ((num / other) - 0.5) * 2.00 )
-
-// #define NormalizeWorldX           ( (c.tri[i].vector[j].x + (wa.width / 2.00)) / wa.width )
-// #define NormalizeWorldY           ( (c.tri[i].vector[j].y + (wa.height / 2.00)) / wa.height )
-// #define XWorldToScreen            ( normalized.tri[i].vector[j].x * wa.width )
-// #define YWorldToScreen            ( normalized.tri[i].vector[j].y * wa.height )
+// #define NormalizeWorldX           ( (c.t[i].v[j].x + (wa.width / 2.00)) / wa.width )
+// #define NormalizeWorldY           ( (c.t[i].v[j].y + (wa.height / 2.00)) / wa.height )
+// #define XWorldToScreen            ( normalized.t[i].v[j].x * wa.width )
+// #define YWorldToScreen            ( normalized.t[i].v[j].y * wa.height )
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask | ExposureMask )
 
-// Some Global Variables
+/* Some Global Variables */
 Display *displ;
 Window win;
 Pixmap pixmap;
@@ -72,116 +33,59 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector Camera = { 0.0, 0.0, -1.0, 1.0 }, Up = { 0.0, -1.0, 0.0, 1.0 }, LookDir = { 0.0, 0.0, 1.0, 1.0 }, Target = { 0.0, 0.0, 1.0, 1.0 };
-Vector LightSC = {
-    -1.0, -1.0, 1.0, 1.0
-};
-Vector el;
+Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 },
+        U        =   { 1.0, 0.0, 0.0, 0.0 },
+        V        =   { 0.0, 1.0, 0.0, 0.0 },
+        N        =   { 0.0, 0.0, 1.0, 0.0 };
 
-#define cube_back     0.5f
-#define cube_front    0.0
-#define cube_size     0.5f
+Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-// Mesh unity = { 
-//     {
-//         { {{-0.05, 0.00, 0.00, 1.0}, {0.00, 0.00, 0.05, 1.0}, {0.05, 0.00, 0.00, 1.0}} },
-//         { {{0.00, -0.05, 0.00, 1.0}, {0.00, 0.00, 0.05, 1.0}, {0.00, 0.05, 0.00, 1.0}} },
-//         { {{0.00, 0.00, -0.05, 1.0}, {0.00, 0.00, 0.00, 1.0}, {0.00, 0.00, 0.05, 1.0}} },
-//     }
-// };
-Mesh cube = {
-    {
-        // { {{ -cube_size, cube_size, cube_front, 1.0 }, { -cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    // Front Up
-        // { {{ -cube_size, cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, cube_size, cube_front, 1.0 }} },      // Front Down
-
-        // { {{ cube_size, cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }} },    // Back Up
-        // { {{ cube_size, cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }, { -cube_size, cube_size, cube_back, 1.0 }} },     // Back Down
-
-        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_front, 1.0 }} },     // West Up
-        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { -cube_size, -cube_size, cube_front, 1.0 }, { -cube_size, cube_size, cube_front, 1.0 }} },       // East Down
-
-        // { {{ cube_size, cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },    // East Up
-        // { {{ cube_size, cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, cube_size, cube_back, 1.0 }} },     // East Down    
-
-        // { {{ -cube_size, -cube_size, cube_front, 1.0 }, { -cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   // North Up
-        // { {{ -cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   // North Down
-
-        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { -cube_size, cube_size, cube_front, 1.0 }, { cube_size, cube_size, cube_front, 1.0 }} },       // South Up
-        // { {{ -cube_size, cube_size, cube_back, 1.0 }, { cube_size, cube_size, cube_front, 1.0 }, { cube_size, cube_size, cube_back, 1.0 }} }      // South Down
-                      // #######################################################################
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }} },    // Front Up
-        { {{ 0.00, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },      // Front Down
-
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }} },    // Back Up
-        { {{ cube_size, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, 0.00, cube_back, 1.0 }} },     // Back Down
-
-        { {{ cube_size, 0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },     // West Up
-        { {{ cube_size,  0.00, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} },       // East Down
-
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }} },    // East Up
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, -cube_size, cube_front, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }} },     // East Down
-
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { 0.00, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }} },   // North Up
-        { {{ 0.00, -cube_size, cube_front, 1.0 }, { cube_size, -cube_size, cube_back, 1.0 }, { cube_size, -cube_size, cube_front, 1.0 }}} ,   // North Down
-
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { 0.00, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }} },       // South Up
-        { {{ 0.00, 0.00, cube_back, 1.0 }, { cube_size, 0.00, cube_front, 1.0 }, { cube_size, 0.00, cube_back, 1.0 }} }      // South Down
-    }
-};
-SCMesh sccube = { 0 };
-Mesh cache;
+Mesh cube;
+Mat4x4 WorldMat = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
-static float FieldOfView = 90.0;
-static float FYaw;
+float AspectRatio = 0;
+float FOV = 75.0;
+static float ANGLE = 0.05;
+static float FYaw = 0.1;
 
-// initialize the knot object to be transfered because we can't transfer vectorers to vectorers through shared memory.
-static const void clientmessage(XEvent *event);
-static const void reparentnotify(XEvent *event);
-static const void mapnotify(XEvent *event);
-static const void expose(XEvent *event);
-static const void resizerequest(XEvent *event);
-static const void configurenotify(XEvent *event);
-static const void buttonpress(XEvent *event);
-static const void keypress(XEvent *event);
+/* Event handling functions. */
+const static void clientmessage(XEvent *event);
+const static void reparentnotify(XEvent *event);
+const static void mapnotify(XEvent *event);
+const static void expose(XEvent *event);
+const static void resizerequest(XEvent *event);
+const static void configurenotify(XEvent *event);
+const static void buttonpress(XEvent *event);
+const static void keypress(XEvent *event);
 
-static Mesh meshxm(Mesh *c, const Mat4x4 m);
-static Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2);
-static void vecxm(Vector *v, const Mat4x4 m);
-static void translation_mat(Vector v);
-static void projection_mat(Mesh cache, const float fov);
-static void rotate_xmat(Mesh *cache, const float angle);
-static void rotate_ymat(Mesh *cache, const float angle);
-static void rotate_zmat(Mesh *cache, const float angle);
+/* Moving functions */
+static void look_left(float fyaw);
+static void move_backward(Vector *v);
+static void look_right(float fyaw);
+static void move_forward(Vector *v);
+static void move_left(Vector *v);
+static void move_right(Vector *v);
+static void move_up(Vector *v);
+static void move_down(Vector *v);
+static void rotate_x(Mesh *c, const float angle);
+static void rotate_y(Mesh *c, const float angle);
+static void rotate_z(Mesh *c, const float angle);
 
-static void move_left(Vector *vcam);
-static void move_right(Vector *vcam);
-static void move_up(Vector *vcam);
-static void move_down(Vector *vcam);
-static void look_left(float num);
-static void look_right(float num);
-static void move_forward(void);
-static void move_backward(void);
+/* Represantation functions */
+static void project(Mesh c);
+static void ppdiv(Mesh *c);
+const static Mesh bfculling(const Mesh c);
+const static void draw(const SCMesh sc, const Mesh c);
+const static void rasterize(const Mesh c);
 
-static float len_vector(const Vector v);
-static Vector norm_vector(const Vector v);
-static Vector multiply_vectors(const Vector v1, const float num);
-static Vector divide_vectors(const Vector v1, const float num);
-static Vector add_vectors(const Vector v1, const Vector v2);
-static Vector sub_vectors(const Vector v1, const Vector v2);
-
-static Vector cross_product(const Vector v1, const Vector v2);
-static float dot_product(const Vector v, const Vector nm);
-static void adjust_camera(const Vector vcam);
-static void paint_mesh(SCMesh sc);
-static void norm_mesh(const Mesh c);
-
+/* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
-static const void pixmapupdate(void);
-static const void pixmapdisplay(void);
-static const void atomsinit(void);
-static const int board(void);
+const static void pixmapupdate(void);
+const static void pixmapdisplay(void);
+const static void atomsinit(void);
+const static int board(void);
 static void (*handler[LASTEvent]) (XEvent *event) = {
     [ClientMessage] = clientmessage,
     [ReparentNotify] = reparentnotify,
@@ -193,10 +97,21 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
     [KeyPress] = keypress,
 };
 
-static const void clientmessage(XEvent *event) {
+/* Project specific inludes. */
+#include "header_files/matrices.h"
+#include "header_files/vectors_math.h"
+#include "header_files/obj_parser.h"
+#include "header_files/clipping.h"
+
+/* Testing */
+#include "header_files/test_shape.h"
+
+const static void clientmessage(XEvent *event) {
 
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
+
+        free(cube.t);
 
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
@@ -205,448 +120,326 @@ static const void clientmessage(XEvent *event) {
         RUNNING = 0;
     }
 }
-static const void reparentnotify(XEvent *event) {
+const static void reparentnotify(XEvent *event) {
 
     printf("reparentnotify event received\n");
     XGetWindowAttributes(displ, win, &wa);
+    AspectRatio = ((float)wa.width / (float)wa.height);
 }
-static const void mapnotify(XEvent *event) {
+const static void mapnotify(XEvent *event) {
 
     printf("mapnotify event received\n");
 
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        cache = cube;
-        // projection_mat(cache, FieldOfView);
+        load_obj(&cube, "/home/as/Desktop/teapot.obj");
+        // shape_create(&cube);
+
+        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 2.0);
+        Mat4x4 WorldMat = mxm(sm, tm);
+        cube = meshxm(cube, WorldMat);
         MAPCOUNT = 1;
     }
 }
-static const void expose(XEvent *event) {
+const static void expose(XEvent *event) {
 
     printf("expose event received\n");
-    XGCValues gcv;
-    gcv.graphics_exposures = False;
-    gcv.foreground = 0xffffff;
-    GC gc = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcv);
-
-    XGetWindowAttributes(displ, win, &wa);
-
-    // XDrawLine(displ, win, gc, 0, wa.height / 2, wa.width, wa.height / 2);
-    // XDrawLine(displ, win, gc, wa.width / 2, 0, wa.width / 2, wa.height);
-
-    XFreeGC(displ, gc);
-
     pixmapupdate();
-    projection_mat(cache, FieldOfView);
-    // norm_mesh(cube);
-    // norm_mesh(unity);
+    project(cube);
 }
-static const void resizerequest(XEvent *event) {
+const static void resizerequest(XEvent *event) {
 
     printf("resizerequest event received\n");
 }
-static const void configurenotify(XEvent *event) {
+const static void configurenotify(XEvent *event) {
 
-    //printf("configurenotify event received\n");
-}
-static const void buttonpress(XEvent *event) {
-
-    printf("buttonpress event received\n");
-    if (el.x == 0.00 && el.y == 0.00) {
-        el.x = (event->xbutton.x - (wa.width / 2.00)) / (wa.width / 2.00);
-        el.y = (event->xbutton.y - (wa.height / 2.00)) / (wa.height / 2.00);
-    } else {
-        el.x = (event->xbutton.x - (wa.width / 2.00)) / (wa.width / 2.00);
-        el.y = (event->xbutton.y - (wa.height / 2.00)) / (wa.height / 2.00);
+    if (!event->xconfigure.send_event) {
+        printf("configurenotify event received\n");
+        XGetWindowAttributes(displ, win, &wa);
+        AspectRatio = ((float)wa.width / (float)wa.height);
     }
 }
-static const void keypress(XEvent *event) {
+const static void buttonpress(XEvent *event) {
 
+    printf("buttonpress event received\n");
+}
+
+const static void keypress(XEvent *event) {
+    
     KeySym keysym = get_keysym(event);
     switch (keysym) {
 
-        case 119 : move_forward(); // w
+        case 119 : move_forward(&Camera);         /* w */
             break;
-        case 97 : look_left(FYaw); // a
+        case 97 : look_left(FYaw);                /* a */
             break;
-        case 115 : move_backward(); // s
+        case 115 : move_backward(&Camera);        /* s */
             break;
-        case 100 : look_right(FYaw); // d
+        case 100 : look_right(FYaw);              /* d */
             break;
-        case 65361 : move_left(&Camera); // left arrow
+        case 65361 : move_left(&Camera);          /* left arrow */
             break;
-        case 65363 : move_right(&Camera); // right arrow
+        case 65363 : move_right(&Camera);         /* right arrow */
             break;
-        case 65362 : move_up(&Camera); // up arror
+        case 65362 : move_up(&Camera);            /* up arror */
             break;
-        case 65364 : move_down(&Camera); // down arrow
+        case 65364 : move_down(&Camera);          /* down arrow */
             break;
-        case 120 : rotate_xmat(&cache, FTheta); // x
+        case 120 : rotate_x(&cube, ANGLE);       /* x */
             break;
-        case 121 : rotate_ymat(&cache, FTheta); // y
+        case 121 : rotate_y(&cube, ANGLE);       /* y */
             break;
-        case 122 : rotate_zmat(&cache, FTheta); // z
-            break;
-        case 101 : /* rotate Yaxis Backwards */
-            break;
-        case 65293 : /* ZOOM *= 0.10 */; // Enter
+        case 122 : rotate_z(&cube, ANGLE);       /* z */
             break;
         default :
             return;
     }
-    
+
     pixmapdisplay();
-    projection_mat(cache, FieldOfView);
-}
-static Mesh meshxm(Mesh *c, const Mat4x4 m) {
-
-    Mesh ch = *c;
-    // printf("\x1b[H\x1b[J");
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-            ch.tri[i].vector[j].x = c->tri[i].vector[j].x * m.m[0][0] + c->tri[i].vector[j].y * m.m[1][0] + c->tri[i].vector[j].z * m.m[2][0] + c->tri[i].vector[j].w * m.m[3][0];
-            ch.tri[i].vector[j].y = c->tri[i].vector[j].x * m.m[0][1] + c->tri[i].vector[j].y * m.m[1][1] + c->tri[i].vector[j].z * m.m[2][1] + c->tri[i].vector[j].w * m.m[3][1];
-            ch.tri[i].vector[j].z = c->tri[i].vector[j].x * m.m[0][2] + c->tri[i].vector[j].y * m.m[1][2] + c->tri[i].vector[j].z * m.m[2][2] + c->tri[i].vector[j].w * m.m[3][2];
-            ch.tri[i].vector[j].w = c->tri[i].vector[j].x * m.m[0][3] + c->tri[i].vector[j].y * m.m[1][3] + c->tri[i].vector[j].z * m.m[2][3] + c->tri[i].vector[j].w * m.m[3][3];
-            // if (i == 0 && j == 2) {
-            //     printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
-            //     printf("----------------------------------------------------\n");
-                // printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", cache.tri[i].vector[j].x, cache.tri[i].vector[j].y, cache.tri[i].vector[j].z, cache.tri[i].vector[j].w);
-            // }
-        }
-    }
-    *c = cache;
-    return ch;
-}
-static void ppdiv(Mesh *c) {
-    for (int i = 0; i < sizeof(c->tri) / sizeof(Triangle); i++) {
-        for (int j = 0; j < sizeof(c->tri->vector) / sizeof(Vector); j++) {
-
-            if (c->tri[i].vector[j].w != 0 ) {
-                // printf("X -----> %f\nY -----> %f\nZ -----> %f\nW -----> %f\n", c->tri[i].vector[j].x, c->tri[i].vector[j].y, c->tri[i].vector[j].z, c->tri[i].vector[j].w);
-                c->tri[i].vector[j].x /= c->tri[i].vector[j].w;
-                c->tri[i].vector[j].y /= c->tri[i].vector[j].w;
-                c->tri[i].vector[j].z /= c->tri[i].vector[j].w;
-            }
-        }
-    }
-}
-float depth(Triangle t) {
-    float res = 0;
-    int count = 0;
-    for (int i = 0; i < sizeof(t) / sizeof(Vector); i++) {
-        res += t.vector[i].z;
-        count++;
-    }
-    return res / count;
-}
-static Mesh sort_vectors(Mesh c) {
-
-    Mesh res = { 0 };
-    Triangle value = { 0 };
-    int pos = 0;
-
-    for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++) {
-        
-        for (int j = pos; j < sizeof(c.tri) / sizeof(Triangle); j++) {
-
-            printf("c.tri[i].depth: %f\n", depth(c.tri[i]));
-            if (depth(c.tri[i]) > depth(c.tri[j])) {
-                value = c.tri[i];
-                res.tri[i] = c.tri[j];
-                res.tri[j] = value;
-                printf("res.tri[i].depth: %f\n", depth(res.tri[i]));
-            }
-        }
-        pos++;
-    }
-
-    for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++) {
-        printf("Count: %f\n", res.tri[i].vector[0].z);
-    }
-    return res;
-
-    // for (int i = 0; i < sizeof(num_arr) / sizeof(int); i++) {
-
-    //     for (int j = pos; j < sizeof(num_arr) / sizeof(int); j++) {
-
-    //         if (num_arr[i] > num_arr[j]) {
-    //             value = num_arr[i];
-    //             num_arr[i] = num_arr[j];
-    //             num_arr[j] = value;
-    //         }
-    //     }
-    //     pos++;
-    // }
-
-    // for (int i = 0; i < sizeof(num_arr) / sizeof(int); i++) {
-    //     printf("%2d ---> %2d\n", i, num_arr[i]);
-    // }
-}
-static Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2) {
-    Mat4x4 res;
-    for (int i = 0; i < sizeof(res.m[0]) / sizeof(float); i++) 
-        for (int j = 0; j < sizeof(res.m[0][0]) / sizeof(float); j++) {
-            res.m[j][i] = m1.m[j][0] * m2.m[0][i] + m1.m[j][1] * m2.m[1][i] + m1.m[j][2] * m2.m[2][i] + m1.m[j][3] * m2.m[3][i];
-        }
-    return res;
-}
-static void vecxm(Vector *v, const Mat4x4 m) {
     
-    Vector cache = *v;
-    cache.x = v->x * m.m[0][0] + v->y * m.m[1][0] + v->z * m.m[2][0] + v->w * m.m[3][0];
-    cache.y = v->x * m.m[0][1] + v->y * m.m[1][1] + v->z * m.m[2][1] + v->w * m.m[3][1];
-    cache.z = v->x * m.m[0][2] + v->y * m.m[1][2] + v->z * m.m[2][2] + v->w * m.m[3][2];
-    cache.w = v->x * m.m[0][3] + v->y * m.m[1][3] + v->z * m.m[2][3] + v->w * m.m[3][3];
-    *v = cache;
+    project(cube);
 }
-static Mat4x4 pointat(Vector pos, Vector target, Vector up) {
-    // Calculate new Forward direction.
-    Vector newForward = sub_vectors(target, pos);
-    newForward = norm_vector(newForward);
-
-    // Calculate newUp direction.
-    Vector a = multiply_vectors(newForward, dot_product(up, newForward));
-    Vector newUp = sub_vectors(up, a);
-    newUp = norm_vector(newUp);
-
-    // Calculate new Right direction.
-    Vector newRight = cross_product(newUp, newForward);
-
-    Mat4x4 m;
-    m.m[0][0] = newRight.x;      m.m[0][1] = newRight.y;      m.m[0][2] = newRight.z;      m.m[0][3] = 0.0;
-    m.m[1][0] = newUp.x;         m.m[1][1] = newUp.y;         m.m[1][2] = newUp.z;         m.m[1][3] = 0.0;
-    m.m[2][0] = newForward.x;    m.m[2][1] = newForward.y;    m.m[2][2] = newForward.z;    m.m[2][3] = 0.0;
-    m.m[3][0] = pos.x;           m.m[3][1] = pos.y;           m.m[3][2] = pos.z;           m.m[3][3] = 1.0;
-
-    return m;
+/* Rotates the camera to look left. */
+static void look_left(float fyaw) {
+    fyaw = -FYaw;
+    fyaw += 0.05;
+    Mat4x4 m = rotate_ymat(fyaw);
+    U = vecxm(U, m);
+    N = vecxm(N, m);
 }
-static Mat4x4 inverse_mat(Mat4x4 m) {
-    Mat4x4 rm;
-    rm.m[0][0] = m.m[0][0];    rm.m[0][1] = m.m[1][0];    rm.m[0][2] = m.m[2][0];    rm.m[0][3] = 0.0;
-    rm.m[1][0] = m.m[0][1];    rm.m[1][1] = m.m[1][1];    rm.m[1][2] = m.m[2][1];    rm.m[1][3] = 0.0;
-    rm.m[2][0] = m.m[0][2];    rm.m[2][1] = m.m[1][2];    rm.m[2][2] = m.m[2][2];    rm.m[2][3] = 0.0;
-    rm.m[3][0] = -(m.m[3][0] * rm.m[0][0] + m.m[3][1] * rm.m[1][0] + m.m[3][2] * rm.m[2][0]);
-    rm.m[3][1] = -(m.m[3][0] * rm.m[0][1] + m.m[3][1] * rm.m[1][1] + m.m[3][2] * rm.m[2][1]);
-    rm.m[3][2] = -(m.m[3][0] * rm.m[0][2] + m.m[3][1] * rm.m[1][2] + m.m[3][2] * rm.m[2][2]);
-    rm.m[3][3] = 1.0;
-
-    return rm;
+static void move_backward(Vector *v) {
+    Vector tempN = multiply_vec(N, 0.1);
+    Camera = sub_vecs(Camera, tempN);
 }
-static void translation_mat(Vector v) {
-    Mat4x4 m = { 0 };
-    m.m[0][3] = v.x;
-    m.m[1][3] = v.y;
-    m.m[2][3] = v.z;
-    m.m[3][3] = 1.0;
-
-    meshxm(&cube, m);
+/* Rotates the camera to look right. */
+static void look_right(float fyaw) {
+    fyaw -= 0.05;
+    Mat4x4 m = rotate_ymat(fyaw);
+    U = vecxm(U, m);
+    N = vecxm(N, m);
 }
-static void projection_mat(Mesh cache, const float fov) {
-    Mat4x4 m = { 0 };
-    m.m[0][0] = AspectRatio * FovRadius;
-    m.m[1][1] = AspectRatio * FovRadius;
-    m.m[2][2] = (ZFar / (ZFar - ZNear));
-    m.m[2][3] = 1.0;
-    m.m[3][2] = ((-ZFar * ZNear) / (ZFar - ZNear));
-    m.m[3][3] = 1.0;
+static void move_forward(Vector *v) {
+    Vector tempN = multiply_vec(N, 0.1);
+    Camera = add_vecs(Camera, tempN);
+}
+/* Moves camera position left. */
+static void move_left(Vector *v) {
+    Vector tempU = multiply_vec(U, 0.1);
+    Camera = sub_vecs(Camera, tempU);
+}
+/* Moves camera position right. */
+static void move_right(Vector *v) {
+    Vector tempU = multiply_vec(U, 0.1);
+    Camera = add_vecs(Camera, tempU);
+}
+/* Moves camera position Up. */
+static void move_up(Vector *v) {
+    v->y -= 0.1;
+}
+/* Moves camera position Down. */
+static void move_down(Vector *v) {
+    v->y += 0.1;
+}
+/* Rotates object according to World X axis. */
+static void rotate_x(Mesh *c, const float angle) {
+    Mat4x4 m = rotate_xmat(angle);
+    *c = meshxm(cube, m);
+}
+/* Rotates object according to World Y axis. */
+static void rotate_y(Mesh *c, const float angle) {
+    Mat4x4 m = rotate_ymat(angle);
+    *c = meshxm(cube, m);
+}
+/* Rotates object according to World Z axis. */
+static void rotate_z(Mesh *c, const float angle) {
+    Mat4x4 m = rotate_zmat(angle);
+    *c = meshxm(cube, m);
+}
+/* Starts the Projection Pipeline. */
+static void project(Mesh c) {
 
-    cache = meshxm(&cube, m);
+    Mat4x4 matCamera = camera_mat(Camera, U, V, N);
+
+    // Make view matrix from camera
+    Mat4x4 reView = inverse_mat(matCamera);
+    
+    Mat4x4 m = projection_mat(FOV, AspectRatio);
+
+    Mat4x4 nm = mxm(reView, m);
+
+    // Position light Source according to Camera position.
+    // LightSC = vecxm(LightSC, reView);
+
+    Mesh cache = { 0 };
+    cache = meshxm(c, nm);
+
+    /* Applying perspective division. */
     ppdiv(&cache);
-    // cache = sort_vectors(cache);
-    norm_mesh(cache);
-}
-static void rotate_xmat(Mesh *cache, const float angle) {
-    Mat4x4 m = { 0 };
-    m.m[0][0] = 1.0;
-    m.m[1][1] = cosf(FTheta);
-    m.m[1][2] = -sinf(FTheta);
-    m.m[2][1] = sinf(FTheta);
-    m.m[2][2] = cosf(FTheta);
-    m.m[3][3] = 1.0;
 
-    *cache = meshxm(&cube, m);
-}
-static void rotate_ymat(Mesh *cache, const float angle) {
-    Mat4x4 m = { 0 };
-    m.m[0][0] = cosf(angle);
-    m.m[1][1] = 1.00;
-    m.m[0][2] = -sinf(angle);
-    m.m[2][0] = sinf(angle);
-    m.m[2][2] = cosf(angle);
-    m.m[3][3] = 1.0;
+    /* Triangles must be checked for cross product. */
+    Mesh bf = bfculling(cache);
+    free(cache.t);
 
-    *cache = meshxm(&cube, m);
-}
-static void rotate_zmat(Mesh *cache, const float angle) {
-    Mat4x4 m = { 0 };
-    m.m[0][0] = cosf(FTheta);
-    m.m[0][1] = sinf(FTheta);
-    m.m[1][0] = -sinf(FTheta);
-    m.m[1][1] = cosf(FTheta);
-    m.m[2][2] = 1.0;
-    m.m[3][3] = 1.0;
+    /* At this Point triangles must be clipped against near plane. */
+    Vector plane_near_p = { 0.0, 0.0, 1.0 },
+           plane_near_n = { 0.0, 0.0, 1.0 };
+    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
+    free(bf.t);
 
-    *cache = meshxm(&cube, m);
+    Vector plane_right_p = { 0.995, 0.0, 0.0 },
+           plane_right_n = { -1.0, 0.0, 0.0 };
+    Mesh rf = clipp(nf, plane_right_p, plane_right_n);
+    free(nf.t);
+
+    Vector plane_left_p = { -0.995, 0.0, 0.0 },
+           plane_left_n = { 1.0, 0.0, 0.0 };
+    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
+    free(rf.t);
+
+    Vector plane_up_p = { 0.0, -0.995, 0.0 },
+           plane_up_n = { 0.0, 1.0, 0.0 };
+    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+    free(lf.t);
+
+    Vector plane_down_p = { 0.0, 0.995, 0.0 },
+           plane_down_n = { 0.0, -1.0, 0.0 };
+    Mesh df = clipp(uf, plane_down_p, plane_down_n);
+    free(uf.t);
+
+    /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
+    df = sort_triangles(&df);
+
+    printf("\x1b[H\x1b[J");
+    printf("LightSC X: %f\nLightSC Y: %f\nLightSC Z: %f\nLightSC W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
+    printf("------------------------------------------------------\n");
+    printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
+    printf("------------------------------------------------------\n");
+    printf("V X: %f\nV Y: %f\nV Z: %f\nV W: %f\n", V.x, V.y, V.z, V.w);
+    printf("------------------------------------------------------\n");
+    printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
+    printf("------------------------------------------------------\n");
+
+    /* Sending to translation to Screen Coordinates. */
+    rasterize(df);
+    
+    free(df.t);
 }
-static void move_left(Vector *vcam) {
-    vcam->x -= 0.1;
-    adjust_camera(*vcam);
+/* Perspective division. */
+static void ppdiv(Mesh *c) {
+    for (int i = 0; i < c->indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+
+            if (c->t[i].v[j].w > 0.00) {
+                c->t[i].v[j].x /= c->t[i].v[j].w;
+                c->t[i].v[j].y /= c->t[i].v[j].w;
+                c->t[i].v[j].z /= c->t[i].v[j].w;
+            }
+        }
+    }
 }
-static void move_right(Vector *vcam) {
-    vcam->x += 0.1;
-    adjust_camera(*vcam);
-}
-static void move_up(Vector *vcam) {
-    vcam->y -= 0.1;
-    adjust_camera(*vcam);
-}
-static void move_down(Vector *vcam) {
-    vcam->y += 0.1;
-    adjust_camera(*vcam);
-}
-static void look_left(float num) {
-    num -= 0.2;
-    // Mat4x4 matCameraRot = rotate_ymat(num);
-    // vecxm(&Target, matCameraRot);
-    // LookDir = Target;
-    // Target = add_vectors(Camera, LookDir);
-    // adjust_camera(Camera);
-}
-static void look_right(float num) {
-    num += 0.2;
-    // Mat4x4 matCameraRot = rotate_ymat(num);
-    // vecxm(&Target, matCameraRot);
-    // LookDir = Target;
-    // Target = add_vectors(Camera, LookDir);
-    // adjust_camera(Camera);
-}
-static void move_forward(void) {
-    Vector vForward = multiply_vectors(LookDir, 0.1);
-    Camera = add_vectors(Camera, vForward);
-    adjust_camera(Camera);
-}
-static void move_backward(void) {
-    Vector vForward = multiply_vectors(LookDir, 0.1);
-    Camera = sub_vectors(Camera, vForward);
-    adjust_camera(Camera);
-}
-static void adjust_camera(const Vector vcam) {
-    // Make camera Matrix.
-    Mat4x4 matView = pointat(vcam, Target, Up);
-    // Invert Camera matrix.
-    Mat4x4 View = inverse_mat(matView);
-    meshxm(&cube, View);
-}
-static float len_vector(const Vector v) {
-    return sqrtf(dot_product(v, v));
-}
-static Vector norm_vector(const Vector v) {
-    float len = len_vector(v);
-    Vector res = { v.x / len, v.y / len, v.z / len };
-    return res;
-}
-static Vector multiply_vectors(const Vector v1, const float num) {
-    Vector res =  { v1.x * num, v1.y * num, v1.z * num };
-    return res;
-}
-static Vector divide_vectors(const Vector v1, const float num) {
-    Vector res =  { v1.x / num, v1.y / num, v1.z / num };
-    return res;
-}
-static Vector add_vectors(const Vector v1, const Vector v2) {
-    Vector res =  { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
-    return res;
-}
-static Vector sub_vectors(const Vector v1, const Vector v2) {
-    Vector res = { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
-    return res;
-}
-static Vector cross_product(const Vector v1, const Vector v2) {
+/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
+const static Mesh bfculling(const Mesh c) {
+    Mesh r = { 0 };
     Vector cp;
-    cp.x = v1.y * v2.z - v1.z * v2.y;
-    cp.y = v1.z * v2.x - v1.x * v2.z;
-    cp.z = v1.x * v2.y - v1.y * v2.x;
-    return cp;
-}
-static float dot_product(const Vector v1, const Vector v2) {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
-static void paint_mesh(SCMesh sc) {
+    float dp;
+    int counter = 1;
+    int index = 0;
+    r.t = malloc(sizeof(Triangle));
+    if (!r.t)
+        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
-    XGCValues gclines, gcfill, gcil;
+    for (int i = 0; i < c.indexes; i++) {
 
+        cp = triangle_cp(c.t[i]);
+        dp = dot_product(cp, Camera);
+
+        if (Camera.z < 0.00)
+            dp *= -1;
+        else if (Camera.z == 0.00)
+            Camera.z += 0.001;
+
+        if (dp >= 0.00) {
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
+
+            if (!r.t)
+                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+
+            r.t[index] = c.t[i];
+            counter++;
+            index++;
+        }
+    }
+    r.indexes = index;
+    return r;
+}
+/* Draws the Mesh's Triangles on screen in 2D coordinates. */
+const static void draw(const SCMesh sc, const Mesh c) {
+
+    XGCValues gclines, gcil;
     gclines.graphics_exposures = False;
-    gclines.line_width = 3;
+    gclines.line_width = 1;
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
 
-    gcfill.graphics_exposures = False;
-    gcfill.foreground = 0xab00a6;
-    GC gcf = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcfill);
-
-    Vector cp, line1, line2;
+    Vector cp;
     float dp;
-    int vecindex = 1;
+    int vindex = 1;
 
-    for (int i = 0; i < sizeof(sc.sctri) / sizeof(SCTriangle); i++)
-        
-        for (int j = 0; j < sizeof(sc.sctri->scvector) / sizeof(XPoint); j++) {
-            line1 = sub_vectors(cache.tri[i].vector[1], cache.tri[i].vector[0]);
-            line2 = sub_vectors(cache.tri[i].vector[2], cache.tri[i].vector[0]);
-            
-            cp = cross_product(line1, line2);
-            // cp = norm_vector(cp);
+    for (int i = 0; i < sc.indexes; i++) {
 
-            // if (i == 0 && j == 0) {
-            //     printf("\x1b[H\x1b[J");
-            //     printf("DotProduct: %f\n", dot_product(cp, Camera));
-            //     printf("Zvalue Cache: %2f\n", cache.tri[i].vector[j].z);
-            //     printf("Zvalue Cube: %2f\n", cube.tri[i].vector[j].z);
-            //     printf("CP X value  : %2f\n", cp.x);
-            //     printf("CP Y value  : %2f\n", cp.y);
-            //     printf("CP Z value  : %2f\n", cp.z);
-            // }
-            if (dot_product(cp, Camera) < 0.00) {
-            // if (cp.x * (cache.tri[i].vector[j].x - Camera.x) +
-            //     cp.y * (cache.tri[i].vector[j].y - Camera.y) +
-            //     cp.z * (cache.tri[i].vector[j].z - Camera.z) > 0.00) {
+        for (int j = 0; j < 3; j++) {
+            /* Attention here.We compute the cross product of the world coordinates Mesh not the screen. */
+            cp = triangle_cp(c.t[i]);
+            dp = dot_product(LightSC, cp);
 
-                dp = dot_product(LightSC, cp);
-                gcil.graphics_exposures = False;
+            gcil.graphics_exposures = False;
+            gcil.foreground = c.t[i].color; /* To be removed when illumination is ready. */
 
-                if (dp > 0.1 && dp < 0.5) {
-                    gcil.foreground = 0xbb09b8;
-                } else 
-                    gcil.foreground = 0xff00fb;
-                GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
-                if (i == 0) 
-                    // gcil.foreground = 0x0377eb;
-                    
-                    // GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
-                    XFillPolygon(displ, win, gci, sc.sctri[i].scvector, 3, Convex, CoordModeOrigin);
-
-                if (j == 2)
-                    vecindex = 0;
-                XDrawLine(displ, win, gcl, sc.sctri[i].scvector[j].x, sc.sctri[i].scvector[j].y, sc.sctri[i].scvector[vecindex].x, sc.sctri[i].scvector[vecindex].y);
-                vecindex++;
-                XFreeGC(displ, gci);
+            if (dp > 0.00) {
+                gcil.foreground = 0xff00fb;
+            } else {
+                gcil.foreground = c.t[i].color;
             }
-        }
 
+            GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
+            XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+
+            if (j == 2)
+                vindex = 0;
+            // XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
+            vindex++;
+            XFreeGC(displ, gci);
+        }
+    }
     XFreeGC(displ, gcl);
-    XFreeGC(displ, gcf);
-
 }
-static void norm_mesh(const Mesh c) {
-    for (int i = 0; i < sizeof(c.tri) / sizeof(Triangle); i++)
-        for (int j = 0; j < sizeof(c.tri->vector) / sizeof(Vector); j++) {
+/* Translates the Mesh's Triangles from world to Screen Coordinates. */
+const static void rasterize(const Mesh c) {
 
-            sccube.sctri[i].scvector[j].x = XWorldToScreen;
-            sccube.sctri[i].scvector[j].y = YWorldToScreen;
+    SCMesh scmesh;
+    // Mesh normalized = c;
+    scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
+
+    if (!scmesh.sct)
+        fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
+
+    scmesh.indexes = c.indexes;
+
+    for (int i = 0; i < c.indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+
+            // normalized.t[i].v[j].x = NormalizeWorldX;
+            // normalized.t[i].v[j].y = NormalizeWorldY;           
+
+            scmesh.sct[i].scv[j].x = XWorldToScreen;
+            scmesh.sct[i].scv[j].y = YWorldToScreen;
         }
-    paint_mesh(sccube);
+    }
+    draw(scmesh, c);
+    free(scmesh.sct);
 }
 static KeySym get_keysym(XEvent *event) {
 
@@ -677,12 +470,9 @@ static KeySym get_keysym(XEvent *event) {
     if (status == XBufferOverflow) {
         perror("Buffer Overflow...\n");
     }
-    // printf("Pressed key: %lu.\n", keysym);
-    // printf("The Button that was pressed is %s.\n", buffer);
-
     return keysym;
 }
-static const void pixmapupdate(void) {
+const static void pixmapupdate(void) {
 
     XGCValues gc_vals;
     gc_vals.graphics_exposures = False;
@@ -692,7 +482,7 @@ static const void pixmapupdate(void) {
     XCopyArea(displ, win, pixmap, pix, 0, 0, wa.width, wa.height, 0, 0);
     XFreeGC(displ, pix);
 }
-static const void pixmapdisplay(void) {
+const static void pixmapdisplay(void) {
 
     XGCValues gc_vals;
     gc_vals.graphics_exposures = False;
@@ -701,19 +491,17 @@ static const void pixmapdisplay(void) {
     XCopyArea(displ, pixmap, win, pix, 0, 0, wa.width, wa.height, 0, 0);
     XFreeGC(displ, pix);
 }
-static const void atomsinit(void) {
+const static void atomsinit(void) {
 
-    /* Delete window initializer area */
     wmatom[Win_Close] = XInternAtom(displ, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(displ, win, &wmatom[Win_Close], 1);
 
-    /* Change main window Title */
     wmatom[Win_Name] = XInternAtom(displ, "WM_NAME", False);
     wmatom[Atom_Type] =  XInternAtom(displ, "STRING", False);
-    XChangeProperty(displ, win, wmatom[Win_Name], wmatom[Atom_Type], 8, PropModeReplace, (unsigned char*)"Mandelbrot Set", 14);
+    XChangeProperty(displ, win, wmatom[Win_Name], wmatom[Atom_Type], 8, PropModeReplace, (unsigned char*)"Anvil", 5);
 }
-// General initialization and event handling.
-const int board(void) {
+/* General initialization and event handling. */
+const static int board(void) {
 
     XEvent event;
 
