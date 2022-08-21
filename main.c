@@ -133,7 +133,7 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&cube, "/home/as/Desktop/axis.obj");
+        load_obj(&cube, "/home/as/Desktop/teapot.obj");
         // shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
@@ -269,6 +269,9 @@ static void project(Mesh c) {
 
     Mat4x4 nm = mxm(reView, m);
 
+    // Position light Source according to Camera position.
+    // LightSC = vecxm(LightSC, reView);
+
     Mesh cache = { 0 };
     cache = meshxm(c, nm);
 
@@ -309,6 +312,7 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     printf("\x1b[H\x1b[J");
+    printf("LightSC X: %f\nLightSC Y: %f\nLightSC Z: %f\nLightSC W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
     printf("------------------------------------------------------\n");
     printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
@@ -380,31 +384,32 @@ const static void draw(const SCMesh sc, const Mesh c) {
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
 
-    // Vector cp;
-    // float dp;
+    Vector cp;
+    float dp;
     int vindex = 1;
 
     for (int i = 0; i < sc.indexes; i++) {
 
         for (int j = 0; j < 3; j++) {
             /* Attention here.We compute the cross product of the world coordinates Mesh not the screen. */
-            // cp = triangle_cp(c.t[i]);
-            // dp = dot_product(cp, LightSC);
+            cp = triangle_cp(c.t[i]);
+            dp = dot_product(LightSC, cp);
 
             gcil.graphics_exposures = False;
-            gcil.foreground = c.t[i].color; /* To be removes when illumination is ready. */
-            // if (dp > 0.00) {
-            //     gcil.foreground = 0xff00fb;
-            // } else {
-            //     gcil.foreground = c.t[i].color;
-            // }
+            gcil.foreground = c.t[i].color; /* To be removed when illumination is ready. */
+
+            if (dp > 0.00) {
+                gcil.foreground = 0xff00fb;
+            } else {
+                gcil.foreground = c.t[i].color;
+            }
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
             if (j == 2)
                 vindex = 0;
-            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
+            // XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
             vindex++;
             XFreeGC(displ, gci);
         }
