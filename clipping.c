@@ -93,7 +93,6 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         return 0; /* Triangle is outside and must be ignored. */
     } else if (inside_count == 3) {
         *out_t1 = in_t;
-        out_t1->color = in_t.color;
         return 3; /* Triangle is inside and it needs no clipping. */
     } else if (inside_count == 1 && outside_count == 2) {
         out_t1->v[0] = inside_points[0];
