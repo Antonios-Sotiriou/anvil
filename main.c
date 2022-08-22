@@ -133,11 +133,11 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&cube, "/home/as/Desktop/teapot.obj");
-        // shape_create(&cube);
+        // load_obj(&cube, "objects/teapot.obj");
+        shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 2.0);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
         MAPCOUNT = 1;
@@ -269,9 +269,6 @@ static void project(Mesh c) {
 
     Mat4x4 nm = mxm(reView, m);
 
-    // Position light Source according to Camera position.
-    // LightSC = vecxm(LightSC, reView);
-
     Mesh cache = { 0 };
     cache = meshxm(c, nm);
 
@@ -312,14 +309,13 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     printf("\x1b[H\x1b[J");
-    printf("LightSC X: %f\nLightSC Y: %f\nLightSC Z: %f\nLightSC W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\nCamera W: %f\n", Camera.x, Camera.y, Camera.z, Camera.w);
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
     printf("------------------------------------------------------\n");
-    printf("U X: %f\nU Y: %f\nU Z: %f\nU W: %f\n", U.x, U.y, U.z, U.w);
+    printf("U X: %f\nU Y: %f\nU Z: %f\n", U.x, U.y, U.z);
     printf("------------------------------------------------------\n");
-    printf("V X: %f\nV Y: %f\nV Z: %f\nV W: %f\n", V.x, V.y, V.z, V.w);
+    printf("V X: %f\nV Y: %f\nV Z: %f\n", V.x, V.y, V.z);
     printf("------------------------------------------------------\n");
-    printf("N X: %f\nN Y: %f\nN Z: %f\nN W: %f\n", N.x, N.y, N.z, N.w);
+    printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
     printf("------------------------------------------------------\n");
 
     /* Sending to translation to Screen Coordinates. */
@@ -354,7 +350,7 @@ const static Mesh bfculling(const Mesh c) {
     for (int i = 0; i < c.indexes; i++) {
 
         cp = triangle_cp(c.t[i]);
-        dp = dot_product(cp, Camera);
+        dp = dot_product(Camera, cp);
 
         if (Camera.z < 0.00)
             dp *= -1;
@@ -396,7 +392,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
             dp = dot_product(LightSC, cp);
 
             gcil.graphics_exposures = False;
-            gcil.foreground = c.t[i].color; /* To be removed when illumination is ready. */
+            // gcil.foreground = c.t[i].color; /* To be removed when illumination is ready. */
 
             if (dp > 0.00) {
                 gcil.foreground = 0xff00fb;
@@ -409,7 +405,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
 
             if (j == 2)
                 vindex = 0;
-            // XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
+            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
             vindex++;
             XFreeGC(displ, gci);
         }
