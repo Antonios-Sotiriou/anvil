@@ -33,9 +33,9 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 },
+Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
-        V        =   { 0.0, 1.0, 0.0, 0.0 },
+        V        =   { 0.0, -1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
@@ -133,10 +133,10 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "objects/teapot.obj");
-        shape_create(&cube);
+        load_obj(&cube, "objects/teapot.obj");
+        // shape_create(&cube);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(0.2);
         Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
@@ -285,10 +285,15 @@ static void project(Mesh c) {
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
+    Vector plane_far_p = { 0.0, 0.0, 10.0 },
+           plane_far_n = { 0.0, 0.0, -1.0 };
+    Mesh ff = clipp(nf, plane_far_p, plane_far_n);
+    free(nf.t);
+
     Vector plane_right_p = { 0.995, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
-    Mesh rf = clipp(nf, plane_right_p, plane_right_n);
-    free(nf.t);
+    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    free(ff.t);
 
     Vector plane_left_p = { -0.995, 0.0, 0.0 },
            plane_left_n = { 1.0, 0.0, 0.0 };
@@ -304,6 +309,9 @@ static void project(Mesh c) {
            plane_down_n = { 0.0, -1.0, 0.0 };
     Mesh df = clipp(uf, plane_down_p, plane_down_n);
     free(uf.t);
+
+    /* Applying perspective division. */
+    // ppdiv(&df);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     df = sort_triangles(&df);
@@ -328,7 +336,7 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w > 0.00) {
+            if (c->t[i].v[j].w > 0.00 ) {
                 c->t[i].v[j].x /= c->t[i].v[j].w;
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
@@ -355,9 +363,9 @@ const static Mesh bfculling(const Mesh c) {
         if (Camera.z < 0.00)
             dp *= -1;
         else if (Camera.z == 0.00)
-            Camera.z += 0.001;
+            dp = -0.1;
 
-        if (dp >= 0.00) {
+        if (dp > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)

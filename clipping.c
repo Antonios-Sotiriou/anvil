@@ -40,7 +40,7 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
 Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end) {
 
-    plane_n = norm_vec(plane_n);
+    // plane_n = norm_vec(plane_n);
     float plane_d = -dot_product(plane_n, plane_p);
     float ad = dot_product(line_start, plane_n);
     float bd = dot_product(line_end, plane_n);
@@ -107,8 +107,8 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         out_t1->color = in_t.color;
 
         out_t2->v[0] = inside_points[1];
-        out_t2->v[1] = out_t1->v[2];
-        out_t2->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
+        out_t2->v[1] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
+        out_t2->v[2] = out_t1->v[2];
         out_t2->color = in_t.color;
         return 2; /* Two new Triangles are created. */
     }
