@@ -35,7 +35,7 @@ Atom wmatom[Atom_Last];
 
 Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
-        V        =   { 0.0, -1.0, 0.0, 0.0 },
+        V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
@@ -136,7 +136,7 @@ const static void mapnotify(XEvent *event) {
         load_obj(&cube, "objects/teapot.obj");
         // shape_create(&cube);
 
-        Mat4x4 sm = scale_mat(0.2);
+        Mat4x4 sm = scale_mat(1.2);
         Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
@@ -312,6 +312,7 @@ static void project(Mesh c) {
 
     /* Applying perspective division. */
     // ppdiv(&df);
+    // df = bfculling(df);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     df = sort_triangles(&df);
