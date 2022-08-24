@@ -59,6 +59,8 @@ float dist(Vector plane_p, Vector plane_n, Vector v) {
 
 int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2) {
 
+    // plane_n = norm_vec(plane_n);
+
     Vector inside_points[3];     int inside_count = 0;
     Vector outside_points[3];    int outside_count = 0;
 
