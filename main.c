@@ -33,7 +33,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
+Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
@@ -133,13 +133,14 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&cube, "objects/teapot.obj");
-        // shape_create(&cube);
+        // load_obj(&cube, "objects/teapot.obj");
+        shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.2);
         Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
+
         MAPCOUNT = 1;
     }
 }
@@ -273,22 +274,25 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    ppdiv(&cache);
+    // ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
-    Mesh bf = bfculling(cache);
-    free(cache.t);
+    // Mesh bf = bfculling(cache);
+    // free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = { 0.0, 0.0, 1.0 },
-           plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
-    free(bf.t);
+    // Vector plane_near_p = { 0.0, 0.0, 1.0 },
+    //        plane_near_n = { 0.0, 0.0, 1.0 };
+    // Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+    // free(cache.t);
 
-    Vector plane_far_p = { 0.0, 0.0, 10.0 },
-           plane_far_n = { 0.0, 0.0, -1.0 };
-    Mesh ff = clipp(nf, plane_far_p, plane_far_n);
-    free(nf.t);
+    Vector plane_far_p = { 0.0, 0.0, 1.0 },
+           plane_far_n = { 0.0, 0.0, 1.0 };
+    Mesh ff = clipp(cache, plane_far_p, plane_far_n);
+    free(cache.t);
+
+    ppdiv(&ff);
+    ff = bfculling(ff);
 
     Vector plane_right_p = { 0.995, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
@@ -317,15 +321,8 @@ static void project(Mesh c) {
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     df = sort_triangles(&df);
 
-    printf("\x1b[H\x1b[J");
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
-    printf("------------------------------------------------------\n");
-    printf("U X: %f\nU Y: %f\nU Z: %f\n", U.x, U.y, U.z);
-    printf("------------------------------------------------------\n");
-    printf("V X: %f\nV Y: %f\nV Z: %f\n", V.x, V.y, V.z);
-    printf("------------------------------------------------------\n");
-    printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
-    printf("------------------------------------------------------\n");
+    // printf("\x1b[H\x1b[J");
+    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -338,9 +335,11 @@ static void ppdiv(Mesh *c) {
         for (int j = 0; j < 3; j++) {
 
             if (c->t[i].v[j].w > 0.00 ) {
-                c->t[i].v[j].x /= c->t[i].v[j].w;
-                c->t[i].v[j].y /= c->t[i].v[j].w;
-                c->t[i].v[j].z /= c->t[i].v[j].w;
+                // if (c->t[i].v[j].w > -1.00 && c->t[i].v[j].w < 1.00) {
+                    c->t[i].v[j].x /= c->t[i].v[j].w;
+                    c->t[i].v[j].y /= c->t[i].v[j].w;
+                    c->t[i].v[j].z /= c->t[i].v[j].w;
+                // }
             }
         }
     }
@@ -411,6 +410,12 @@ const static void draw(const SCMesh sc, const Mesh c) {
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+
+            if (i == 0) {
+                printf("\x1b[H\x1b[J");
+                printf("X: %f\nY: %f\nZ: %f\n W : %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
+                printf("---------------------------------------\n");
+            }
 
             if (j == 2)
                 vindex = 0;
