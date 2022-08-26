@@ -33,7 +33,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 },
+Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
@@ -133,10 +133,10 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "objects/teapot.obj");
+        // load_obj(&cube, "objects/mountains.obj");
         shape_create(&cube);
 
-        Mat4x4 sm = scale_mat(1.2);
+        Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
@@ -274,25 +274,22 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    // ppdiv(&cache);
+    ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
-    // Mesh bf = bfculling(cache);
-    // free(cache.t);
-
-    /* At this Point triangles must be clipped against near plane. */
-    // Vector plane_near_p = { 0.0, 0.0, 1.0 },
-    //        plane_near_n = { 0.0, 0.0, 1.0 };
-    // Mesh nf = clipp(cache, plane_near_p, plane_near_n);
-    // free(cache.t);
-
-    Vector plane_far_p = { 0.0, 0.0, 1.0 },
-           plane_far_n = { 0.0, 0.0, 1.0 };
-    Mesh ff = clipp(cache, plane_far_p, plane_far_n);
+    Mesh bf = bfculling(cache);
     free(cache.t);
 
-    ppdiv(&ff);
-    ff = bfculling(ff);
+    /* At this Point triangles must be clipped against near plane. */
+    Vector plane_near_p = { 0.0, 0.0, 1.0 },
+           plane_near_n = { 0.0, 0.0, 1.0 };
+    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
+    free(bf.t);
+
+    Vector plane_far_p = { 0.0, 0.0, 5.0 },
+           plane_far_n = { 0.0, 0.0, -1.0 };
+    Mesh ff = clipp(nf, plane_far_p, plane_far_n);
+    free(nf.t);
 
     Vector plane_right_p = { 0.995, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
@@ -314,15 +311,11 @@ static void project(Mesh c) {
     Mesh df = clipp(uf, plane_down_p, plane_down_n);
     free(uf.t);
 
-    /* Applying perspective division. */
-    // ppdiv(&df);
-    // df = bfculling(df);
-
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     df = sort_triangles(&df);
 
-    // printf("\x1b[H\x1b[J");
-    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    printf("\x1b[H\x1b[J");
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
