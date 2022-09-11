@@ -60,7 +60,7 @@ const Mat4x4 projection_mat(const float fov, const float aspectratio) {
     m.m[0][0] = aspectratio * FovRadius;
     m.m[1][1] = aspectratio * FovRadius;
     m.m[2][2] = (ZFar / (ZFar - ZNear));
-    m.m[2][3] = -1.0;
+    m.m[2][3] = 1.0;
     m.m[3][2] = ((ZFar * ZNear) / (ZFar - ZNear));
     m.m[3][3] = 0.0;
     return m;

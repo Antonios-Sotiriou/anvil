@@ -133,10 +133,10 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "objects/mountains.obj");
-        shape_create(&cube);
+        load_obj(&cube, "objects/teapot.obj");
+        // shape_create(&cube);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(0.2);
         Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
@@ -274,7 +274,7 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    ppdiv(&cache);
+    // ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
@@ -286,10 +286,12 @@ static void project(Mesh c) {
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
-    Vector plane_far_p = { 0.0, 0.0, 5.0 },
+    Vector plane_far_p = { 0.0, 0.0, 10.0 },
            plane_far_n = { 0.0, 0.0, -1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
+
+    ppdiv(&ff);
 
     Vector plane_right_p = { 0.995, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
@@ -327,12 +329,10 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w > 0.00 ) {
-                // if (c->t[i].v[j].w > -1.00 && c->t[i].v[j].w < 1.00) {
+            if (c->t[i].v[j].w > 0.00) {
                     c->t[i].v[j].x /= c->t[i].v[j].w;
                     c->t[i].v[j].y /= c->t[i].v[j].w;
                     c->t[i].v[j].z /= c->t[i].v[j].w;
-                // }
             }
         }
     }
@@ -404,7 +404,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
-            if (i == 0) {
+            if (i == 0 && j == 2) {
                 printf("\x1b[H\x1b[J");
                 printf("X: %f\nY: %f\nZ: %f\n W : %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
                 printf("---------------------------------------\n");
