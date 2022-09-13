@@ -286,7 +286,7 @@ static void project(Mesh c) {
     Mesh nf = clipp(cache, plane_near_p, plane_near_n);
     free(cache.t);
 
-    Vector plane_far_p = { 0.0, 0.0, 50.0 },
+    Vector plane_far_p = { 0.0, 0.0, 5.0 },
            plane_far_n = { 0.0, 0.0, -1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
@@ -383,31 +383,29 @@ const static void draw(const SCMesh sc, const Mesh c) {
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
 
-    Vector cp;
-    float dp;
+    // Vector cp;
+    // float dp;
     int vindex = 1;
 
     for (int i = 0; i < sc.indexes; i++) {
 
         for (int j = 0; j < 3; j++) {
             /* Attention here.We compute the cross product of the world coordinates Mesh not the screen. */
-            cp = triangle_cp(c.t[i]);
-            dp = dot_product(LightSC, cp);
+            // cp = triangle_cp(c.t[i]);
+            // dp = dot_product(LightSC, cp);
 
             gcil.graphics_exposures = False;
-            // gcil.foreground = c.t[i].color; /* To be removed when illumination is ready. */
 
-            if (dp > 0.00) {
-                gcil.foreground = 0xff00fb;
-            } else {
+            // if (dp > 0.00) {
+            //     gcil.foreground = 0xff00fb;
+            // } else {
                 gcil.foreground = c.t[i].color;
-            }
+            // }
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
             if (i == 0 && j == 2) {
-                printf("\x1b[H\x1b[J");
                 printf("X: %f\nY: %f\nZ: %f\n W : %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
                 printf("---------------------------------------\n");
             }
