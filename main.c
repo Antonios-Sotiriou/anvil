@@ -133,8 +133,8 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "objects/middleterrain.obj");
-        shape_create(&cube);
+        load_obj(&cube, "objects/teapot.obj");
+        // shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
@@ -286,7 +286,7 @@ static void project(Mesh c) {
     Mesh nf = clipp(cache, plane_near_p, plane_near_n);
     free(cache.t);
 
-    Vector plane_far_p = { 0.0, 0.0, 5.0 },
+    Vector plane_far_p = { 0.0, 0.0, 10.0 },
            plane_far_n = { 0.0, 0.0, -1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
@@ -331,7 +331,7 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w > 0.00) {
+            if (c->t[i].v[j].w > 0.00 || c->t[i].v[j].w < 10.00) {
                     c->t[i].v[j].x /= c->t[i].v[j].w;
                     c->t[i].v[j].y /= c->t[i].v[j].w;
                     c->t[i].v[j].z /= c->t[i].v[j].w;
