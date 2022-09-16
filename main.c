@@ -274,7 +274,7 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    // ppdiv(&cache);
+    ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
@@ -286,12 +286,12 @@ static void project(Mesh c) {
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
-    Vector plane_far_p = { 0.0, 0.0, 10.0 },
+    Vector plane_far_p = { 0.0, 0.0, 5.0 },
            plane_far_n = { 0.0, 0.0, -1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
 
-    ppdiv(&ff);
+    // ppdiv(&ff);
     // Mesh bf = bfculling(ff);
     // free(ff.t);
 
@@ -331,7 +331,7 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w > 0.00 && c->t[i].v[j].w < 10.00) {
+            if (c->t[i].v[j].w > 0.00 && c->t[i].v[j].w > 5.00) {
                     c->t[i].v[j].x /= c->t[i].v[j].w;
                     c->t[i].v[j].y /= c->t[i].v[j].w;
                     c->t[i].v[j].z /= c->t[i].v[j].w;
