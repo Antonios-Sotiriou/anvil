@@ -274,7 +274,7 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    ppdiv(&cache);
+    // ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
@@ -286,52 +286,54 @@ static void project(Mesh c) {
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
+    // ppdiv(&nf);
+
     Vector plane_far_p = { 0.0, 0.0, 5.0 },
            plane_far_n = { 0.0, 0.0, -1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
 
-    // ppdiv(&ff);
+    ppdiv(&ff);
     // Mesh bf = bfculling(ff);
     // free(ff.t);
 
-    Vector plane_right_p = { 0.995, 0.0, 0.0 },
-           plane_right_n = { -1.0, 0.0, 0.0 };
-    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
-    free(ff.t);
+    // Vector plane_right_p = { 1.0, 0.0, 0.0 },
+    //        plane_right_n = { -1.0, 0.0, 0.0 };
+    // Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    // free(ff.t);
 
-    Vector plane_left_p = { -0.995, 0.0, 0.0 },
-           plane_left_n = { 1.0, 0.0, 0.0 };
-    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
-    free(rf.t);
+    // Vector plane_left_p = { -1.0, 0.0, 0.0 },
+    //        plane_left_n = { 1.0, 0.0, 0.0 };
+    // Mesh lf = clipp(rf, plane_left_p, plane_left_n);
+    // free(rf.t);
 
-    Vector plane_up_p = { 0.0, -0.995, 0.0 },
-           plane_up_n = { 0.0, 1.0, 0.0 };
-    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-    free(lf.t);
+    // Vector plane_up_p = { 0.0, -1.0, 0.0 },
+    //        plane_up_n = { 0.0, 1.0, 0.0 };
+    // Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+    // free(lf.t);
 
-    Vector plane_down_p = { 0.0, 0.995, 0.0 },
-           plane_down_n = { 0.0, -1.0, 0.0 };
-    Mesh df = clipp(uf, plane_down_p, plane_down_n);
-    free(uf.t);
+    // Vector plane_down_p = { 0.0, 1.0, 0.0 },
+    //        plane_down_n = { 0.0, -1.0, 0.0 };
+    // Mesh df = clipp(uf, plane_down_p, plane_down_n);
+    // free(uf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    df = sort_triangles(&df);
+    ff = sort_triangles(&ff);
 
     printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(df);
+    rasterize(ff);
     
-    free(df.t);
+    free(ff.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w > 0.00 && c->t[i].v[j].w > 5.00) {
+            if ( c->t[i].v[j].w > 1.00 && c->t[i].v[j].w > 5.00 ) {
                     c->t[i].v[j].x /= c->t[i].v[j].w;
                     c->t[i].v[j].y /= c->t[i].v[j].w;
                     c->t[i].v[j].z /= c->t[i].v[j].w;
@@ -355,12 +357,12 @@ const static Mesh bfculling(const Mesh c) {
         cp = triangle_cp(c.t[i]);
         dp = dot_product(Camera, cp);
 
-        if (Camera.z < 0.00)
-            dp *= -1;
-        else if (Camera.z == 0.00)
-            dp = -0.1;
+        // if (Camera.z < 0.00)
+        //     dp *= -1;
+        // else if (Camera.z == 0.00)
+        //     dp = -0.1;
 
-        if (dp > 0.00) {
+        if (dp < 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)
