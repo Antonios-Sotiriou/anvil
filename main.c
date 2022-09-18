@@ -33,12 +33,15 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, -1.0, 0.0 },
+Vector  Camera   =   { 0.0, 0.0, 0.01, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
+
+Vector NPlane = { 0.0, 0.0, 1.05 };
+Vector FPlane = { 0.0, 0.0, 1.2 };
 
 Mesh cube;
 Mat4x4 WorldMat = { 0 };
@@ -133,11 +136,11 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "objects/teapot.obj");
+        // load_obj(&cube, "objects/middleterrain.obj");
         shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 2.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
 
@@ -170,6 +173,8 @@ const static void buttonpress(XEvent *event) {
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
+    printf("Key Pressed: %ld\n", keysym);
+    printf("\x1b[H\x1b[J");
     switch (keysym) {
 
         case 119 : move_forward(&Camera);         /* w */
@@ -193,6 +198,18 @@ const static void keypress(XEvent *event) {
         case 121 : rotate_y(&cube, ANGLE);       /* y */
             break;
         case 122 : rotate_z(&cube, ANGLE);       /* z */
+            break;
+        case 65451 : FPlane.z += 0.01;       /* + */
+            printf("FPlane.z: %f\n\n", FPlane.z);
+            break;
+        case 65453 : FPlane.z -= 0.01;       /* - */
+            printf("FPlane.z: %f\n\n", FPlane.z);
+            break;
+        case 65450 : NPlane.z += 0.01;       /* * */
+            printf("NPlane.z: %f\n\n", NPlane.z);
+            break;
+        case 65455 : NPlane.z -= 0.01;       /* / */
+            printf("NPlane.z: %f\n\n", NPlane.z);
             break;
         default :
             return;
@@ -274,66 +291,66 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    // ppdiv(&cache);
+    ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
     free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = { 0.0, 0.0, 1.0 },
+    Vector plane_near_p = NPlane,
            plane_near_n = { 0.0, 0.0, 1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
     // ppdiv(&nf);
 
-    Vector plane_far_p = { 0.0, 0.0, 5.0 },
+    Vector plane_far_p = FPlane, //{ 0.0, 0.0, 1.2 },
            plane_far_n = { 0.0, 0.0, -1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
 
-    ppdiv(&ff);
+    // ppdiv(&ff);
     // Mesh bf = bfculling(ff);
     // free(ff.t);
 
-    // Vector plane_right_p = { 1.0, 0.0, 0.0 },
-    //        plane_right_n = { -1.0, 0.0, 0.0 };
-    // Mesh rf = clipp(ff, plane_right_p, plane_right_n);
-    // free(ff.t);
+    Vector plane_right_p = { 1.0, 0.0, 0.0 },
+           plane_right_n = { -1.0, 0.0, 0.0 };
+    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    free(ff.t);
 
-    // Vector plane_left_p = { -1.0, 0.0, 0.0 },
-    //        plane_left_n = { 1.0, 0.0, 0.0 };
-    // Mesh lf = clipp(rf, plane_left_p, plane_left_n);
-    // free(rf.t);
+    Vector plane_left_p = { -1.0, 0.0, 0.0 },
+           plane_left_n = { 1.0, 0.0, 0.0 };
+    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
+    free(rf.t);
 
-    // Vector plane_up_p = { 0.0, -1.0, 0.0 },
-    //        plane_up_n = { 0.0, 1.0, 0.0 };
-    // Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-    // free(lf.t);
+    Vector plane_up_p = { 0.0, -1.0, 0.0 },
+           plane_up_n = { 0.0, 1.0, 0.0 };
+    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+    free(lf.t);
 
-    // Vector plane_down_p = { 0.0, 1.0, 0.0 },
-    //        plane_down_n = { 0.0, -1.0, 0.0 };
-    // Mesh df = clipp(uf, plane_down_p, plane_down_n);
-    // free(uf.t);
+    Vector plane_down_p = { 0.0, 1.0, 0.0 },
+           plane_down_n = { 0.0, -1.0, 0.0 };
+    Mesh df = clipp(uf, plane_down_p, plane_down_n);
+    free(uf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    ff = sort_triangles(&ff);
+    df = sort_triangles(&df);
 
-    printf("\x1b[H\x1b[J");
+    // printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(ff);
+    rasterize(df);
     
-    free(ff.t);
+    free(df.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if ( c->t[i].v[j].w > 1.00 && c->t[i].v[j].w > 5.00 ) {
+            if ( c->t[i].v[j].w > 1.00 ) {
                     c->t[i].v[j].x /= c->t[i].v[j].w;
                     c->t[i].v[j].y /= c->t[i].v[j].w;
                     c->t[i].v[j].z /= c->t[i].v[j].w;
@@ -362,7 +379,7 @@ const static Mesh bfculling(const Mesh c) {
         // else if (Camera.z == 0.00)
         //     dp = -0.1;
 
-        if (dp < 0.00) {
+        if (dp > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)
