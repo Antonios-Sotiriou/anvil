@@ -68,9 +68,9 @@ static Vector *get_vectors(const char path[]) {
                         return NULL;
                     }
 
-                    v[index].x = -1 * tempx;
-                    v[index].y = -1 * tempy;
-                    v[index].z = -1 * tempz;
+                    v[index].x = tempx;
+                    v[index].y = tempy;
+                    v[index].z = tempz;
 
                     index++;
                     dynamic_inc++;
