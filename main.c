@@ -33,15 +33,15 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, 0.01, 0.0 },
+Vector  Camera   =   { 0.0, 0.0, 500.1, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-Vector NPlane = { 0.0, 0.0, 1.05 };
-Vector FPlane = { 0.0, 0.0, 1.2 };
+Vector NPlane = { 0.0, 0.0, 1.42 };
+Vector FPlane = { 0.0, 0.0, 1.001 };
 
 Mesh cube;
 Mat4x4 WorldMat = { 0 };
@@ -140,9 +140,11 @@ const static void mapnotify(XEvent *event) {
         shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 2.0);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
+        // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         cube = meshxm(cube, WorldMat);
+        // Camera = vecxm(Camera, cm);
 
         MAPCOUNT = 1;
     }
@@ -205,10 +207,10 @@ const static void keypress(XEvent *event) {
         case 65453 : FPlane.z -= 0.01;       /* - */
             printf("FPlane.z: %f\n\n", FPlane.z);
             break;
-        case 65450 : NPlane.z += 0.01;       /* * */
+        case 65450 : NPlane.z += 0.005;       /* * */
             printf("NPlane.z: %f\n\n", NPlane.z);
             break;
-        case 65455 : NPlane.z -= 0.01;       /* / */
+        case 65455 : NPlane.z -= 0.005;       /* / */
             printf("NPlane.z: %f\n\n", NPlane.z);
             break;
         default :
@@ -299,14 +301,14 @@ static void project(Mesh c) {
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = NPlane,
-           plane_near_n = { 0.0, 0.0, 1.0 };
+           plane_near_n = { 0.0, 0.0, -1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
     // ppdiv(&nf);
 
     Vector plane_far_p = FPlane, //{ 0.0, 0.0, 1.2 },
-           plane_far_n = { 0.0, 0.0, -1.0 };
+           plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
 
@@ -350,7 +352,7 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if ( c->t[i].v[j].w > 1.00 ) {
+            if ( c->t[i].v[j].w > 0.00) {
                     c->t[i].v[j].x /= c->t[i].v[j].w;
                     c->t[i].v[j].y /= c->t[i].v[j].w;
                     c->t[i].v[j].z /= c->t[i].v[j].w;
