@@ -40,8 +40,8 @@ Vector  Camera   =   { 0.0, 0.0, 500.1, 0.0 },
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-Vector NPlane = { 0.0, 0.0, 1.42 };
-Vector FPlane = { 0.0, 0.0, 1.001 };
+float NPlane = 1.1;
+float FPlane = 1.00;
 
 Mesh cube;
 Mat4x4 WorldMat = { 0 };
@@ -136,8 +136,8 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "objects/middleterrain.obj");
-        shape_create(&cube);
+        load_obj(&cube, "objects/teapot.obj");
+        // shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -175,7 +175,7 @@ const static void buttonpress(XEvent *event) {
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
-    printf("Key Pressed: %ld\n", keysym);
+    // printf("Key Pressed: %ld\n", keysym);
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
@@ -201,17 +201,17 @@ const static void keypress(XEvent *event) {
             break;
         case 122 : rotate_z(&cube, ANGLE);       /* z */
             break;
-        case 65451 : FPlane.z += 0.01;       /* + */
-            printf("FPlane.z: %f\n\n", FPlane.z);
+        case 65451 : FPlane += 0.01;       /* + */
+            printf("FPlane.z: %f\n\n", FPlane);
             break;
-        case 65453 : FPlane.z -= 0.01;       /* - */
-            printf("FPlane.z: %f\n\n", FPlane.z);
+        case 65453 : FPlane -= 0.01;       /* - */
+            printf("FPlane.z: %f\n\n", FPlane);
             break;
-        case 65450 : NPlane.z += 0.005;       /* * */
-            printf("NPlane.z: %f\n\n", NPlane.z);
+        case 65450 : NPlane += 0.005;       /* * */
+            printf("NPlane.z: %f\n\n", NPlane);
             break;
-        case 65455 : NPlane.z -= 0.005;       /* / */
-            printf("NPlane.z: %f\n\n", NPlane.z);
+        case 65455 : NPlane -= 0.005;       /* / */
+            printf("NPlane.z: %f\n\n", NPlane);
             break;
         default :
             return;
@@ -300,14 +300,14 @@ static void project(Mesh c) {
     free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = NPlane,
+    Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, -1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
     // ppdiv(&nf);
 
-    Vector plane_far_p = FPlane, //{ 0.0, 0.0, 1.2 },
+    Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
@@ -425,11 +425,6 @@ const static void draw(const SCMesh sc, const Mesh c) {
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
-
-            if (i == 0 && j == 2) {
-                printf("X: %f\nY: %f\nZ: %f\n W : %f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
-                printf("---------------------------------------\n");
-            }
 
             if (j == 2)
                 vindex = 0;
