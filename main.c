@@ -136,7 +136,7 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&cube, "objects/teapot.obj");
+        load_obj(&cube, "objects/middleterrain.obj");
         // shape_create(&cube);
 
         Mat4x4 sm = scale_mat(1.0);
@@ -201,10 +201,10 @@ const static void keypress(XEvent *event) {
             break;
         case 122 : rotate_z(&cube, ANGLE);       /* z */
             break;
-        case 65451 : FPlane += 0.01;       /* + */
+        case 65451 : FPlane += 0.001;       /* + */
             printf("FPlane.z: %f\n\n", FPlane);
             break;
-        case 65453 : FPlane -= 0.01;       /* - */
+        case 65453 : FPlane -= 0.001;       /* - */
             printf("FPlane.z: %f\n\n", FPlane);
             break;
         case 65450 : NPlane += 0.005;       /* * */
@@ -293,7 +293,7 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    ppdiv(&cache);
+    // ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
@@ -301,11 +301,11 @@ static void project(Mesh c) {
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
-           plane_near_n = { 0.0, 0.0, -1.0 };
+           plane_near_n = { 0.0, 0.0, 1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
-    // ppdiv(&nf);
+    ppdiv(&nf);
 
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
