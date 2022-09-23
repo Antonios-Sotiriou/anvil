@@ -293,7 +293,7 @@ static void project(Mesh c) {
     cache = meshxm(c, nm);
 
     /* Applying perspective division. */
-    // ppdiv(&cache);
+    ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
@@ -301,11 +301,11 @@ static void project(Mesh c) {
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
-           plane_near_n = { 0.0, 0.0, 1.0 };
+           plane_near_n = { 0.0, 0.0, -1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
-    ppdiv(&nf);
+    // ppdiv(&nf);
 
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
@@ -340,7 +340,7 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     // printf("\x1b[H\x1b[J");
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -425,6 +425,8 @@ const static void draw(const SCMesh sc, const Mesh c) {
 
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+
+            printf("Triangle %d - Vertex %d X: %f -> Y: %f -> Z: %f -> W %f\n", i, j, c.t[i].v->x, c.t[i].v->y, c.t[i].v->z, c.t[i].v->w);
 
             if (j == 2)
                 vindex = 0;
