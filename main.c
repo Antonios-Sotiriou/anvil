@@ -41,9 +41,9 @@ Vector  Camera   =   { 0.0, 0.0, 500.1, 0.0 },
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
 float NPlane = 1.1;
-float FPlane = 1.00;
+float FPlane = 1.0;
 
-Mesh cube;
+Mesh shape;
 Mat4x4 WorldMat = { 0 };
 
 static int MAPCOUNT = 0;
@@ -107,14 +107,14 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 #include "header_files/clipping.h"
 
 /* Testing */
-#include "header_files/test_shape.h"
+#include "header_files/test_shapes.h"
 
 const static void clientmessage(XEvent *event) {
 
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
-        free(cube.t);
+        free(shape.t);
 
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
@@ -136,14 +136,15 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&cube, "objects/middleterrain.obj");
-        // shape_create(&cube);
+        load_obj(&shape, "objects/middleterrain.obj");
+        // cube_create(&shape);
+        // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
-        cube = meshxm(cube, WorldMat);
+        shape = meshxm(shape, WorldMat);
         // Camera = vecxm(Camera, cm);
 
         MAPCOUNT = 1;
@@ -153,7 +154,7 @@ const static void expose(XEvent *event) {
 
     printf("expose event received\n");
     pixmapupdate();
-    project(cube);
+    project(shape);
 }
 const static void resizerequest(XEvent *event) {
 
@@ -195,16 +196,16 @@ const static void keypress(XEvent *event) {
             break;
         case 65364 : move_down(&Camera);          /* down arrow */
             break;
-        case 120 : rotate_x(&cube, ANGLE);       /* x */
+        case 120 : rotate_x(&shape, ANGLE);       /* x */
             break;
-        case 121 : rotate_y(&cube, ANGLE);       /* y */
+        case 121 : rotate_y(&shape, ANGLE);       /* y */
             break;
-        case 122 : rotate_z(&cube, ANGLE);       /* z */
+        case 122 : rotate_z(&shape, ANGLE);       /* z */
             break;
-        case 65451 : FPlane += 0.001;       /* + */
+        case 65451 : FPlane += 0.005;       /* + */
             printf("FPlane.z: %f\n\n", FPlane);
             break;
-        case 65453 : FPlane -= 0.001;       /* - */
+        case 65453 : FPlane -= 0.005;       /* - */
             printf("FPlane.z: %f\n\n", FPlane);
             break;
         case 65450 : NPlane += 0.005;       /* * */
@@ -218,8 +219,8 @@ const static void keypress(XEvent *event) {
     }
 
     pixmapdisplay();
-    
-    project(cube);
+
+    project(shape);
 }
 /* Rotates the camera to look left. */
 static void look_left(float fyaw) {
@@ -265,17 +266,17 @@ static void move_down(Vector *v) {
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
-    *c = meshxm(cube, m);
+    *c = meshxm(shape, m);
 }
 /* Rotates object according to World Y axis. */
 static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
-    *c = meshxm(cube, m);
+    *c = meshxm(shape, m);
 }
 /* Rotates object according to World Z axis. */
 static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
-    *c = meshxm(cube, m);
+    *c = meshxm(shape, m);
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
@@ -306,6 +307,8 @@ static void project(Mesh c) {
     free(bf.t);
 
     // ppdiv(&nf);
+    // Mesh bf = bfculling(nf);
+    // free(nf.t);
 
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
@@ -340,7 +343,7 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     // printf("\x1b[H\x1b[J");
-    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -352,10 +355,12 @@ static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if ( c->t[i].v[j].w > 0.00) {
+            if ( c->t[i].v[j].w > 0.00 ) {
+                    // printf("Before   X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
                     c->t[i].v[j].x /= c->t[i].v[j].w;
                     c->t[i].v[j].y /= c->t[i].v[j].w;
                     c->t[i].v[j].z /= c->t[i].v[j].w;
+                    // printf("After    X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
             }
         }
     }
@@ -426,7 +431,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
-            printf("Triangle %d - Vertex %d X: %f -> Y: %f -> Z: %f -> W %f\n", i, j, c.t[i].v->x, c.t[i].v->y, c.t[i].v->z, c.t[i].v->w);
+            printf("X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[i].v->x, c.t[i].v->y, c.t[i].v->z, c.t[i].v->w);
 
             if (j == 2)
                 vindex = 0;
