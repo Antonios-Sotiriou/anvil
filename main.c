@@ -136,7 +136,8 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&shape, "objects/middleterrain.obj");
+        // load_obj(&shape, "objects/middleterrain.obj");
+        load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
@@ -356,11 +357,11 @@ static void ppdiv(Mesh *c) {
         for (int j = 0; j < 3; j++) {
 
             if ( c->t[i].v[j].w > 0.00 ) {
-                    // printf("Before   X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
-                    c->t[i].v[j].x /= c->t[i].v[j].w;
-                    c->t[i].v[j].y /= c->t[i].v[j].w;
-                    c->t[i].v[j].z /= c->t[i].v[j].w;
-                    // printf("After    X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
+                // printf("Before   X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
+                c->t[i].v[j].x /= c->t[i].v[j].w;
+                c->t[i].v[j].y /= c->t[i].v[j].w;
+                c->t[i].v[j].z /= c->t[i].v[j].w;
+                // printf("After    X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
             }
         }
     }
