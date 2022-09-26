@@ -137,9 +137,9 @@ const static void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         // load_obj(&shape, "objects/middleterrain.obj");
-        load_obj(&shape, "objects/planet.obj");
+        // load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
-        // triangle_create(&shape);
+        triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -293,6 +293,7 @@ static void project(Mesh c) {
 
     Mesh cache = { 0 };
     cache = meshxm(c, nm);
+    printf("Triangle Spitze X %f  Y %f  Z %f  W %f\n", cache.t->v[0].x, cache.t->v[0].y, cache.t->v[0].z, cache.t->v[0].w);
 
     /* Applying perspective division. */
     ppdiv(&cache);
@@ -357,11 +358,9 @@ static void ppdiv(Mesh *c) {
         for (int j = 0; j < 3; j++) {
 
             if ( c->t[i].v[j].w > 0.00 ) {
-                // printf("Before   X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
                 c->t[i].v[j].x /= c->t[i].v[j].w;
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
-                // printf("After    X: %02f  Y: %02f  Z: %02f  W: %02f\n", c->t[i].v[j].x, c->t[i].v[j].y, c->t[i].v[j].z, c->t[i].v[j].w);
             }
         }
     }
@@ -432,7 +431,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
-            printf("X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[i].v->x, c.t[i].v->y, c.t[i].v->z, c.t[i].v->w);
+            printf("X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
 
             if (j == 2)
                 vindex = 0;
