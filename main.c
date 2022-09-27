@@ -141,7 +141,7 @@ const static void mapnotify(XEvent *event) {
         // cube_create(&shape);
         triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(10.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
