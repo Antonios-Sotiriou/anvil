@@ -136,12 +136,13 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
+        load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
-        triangle_create(&shape);
+        // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(10.0);
+        Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
@@ -296,7 +297,7 @@ static void project(Mesh c) {
     printf("Triangle Spitze X %f  Y %f  Z %f  W %f\n", cache.t->v[0].x, cache.t->v[0].y, cache.t->v[0].z, cache.t->v[0].w);
 
     /* Applying perspective division. */
-    ppdiv(&cache);
+    // ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
@@ -304,11 +305,11 @@ static void project(Mesh c) {
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
-           plane_near_n = { 0.0, 0.0, -1.0 };
+           plane_near_n = { 0.0, 0.0, 1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
-    // ppdiv(&nf);
+    ppdiv(&nf);
     // Mesh bf = bfculling(nf);
     // free(nf.t);
 
