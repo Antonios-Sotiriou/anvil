@@ -35,13 +35,14 @@ Atom wmatom[Atom_Last];
 
 Vector  Camera   =   { 0.0, 0.0, 500.1, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
-        V        =   { 0.0, 1.0, 0.0, 0.0 },
+        V        =   { 0.0, -1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
 float NPlane = 1.1;
 float FPlane = 1.0;
+float dplus = 0.00;
 
 Mesh shape;
 Mat4x4 WorldMat = { 0 };
@@ -136,11 +137,11 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&shape, "objects/mountains.obj");
+        // load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
-        // triangle_create(&shape);
+        triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -204,17 +205,21 @@ const static void keypress(XEvent *event) {
             break;
         case 122 : rotate_z(&shape, ANGLE);       /* z */
             break;
-        case 65451 : FPlane += 0.005;       /* + */
-            printf("FPlane.z: %f\n\n", FPlane);
+        case 65451 : FPlane += 0.005;             /* + */
+            printf("FPlane.z: %f\n", FPlane);
             break;
-        case 65453 : FPlane -= 0.005;       /* - */
-            printf("FPlane.z: %f\n\n", FPlane);
+        case 65453 : FPlane -= 0.005;             /* - */
+            printf("FPlane.z: %f\n", FPlane);
             break;
-        case 65450 : NPlane += 0.005;       /* * */
-            printf("NPlane.z: %f\n\n", NPlane);
+        case 65450 : NPlane += 0.005;             /* * */
+            printf("NPlane.z: %f\n", NPlane);
             break;
-        case 65455 : NPlane -= 0.005;       /* / */
-            printf("NPlane.z: %f\n\n", NPlane);
+        case 65455 : NPlane -= 0.005;             /* / */
+            printf("NPlane.z: %f\n", NPlane);
+            break;
+        case 112 : dplus += 0.1;                   /* Dot product increase */
+            break;
+        case 246 : dplus -= 0.1;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -259,11 +264,11 @@ static void move_right(Vector *v) {
 }
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
-    v->y -= 0.1;
+    v->y += 0.1;
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
-    v->y += 0.1;
+    v->y -= 0.1;
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -294,22 +299,21 @@ static void project(Mesh c) {
 
     Mesh cache = { 0 };
     cache = meshxm(c, nm);
-    printf("Triangle Spitze X %f  Y %f  Z %f  W %f\n", cache.t->v[0].x, cache.t->v[0].y, cache.t->v[0].z, cache.t->v[0].w);
-
+    printf("Triangle View Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     /* Applying perspective division. */
-    // ppdiv(&cache);
-
+    ppdiv(&cache);
+    printf("Triangle NDC Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
     free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
-           plane_near_n = { 0.0, 0.0, 1.0 };
+           plane_near_n = { 0.0, 0.0, -1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
-    ppdiv(&nf);
+    // ppdiv(&nf);
     // Mesh bf = bfculling(nf);
     // free(nf.t);
 
@@ -346,7 +350,7 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     // printf("\x1b[H\x1b[J");
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -363,6 +367,7 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
+            printf("Z: %f\n", c->t[i].v[j].z);
         }
     }
 }
@@ -382,12 +387,16 @@ const static Mesh bfculling(const Mesh c) {
         cp = triangle_cp(c.t[i]);
         dp = dot_product(Camera, cp);
 
+        // printf("Dot product: %f\n", dp);
+        dp += dplus;
+        // printf("dplus: %f\n", dplus);
+
         // if (Camera.z < 0.00)
         //     dp *= -1;
         // else if (Camera.z == 0.00)
         //     dp = -0.1;
 
-        if (dp > 0.00) {
+        if (dp < 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)
@@ -432,7 +441,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
             GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
             XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
-            printf("X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
+            // printf("X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
 
             if (j == 2)
                 vindex = 0;
