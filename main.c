@@ -138,10 +138,10 @@ const static void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         // load_obj(&shape, "objects/mountains.obj");
-        // load_obj(&shape, "objects/middleterrain.obj");
+        // load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
-        // cube_create(&shape);
-        triangle_create(&shape);
+        cube_create(&shape);
+        // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -299,21 +299,22 @@ static void project(Mesh c) {
 
     Mesh cache = { 0 };
     cache = meshxm(c, nm);
-    printf("Triangle View Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // printf("Triangle View Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     /* Applying perspective division. */
-    ppdiv(&cache);
-    printf("Triangle NDC Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // ppdiv(&cache);
+    // printf("Triangle NDC Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
     free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
-           plane_near_n = { 0.0, 0.0, -1.0 };
+           plane_near_n = { 0.0, 0.0, 1.0 };
     Mesh nf = clipp(bf, plane_near_p, plane_near_n);
     free(bf.t);
 
-    // ppdiv(&nf);
+    ppdiv(&nf);
+    // printf("Triangle NDC Space X %f  Y %f  Z %f  W %f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
     // Mesh bf = bfculling(nf);
     // free(nf.t);
 
@@ -350,7 +351,7 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     // printf("\x1b[H\x1b[J");
-    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -367,7 +368,7 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
-            printf("Z: %f\n", c->t[i].v[j].z);
+            // printf("Z: %f\n", c->t[i].v[j].z);
         }
     }
 }
