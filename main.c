@@ -138,12 +138,12 @@ const static void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         // load_obj(&shape, "objects/mountains.obj");
-        // load_obj(&shape, "objects/city.obj");
+        load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
-        cube_create(&shape);
+        // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(0.1);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
@@ -217,9 +217,9 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.005;             /* / */
             printf("NPlane.z: %f\n", NPlane);
             break;
-        case 112 : dplus += 0.1;                   /* Dot product increase */
+        case 112 : dplus += 1.1;                   /* Dot product increase */
             break;
-        case 246 : dplus -= 0.1;                   /* Dot product decrease */
+        case 246 : dplus -= 1.1;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -297,12 +297,12 @@ static void project(Mesh c) {
 
     Mat4x4 nm = mxm(reView, m);
 
-    Mesh cache = { 0 };
+    Mesh cache = c;
     cache = meshxm(c, nm);
-    // printf("Triangle View Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+
     /* Applying perspective division. */
     // ppdiv(&cache);
-    // printf("Triangle NDC Space X %f  Y %f  Z %f  W %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
     free(cache.t);
@@ -314,7 +314,6 @@ static void project(Mesh c) {
     free(bf.t);
 
     ppdiv(&nf);
-    // printf("Triangle NDC Space X %f  Y %f  Z %f  W %f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
     // Mesh bf = bfculling(nf);
     // free(nf.t);
 
@@ -322,10 +321,6 @@ static void project(Mesh c) {
            plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(nf, plane_far_p, plane_far_n);
     free(nf.t);
-
-    // ppdiv(&ff);
-    // Mesh bf = bfculling(ff);
-    // free(ff.t);
 
     Vector plane_right_p = { 1.0, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
@@ -351,7 +346,7 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     // printf("\x1b[H\x1b[J");
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -368,7 +363,6 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
-            // printf("Z: %f\n", c->t[i].v[j].z);
         }
     }
 }
@@ -408,6 +402,7 @@ const static Mesh bfculling(const Mesh c) {
             index++;
         }
     }
+    printf("dplus: %f\n", dplus);
     r.indexes = index;
     return r;
 }
