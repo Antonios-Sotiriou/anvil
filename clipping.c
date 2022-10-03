@@ -11,24 +11,31 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
     Triangle clipped[2];
     for (int i = 0; i < bf.indexes; i++) {
 
+        Vector cp = triangle_cp(bf.t[i]);
+
         clipped_count = clipp_triangle(plane_p, plane_n, bf.t[i], &clipped[0], &clipped[1]);
 
         if (clipped_count) {
             
             if (clipped_count == 1) {
                 r.t[index] = clipped[0];
+                r.t[index].n = cp;
                 r.t[index].color = 0xdf0909;
                 index++;
             } else if (clipped_count == 2) {
                 r.t = realloc(r.t, sizeof(Triangle) * (bf.indexes + dynamic_inc));
-                r.t[index] = clipped[0]; 
-                r.t[index + 1] = clipped[1];
+                r.t[index] = clipped[0];
+                r.t[index].n = cp;
                 r.t[index].color = 0x09df67;
+
+                r.t[index + 1] = clipped[1];
+                r.t[index + 1].n = cp;
                 r.t[index + 1].color = 0x092fdf;
                 index += 2;
                 dynamic_inc++;
             } else if (clipped_count == 3) {
                 r.t[index] = clipped[0];
+                r.t[index].n = cp;
                 r.t[index].color = clipped[0].color;
                 index++;
             }

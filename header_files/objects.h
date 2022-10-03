@@ -15,6 +15,7 @@ typedef struct {
 /* World Triangle */
 typedef struct {
     Vector v[LastVector];
+    Vector n;                  /* The normal Vector */
     unsigned int color;
 } Triangle;
 

@@ -21,8 +21,8 @@
     #include <math.h>
 #endif
 
-#define ZNear                     0.1
-#define ZFar                      100.0
+#define ZNear                     0.01
+#define ZFar                      1000.0
 #define FovRadius                 ( 1 / tanf(fov * 0.5 / 180.0 * 3.14159) )
 
 /* 3D graphics Matrices and computations. */
