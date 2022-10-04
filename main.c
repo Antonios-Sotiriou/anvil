@@ -137,13 +137,14 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&shape, "objects/mountains.obj");
-        load_obj(&shape, "objects/city.obj");
-        // load_obj(&shape, "objects/planet.obj");
+        // load_obj(&shape, "objects/middleterrain.obj");
+        //load_obj(&shape, "objects/mountains.obj");
+        // load_obj(&shape, "objects/city.obj");
+        load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(0.1);
+        Mat4x4 sm = scale_mat(1.1);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
@@ -217,9 +218,9 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.005;             /* / */
             printf("NPlane.z: %f\n", NPlane);
             break;
-        case 112 : dplus += 1.1;                   /* Dot product increase */
+        case 112 : dplus += 0.1;                   /* Dot product increase */
             break;
-        case 246 : dplus -= 1.1;                   /* Dot product decrease */
+        case 246 : dplus -= 0.1;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -299,28 +300,38 @@ static void project(Mesh c) {
 
     Mesh cache = c;
     cache = meshxm(c, nm);
+    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
     /* Applying perspective division. */
     // ppdiv(&cache);
 
     /* Triangles must be checked for cross product. */
-    Mesh bf = bfculling(cache);
-    free(cache.t);
+    // Mesh bf = bfculling(cache);
+    // free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
-    free(bf.t);
+    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+    free(cache.t);
 
+    /* Applying perspective division. */
     ppdiv(&nf);
-    // Mesh bf = bfculling(nf);
-    // free(nf.t);
+    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
+    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
+    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
+    
+    /* Triangles must be checked for cross product. */
+    Mesh bf = bfculling(nf);
+    free(nf.t);
 
+    /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
-    Mesh ff = clipp(nf, plane_far_p, plane_far_n);
-    free(nf.t);
+    Mesh ff = clipp(bf, plane_far_p, plane_far_n);
+    free(bf.t);
 
     Vector plane_right_p = { 1.0, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
@@ -346,7 +357,7 @@ static void project(Mesh c) {
     df = sort_triangles(&df);
 
     // printf("\x1b[H\x1b[J");
-    // printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -379,13 +390,11 @@ const static Mesh bfculling(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
 
-        cp = triangle_cp(c.t[i]);
+        // cp = triangle_cp(c.t[i]);
+        cp = c.t[i].n;
         dp = dot_product(Camera, cp);
-
-        // printf("Dot product: %f\n", dp);
+        // printf("Cross product: %f\n", cp.z);
         dp += dplus;
-        // printf("dplus: %f\n", dplus);
-
         // if (Camera.z < 0.00)
         //     dp *= -1;
         // else if (Camera.z == 0.00)
@@ -398,8 +407,29 @@ const static Mesh bfculling(const Mesh c) {
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
             r.t[index] = c.t[i];
+            r.t[index].color = 0xffffff;
             counter++;
             index++;
+        } else if (dp > 0.00) {
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
+
+            if (!r.t)
+                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+
+            r.t[index] = c.t[i];
+            r.t[index].color = 0xd3f505;
+            counter++;
+            index++;  
+        } else if (dp == 0.00) {
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
+
+            if (!r.t)
+                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+
+            r.t[index] = c.t[i];
+            r.t[index].color = 0xab00ff;
+            counter++;
+            index++;  
         }
     }
     printf("dplus: %f\n", dplus);
