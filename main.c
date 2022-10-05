@@ -33,14 +33,14 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, 500.1, 0.0 },
+Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
         V        =   { 0.0, -1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-float NPlane = 1.1;
+float NPlane = 1.01;
 float FPlane = 1.0;
 float dplus = 0.00;
 
@@ -138,13 +138,13 @@ const static void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         // load_obj(&shape, "objects/middleterrain.obj");
-        //load_obj(&shape, "objects/mountains.obj");
+        // load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/city.obj");
         load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.1);
+        Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
@@ -296,10 +296,10 @@ static void project(Mesh c) {
     
     Mat4x4 m = projection_mat(FOV, AspectRatio);
 
-    Mat4x4 nm = mxm(reView, m);
+    WorldMat = mxm(reView, m);
 
     Mesh cache = c;
-    cache = meshxm(c, nm);
+    cache = meshxm(c, WorldMat);
     // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
     // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
@@ -328,41 +328,41 @@ static void project(Mesh c) {
     free(nf.t);
 
     /* Far Plane clipping and side clipping. */
-    Vector plane_far_p = { 0.0, 0.0, FPlane },
-           plane_far_n = { 0.0, 0.0, 1.0 };
-    Mesh ff = clipp(bf, plane_far_p, plane_far_n);
-    free(bf.t);
+    // Vector plane_far_p = { 0.0, 0.0, FPlane },
+    //        plane_far_n = { 0.0, 0.0, 1.0 };
+    // Mesh ff = clipp(nf, plane_far_p, plane_far_n);
+    // free(nf.t);
 
-    Vector plane_right_p = { 1.0, 0.0, 0.0 },
-           plane_right_n = { -1.0, 0.0, 0.0 };
-    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
-    free(ff.t);
+    // Vector plane_right_p = { 1.0, 0.0, 0.0 },
+    //        plane_right_n = { -1.0, 0.0, 0.0 };
+    // Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    // free(ff.t);
 
-    Vector plane_left_p = { -1.0, 0.0, 0.0 },
-           plane_left_n = { 1.0, 0.0, 0.0 };
-    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
-    free(rf.t);
+    // Vector plane_left_p = { -1.0, 0.0, 0.0 },
+    //        plane_left_n = { 1.0, 0.0, 0.0 };
+    // Mesh lf = clipp(rf, plane_left_p, plane_left_n);
+    // free(rf.t);
 
-    Vector plane_up_p = { 0.0, -1.0, 0.0 },
-           plane_up_n = { 0.0, 1.0, 0.0 };
-    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-    free(lf.t);
+    // Vector plane_up_p = { 0.0, -1.0, 0.0 },
+    //        plane_up_n = { 0.0, 1.0, 0.0 };
+    // Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+    // free(lf.t);
 
-    Vector plane_down_p = { 0.0, 1.0, 0.0 },
-           plane_down_n = { 0.0, -1.0, 0.0 };
-    Mesh df = clipp(uf, plane_down_p, plane_down_n);
-    free(uf.t);
+    // Vector plane_down_p = { 0.0, 1.0, 0.0 },
+    //        plane_down_n = { 0.0, -1.0, 0.0 };
+    // Mesh df = clipp(uf, plane_down_p, plane_down_n);
+    // free(uf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    df = sort_triangles(&df);
+    bf = sort_triangles(&bf);
 
     // printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(df);
+    rasterize(bf);
     
-    free(df.t);
+    free(bf.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
@@ -375,6 +375,9 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
         }
+        // Vector cp = triangle_cp(c->t[i]);
+        // printf("Cross Product Old %d X: %f Y: %f Z: %f\n", i, c->t[i].n.x, c->t[i].n.y, c->t[i].n.z);
+        // printf("Cross Product New %d X: %f Y: %f Z: %f\n", i, cp.x, cp.y, cp.z);
     }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
@@ -392,9 +395,11 @@ const static Mesh bfculling(const Mesh c) {
 
         // cp = triangle_cp(c.t[i]);
         cp = c.t[i].n;
+        // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[0].v[0].x, c.t[0].v[0].y, c.t[0].v[0].z, c.t[0].v[0].w);
+        // printf("Cross Product X: %f Y: %f Z: %f\n", cp.x, cp.y, cp.z);
         dp = dot_product(Camera, cp);
-        // printf("Cross product: %f\n", cp.z);
-        dp += dplus;
+        // printf("Dot Product: %f\n", dp);
+        // dp += dplus;
         // if (Camera.z < 0.00)
         //     dp *= -1;
         // else if (Camera.z == 0.00)
@@ -407,32 +412,32 @@ const static Mesh bfculling(const Mesh c) {
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
             r.t[index] = c.t[i];
-            r.t[index].color = 0xffffff;
+            // r.t[index].color = 0xffffff;
             counter++;
             index++;
-        } else if (dp > 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
+        } // else if (dp > 0.00) {
+        //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+        //     if (!r.t)
+        //         fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
-            r.t[index] = c.t[i];
-            r.t[index].color = 0xd3f505;
-            counter++;
-            index++;  
-        } else if (dp == 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
+        //     r.t[index] = c.t[i];
+        //     r.t[index].color = 0xd3f505;
+        //     counter++;
+        //     index++;
+        // } else if (dp == 0.00) {
+        //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+        //     if (!r.t)
+        //         fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
-            r.t[index] = c.t[i];
-            r.t[index].color = 0xab00ff;
-            counter++;
-            index++;  
-        }
+        //     r.t[index] = c.t[i];
+        //     r.t[index].color = 0xab00ff;
+        //     counter++;
+        //     index++;
+        // }
     }
-    printf("dplus: %f\n", dplus);
+    // printf("dplus: %f\n", dplus);
     r.indexes = index;
     return r;
 }

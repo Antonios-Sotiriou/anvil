@@ -1,4 +1,5 @@
 #include "header_files/clipping.h"
+#include <stdio.h>
 
 Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
@@ -9,9 +10,10 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
     int clipped_count = 0;
     Triangle clipped[2];
+    Vector cp;
     for (int i = 0; i < bf.indexes; i++) {
 
-        Vector cp = triangle_cp(bf.t[i]);
+        cp = triangle_cp(bf.t[i]);
 
         clipped_count = clipp_triangle(plane_p, plane_n, bf.t[i], &clipped[0], &clipped[1]);
 
@@ -21,22 +23,26 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
                 r.t[index] = clipped[0];
                 r.t[index].n = cp;
                 r.t[index].color = 0xdf0909;
+                // printf("Cross Product clipped 1 X: %f Y: %f Z: %f\n\n", cp.x, cp.y, cp.z);
                 index++;
             } else if (clipped_count == 2) {
                 r.t = realloc(r.t, sizeof(Triangle) * (bf.indexes + dynamic_inc));
                 r.t[index] = clipped[0];
                 r.t[index].n = cp;
                 r.t[index].color = 0x09df67;
+                // printf("Cross Product clipped 2 X: %f Y: %f Z: %f\n\n", cp.x, cp.y, cp.z);
 
                 r.t[index + 1] = clipped[1];
                 r.t[index + 1].n = cp;
                 r.t[index + 1].color = 0x092fdf;
+                // printf("Cross Product clipped 3 X: %f Y: %f Z: %f\n\n", cp.x, cp.y, cp.z);
                 index += 2;
                 dynamic_inc++;
             } else if (clipped_count == 3) {
                 r.t[index] = clipped[0];
                 r.t[index].n = cp;
                 r.t[index].color = clipped[0].color;
+                // printf("Cross Product clipped 4 X: %f Y: %f Z: %f\n\n", cp.x, cp.y, cp.z);
                 index++;
             }
         }
@@ -112,12 +118,12 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
     } else if (inside_count == 2 && outside_count == 1) {
         out_t1->v[0] = inside_points[0];
         out_t1->v[1] = inside_points[1];
-        out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+        out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
         out_t1->color = in_t.color;
 
-        out_t2->v[0] = inside_points[1];
-        out_t2->v[1] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
-        out_t2->v[2] = out_t1->v[2];
+        out_t2->v[0] = inside_points[0];
+        out_t2->v[1] = out_t1->v[2];
+        out_t2->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
         out_t2->color = in_t.color;
         return 2; /* Two new Triangles are created. */
     }
