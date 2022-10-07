@@ -218,9 +218,9 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.005;             /* / */
             printf("NPlane.z: %f\n", NPlane);
             break;
-        case 112 : dplus += 0.1;                   /* Dot product increase */
+        case 112 : dplus += 1.1;                   /* Dot product increase */
             break;
-        case 246 : dplus -= 0.1;                   /* Dot product decrease */
+        case 246 : dplus -= 1.1;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -300,9 +300,9 @@ static void project(Mesh c) {
 
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
-    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
+    printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
     /* Applying perspective division. */
     // ppdiv(&cache);
@@ -328,41 +328,41 @@ static void project(Mesh c) {
     free(nf.t);
 
     /* Far Plane clipping and side clipping. */
-    // Vector plane_far_p = { 0.0, 0.0, FPlane },
-    //        plane_far_n = { 0.0, 0.0, 1.0 };
-    // Mesh ff = clipp(nf, plane_far_p, plane_far_n);
-    // free(nf.t);
+    Vector plane_far_p = { 0.0, 0.0, FPlane },
+           plane_far_n = { 0.0, 0.0, 1.0 };
+    Mesh ff = clipp(bf, plane_far_p, plane_far_n);
+    free(bf.t);
 
-    // Vector plane_right_p = { 1.0, 0.0, 0.0 },
-    //        plane_right_n = { -1.0, 0.0, 0.0 };
-    // Mesh rf = clipp(ff, plane_right_p, plane_right_n);
-    // free(ff.t);
+    Vector plane_right_p = { 1.0, 0.0, 0.0 },
+           plane_right_n = { -1.0, 0.0, 0.0 };
+    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    free(ff.t);
 
-    // Vector plane_left_p = { -1.0, 0.0, 0.0 },
-    //        plane_left_n = { 1.0, 0.0, 0.0 };
-    // Mesh lf = clipp(rf, plane_left_p, plane_left_n);
-    // free(rf.t);
+    Vector plane_left_p = { -1.0, 0.0, 0.0 },
+           plane_left_n = { 1.0, 0.0, 0.0 };
+    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
+    free(rf.t);
 
-    // Vector plane_up_p = { 0.0, -1.0, 0.0 },
-    //        plane_up_n = { 0.0, 1.0, 0.0 };
-    // Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-    // free(lf.t);
+    Vector plane_up_p = { 0.0, -1.0, 0.0 },
+           plane_up_n = { 0.0, 1.0, 0.0 };
+    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+    free(lf.t);
 
-    // Vector plane_down_p = { 0.0, 1.0, 0.0 },
-    //        plane_down_n = { 0.0, -1.0, 0.0 };
-    // Mesh df = clipp(uf, plane_down_p, plane_down_n);
-    // free(uf.t);
+    Vector plane_down_p = { 0.0, 1.0, 0.0 },
+           plane_down_n = { 0.0, -1.0, 0.0 };
+    Mesh df = clipp(uf, plane_down_p, plane_down_n);
+    free(uf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    bf = sort_triangles(&bf);
+    df = sort_triangles(&df);
 
     // printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(bf);
+    rasterize(df);
     
-    free(bf.t);
+    free(df.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
@@ -375,9 +375,6 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
         }
-        // Vector cp = triangle_cp(c->t[i]);
-        // printf("Cross Product Old %d X: %f Y: %f Z: %f\n", i, c->t[i].n.x, c->t[i].n.y, c->t[i].n.z);
-        // printf("Cross Product New %d X: %f Y: %f Z: %f\n", i, cp.x, cp.y, cp.z);
     }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
@@ -399,11 +396,6 @@ const static Mesh bfculling(const Mesh c) {
         // printf("Cross Product X: %f Y: %f Z: %f\n", cp.x, cp.y, cp.z);
         dp = dot_product(Camera, cp);
         // printf("Dot Product: %f\n", dp);
-        // dp += dplus;
-        // if (Camera.z < 0.00)
-        //     dp *= -1;
-        // else if (Camera.z == 0.00)
-        //     dp = -0.1;
 
         if (dp < 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -415,7 +407,7 @@ const static Mesh bfculling(const Mesh c) {
             // r.t[index].color = 0xffffff;
             counter++;
             index++;
-        } // else if (dp > 0.00) {
+        }  //else if (dp > 0.00) {
         //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
         //     if (!r.t)
@@ -437,7 +429,7 @@ const static Mesh bfculling(const Mesh c) {
         //     index++;
         // }
     }
-    // printf("dplus: %f\n", dplus);
+    printf("dplus: %f\n", dplus);
     r.indexes = index;
     return r;
 }

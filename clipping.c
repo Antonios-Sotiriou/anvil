@@ -9,11 +9,21 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
     int dynamic_inc = 1;
 
     int clipped_count = 0;
-    Triangle clipped[2];
+    Triangle clipped[2], temp;
     Vector cp;
     for (int i = 0; i < bf.indexes; i++) {
 
-        cp = triangle_cp(bf.t[i]);
+        /* We apply Perspective Division here to the Triangle before it is clipped and we get its cross product.
+           We save the cross product for the correct implementation of back face culling. */
+        for (int j = 0; j < 3; j++) {
+            if ( bf.t[i].v[j].w > 0.00 ) {
+                temp.v[j].x = bf.t[i].v[j].x / bf.t[i].v[j].w;
+                temp.v[j].y = bf.t[i].v[j].y / bf.t[i].v[j].w;
+                temp.v[j].z = bf.t[i].v[j].z / bf.t[i].v[j].w;
+                temp.v[j].w = bf.t[i].v[j].w;
+            }
+        }
+        cp = triangle_cp(temp);
 
         clipped_count = clipp_triangle(plane_p, plane_n, bf.t[i], &clipped[0], &clipped[1]);
 
