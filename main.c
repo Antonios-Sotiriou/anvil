@@ -140,8 +140,8 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/city.obj");
-        load_obj(&shape, "objects/planet.obj");
-        // cube_create(&shape);
+        // load_obj(&shape, "objects/planet.obj");
+        cube_create(&shape);
         // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
@@ -301,8 +301,8 @@ static void project(Mesh c) {
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
     printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
+    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
     /* Applying perspective division. */
     // ppdiv(&cache);
@@ -319,7 +319,7 @@ static void project(Mesh c) {
 
     /* Applying perspective division. */
     ppdiv(&nf);
-    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
+    printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
     // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
     // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
     
@@ -358,6 +358,7 @@ static void project(Mesh c) {
 
     // printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
+    printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -407,7 +408,7 @@ const static Mesh bfculling(const Mesh c) {
             // r.t[index].color = 0xffffff;
             counter++;
             index++;
-        }  //else if (dp > 0.00) {
+        } //else if (dp > 0.00) {
         //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
         //     if (!r.t)
