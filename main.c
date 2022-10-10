@@ -40,7 +40,7 @@ Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-float NPlane = 1.01;
+float NPlane = 0.01;
 float FPlane = 1.0;
 float dplus = 0.00;
 
@@ -329,7 +329,7 @@ static void project(Mesh c) {
 
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
-           plane_far_n = { 0.0, 0.0, 1.0 };
+           plane_far_n = { 0.0, 0.0, -1.0 };
     Mesh ff = clipp(bf, plane_far_p, plane_far_n);
     free(bf.t);
 
@@ -391,8 +391,8 @@ const static Mesh bfculling(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
 
-        // cp = triangle_cp(c.t[i]);
-        cp = c.t[i].n;
+        cp = triangle_cp(c.t[i]);
+        // cp = c.t[i].n;
         // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[0].v[0].x, c.t[0].v[0].y, c.t[0].v[0].z, c.t[0].v[0].w);
         // printf("Cross Product X: %f Y: %f Z: %f\n", cp.x, cp.y, cp.z);
         dp = dot_product(Camera, cp);
