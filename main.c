@@ -137,12 +137,12 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        load_obj(&shape, "objects/middleterrain.obj");
+        // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
-        // triangle_create(&shape);
+        triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -408,27 +408,27 @@ const static Mesh bfculling(const Mesh c) {
             // r.t[index].color = 0xffffff;
             counter++;
             index++;
-        } else if (dp > 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
+        } //else if (dp > 0.00) {
+        //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+        //     if (!r.t)
+        //         fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
-            r.t[index] = c.t[i];
-            r.t[index].color = 0xd3f505;
-            counter++;
-            index++;
-        } else if (dp == 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
+        //     r.t[index] = c.t[i];
+        //     r.t[index].color = 0xd3f505;
+        //     counter++;
+        //     index++;
+        // } else if (dp == 0.00) {
+        //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+        //     if (!r.t)
+        //         fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
-            r.t[index] = c.t[i];
-            r.t[index].color = 0xab00ff;
-            counter++;
-            index++;
-        }
+        //     r.t[index] = c.t[i];
+        //     r.t[index].color = 0xab00ff;
+        //     counter++;
+        //     index++;
+        // }
     }
     printf("dplus: %f\n", dplus);
     r.indexes = index;
