@@ -305,33 +305,33 @@ static void project(Mesh c) {
     // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
     /* Applying perspective division. */
-    ppdiv(&cache);
-    printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // ppdiv(&cache);
+    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     /* Triangles must be checked for cross product. */
-    Mesh bf = bfculling(cache);
-    free(cache.t);
+    // Mesh bf = bfculling(cache);
+    // free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
-    free(bf.t);
+    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+    free(cache.t);
 
     /* Applying perspective division. */
-    // ppdiv(&nf);
-    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
+    ppdiv(&nf);
+    printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
     // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
     // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
     
     /* Triangles must be checked for cross product. */
-    // Mesh bf = bfculling(nf);
-    // free(nf.t);
+    Mesh bf = bfculling(nf);
+    free(nf.t);
 
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, -1.0 };
-    Mesh ff = clipp(nf, plane_far_p, plane_far_n);
-    free(nf.t);
+    Mesh ff = clipp(bf, plane_far_p, plane_far_n);
+    free(bf.t);
 
     Vector plane_right_p = { 1.0, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
@@ -396,7 +396,7 @@ const static Mesh bfculling(const Mesh c) {
         // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[0].v[0].x, c.t[0].v[0].y, c.t[0].v[0].z, c.t[0].v[0].w);
         // printf("Cross Product X: %f Y: %f Z: %f\n", cp.x, cp.y, cp.z);
         dp = dot_product(Camera, cp);
-        // printf("Dot Product: %f\n", dp);
+        printf("Dot Product: %f\n", dp);
 
         if (dp < 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -408,7 +408,7 @@ const static Mesh bfculling(const Mesh c) {
             // r.t[index].color = 0xffffff;
             counter++;
             index++;
-        } //else if (dp > 0.00) {
+        }// else if (dp > 0.00) {
         //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
         //     if (!r.t)
