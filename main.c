@@ -40,7 +40,7 @@ Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
-float NPlane = 0.01;
+float NPlane = 1.0;
 float FPlane = 1.0;
 float dplus = 0.00;
 
@@ -139,10 +139,13 @@ const static void mapnotify(XEvent *event) {
     } else {
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/mountains.obj");
+        // load_obj(&shape, "objects/axis.obj");
+        // load_obj(&shape, "objects/teapot.obj");
+        // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        // load_obj(&shape, "objects/planet.obj");
+        load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
-        triangle_create(&shape);
+        // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -329,7 +332,7 @@ static void project(Mesh c) {
 
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
-           plane_far_n = { 0.0, 0.0, -1.0 };
+           plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(bf, plane_far_p, plane_far_n);
     free(bf.t);
 
@@ -381,6 +384,7 @@ static void ppdiv(Mesh *c) {
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
     Mesh r = { 0 };
+    // Triangle temp;
     Vector cp;
     float dp;
     int counter = 1;
@@ -391,12 +395,21 @@ const static Mesh bfculling(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
 
+        // for (int j = 0; j < 3; j++) {
+
+        //     if ( c.t[i].v[j].w > 0.00 ) {
+        //         temp.v[j].x = c.t[i].v[j].x / c.t[i].v[j].w;
+        //         temp.v[j].y = c.t[i].v[j].y / c.t[i].v[j].w;
+        //         temp.v[j].z = c.t[i].v[j].z / c.t[i].v[j].w;
+        //     }
+        // }
         cp = triangle_cp(c.t[i]);
+        // cp = triangle_cp(temp);
         // cp = c.t[i].n;
         // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[0].v[0].x, c.t[0].v[0].y, c.t[0].v[0].z, c.t[0].v[0].w);
         // printf("Cross Product X: %f Y: %f Z: %f\n", cp.x, cp.y, cp.z);
         dp = dot_product(Camera, cp);
-        printf("Dot Product: %f\n", dp);
+        // printf("Dot Product: %f\n", dp);
 
         if (dp < 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -430,7 +443,7 @@ const static Mesh bfculling(const Mesh c) {
         //     index++;
         // }
     }
-    printf("dplus: %f\n", dplus);
+    // printf("dplus: %f\n", dplus);
     r.indexes = index;
     return r;
 }
