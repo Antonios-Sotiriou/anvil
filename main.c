@@ -49,7 +49,7 @@ Mat4x4 WorldMat = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
-float AspectRatio = 0;
+float AspectRatio = 1.0;
 float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
@@ -139,11 +139,11 @@ const static void mapnotify(XEvent *event) {
     } else {
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/mountains.obj");
-        // load_obj(&shape, "objects/axis.obj");
+        load_obj(&shape, "objects/axis.obj");
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        load_obj(&shape, "objects/planet.obj");
+        // load_obj(&shape, "objects/planet.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
@@ -221,9 +221,9 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.005;             /* / */
             printf("NPlane.z: %f\n", NPlane);
             break;
-        case 112 : dplus += 1.1;                   /* Dot product increase */
+        case 112 : dplus += 0.01;                   /* Dot product increase */
             break;
-        case 246 : dplus -= 1.1;                   /* Dot product decrease */
+        case 246 : dplus -= 0.01;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -303,38 +303,38 @@ static void project(Mesh c) {
 
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
-    printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    // printf("View --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
+    // printf("View 0 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // printf("View 1 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    // printf("View 2 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
     /* Applying perspective division. */
     // ppdiv(&cache);
-    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // printf("NDC 0 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     /* Triangles must be checked for cross product. */
-    // Mesh bf = bfculling(cache);
-    // free(cache.t);
+    Mesh bf = bfculling(cache);
+    free(cache.t);
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
-    free(cache.t);
+    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
+    free(bf.t);
 
     /* Applying perspective division. */
     ppdiv(&nf);
-    printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
-    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
-    // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
+    // printf("NDC 0 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
+    // printf("NDC 1 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
+    // printf("NDC 2 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
     
     /* Triangles must be checked for cross product. */
-    Mesh bf = bfculling(nf);
-    free(nf.t);
+    // Mesh bf = bfculling(nf);
+    // free(nf.t);
 
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
-    Mesh ff = clipp(bf, plane_far_p, plane_far_n);
-    free(bf.t);
+    Mesh ff = clipp(nf, plane_far_p, plane_far_n);
+    free(nf.t);
 
     Vector plane_right_p = { 1.0, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
@@ -384,7 +384,7 @@ static void ppdiv(Mesh *c) {
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
     Mesh r = { 0 };
-    // Triangle temp;
+    Triangle temp;
     Vector cp;
     float dp;
     int counter = 1;
@@ -395,16 +395,18 @@ const static Mesh bfculling(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
 
-        // for (int j = 0; j < 3; j++) {
+        for (int j = 0; j < 3; j++) {
 
-        //     if ( c.t[i].v[j].w > 0.00 ) {
-        //         temp.v[j].x = c.t[i].v[j].x / c.t[i].v[j].w;
-        //         temp.v[j].y = c.t[i].v[j].y / c.t[i].v[j].w;
-        //         temp.v[j].z = c.t[i].v[j].z / c.t[i].v[j].w;
-        //     }
-        // }
-        cp = triangle_cp(c.t[i]);
-        // cp = triangle_cp(temp);
+            if ( c.t[i].v[j].w < 0.00 )
+                c.t[i].v[j].w = 0.0001;
+            if ( c.t[i].v[j].w > 0.00 ) {
+                temp.v[j].x = c.t[i].v[j].x / c.t[i].v[j].w;
+                temp.v[j].y = c.t[i].v[j].y / c.t[i].v[j].w;
+                temp.v[j].z = c.t[i].v[j].z / c.t[i].v[j].w;
+            }
+        }
+        // cp = triangle_cp(c.t[i]);
+        cp = triangle_cp(temp);
         // cp = c.t[i].n;
         // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[0].v[0].x, c.t[0].v[0].y, c.t[0].v[0].z, c.t[0].v[0].w);
         // printf("Cross Product X: %f Y: %f Z: %f\n", cp.x, cp.y, cp.z);
@@ -444,6 +446,7 @@ const static Mesh bfculling(const Mesh c) {
         // }
     }
     // printf("dplus: %f\n", dplus);
+    printf("ZNear: %f\n", ZNear);
     r.indexes = index;
     return r;
 }
