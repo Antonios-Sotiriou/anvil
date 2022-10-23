@@ -38,7 +38,7 @@ Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         V        =   { 0.0, -1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
-Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
+Vector LightSC   =   { -1.0, -1.0, 0.1, 1.0 };
 
 float NPlane = 1.0;
 float FPlane = 1.0;
@@ -137,22 +137,22 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
+        // load_obj(&shape, "objects/bigterrain.obj");
         // load_obj(&shape, "objects/middleterrain.obj");
+        // load_obj(&shape, "objects/smallterrain.obj");
         // load_obj(&shape, "objects/mountains.obj");
-        load_obj(&shape, "objects/axis.obj");
+        // load_obj(&shape, "objects/axis.obj");
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
-        // cube_create(&shape);
+        cube_create(&shape);
         // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
-        // Mat4x4 cm = translation_mat(0.0, 0.0, 498.0);
         Mat4x4 WorldMat = mxm(sm, tm);
         shape = meshxm(shape, WorldMat);
-        // Camera = vecxm(Camera, cm);
 
         MAPCOUNT = 1;
     }
@@ -221,9 +221,9 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.005;             /* / */
             printf("NPlane.z: %f\n", NPlane);
             break;
-        case 112 : dplus += 0.01;                   /* Dot product increase */
+        case 112 : LightSC.z += 0.01;                   /* Dot product increase */
             break;
-        case 246 : dplus -= 0.01;                   /* Dot product decrease */
+        case 246 : LightSC.z -= 0.01;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -368,25 +368,12 @@ static void project(Mesh c) {
     
     free(df.t);
 }
-/* Perspective division. */
-static void ppdiv(Mesh *c) {
-    for (int i = 0; i < c->indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-
-            if ( c->t[i].v[j].w > 0.00 ) {
-                c->t[i].v[j].x /= c->t[i].v[j].w;
-                c->t[i].v[j].y /= c->t[i].v[j].w;
-                c->t[i].v[j].z /= c->t[i].v[j].w;
-            }
-        }
-    }
-}
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
     Mesh r = { 0 };
     Triangle temp;
     Vector cp;
-    float dp;
+    float dpc;
     int counter = 1;
     int index = 0;
     r.t = malloc(sizeof(Triangle));
@@ -397,8 +384,9 @@ const static Mesh bfculling(const Mesh c) {
 
         for (int j = 0; j < 3; j++) {
 
-            if ( c.t[i].v[j].w < 0.00 )
-                c.t[i].v[j].w = 0.0001;
+            if ( c.t[i].v[j].w < 0.00 ) {
+                c.t[i].v[j].w = 0.000001;
+            }
             if ( c.t[i].v[j].w > 0.00 ) {
                 temp.v[j].x = c.t[i].v[j].x / c.t[i].v[j].w;
                 temp.v[j].y = c.t[i].v[j].y / c.t[i].v[j].w;
@@ -407,13 +395,9 @@ const static Mesh bfculling(const Mesh c) {
         }
         // cp = triangle_cp(c.t[i]);
         cp = triangle_cp(temp);
-        // cp = c.t[i].n;
-        // printf("NDC --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[0].v[0].x, c.t[0].v[0].y, c.t[0].v[0].z, c.t[0].v[0].w);
-        // printf("Cross Product X: %f Y: %f Z: %f\n", cp.x, cp.y, cp.z);
-        dp = dot_product(Camera, cp);
-        // printf("Dot Product: %f\n", dp);
+        dpc = dot_product(Camera, cp);
 
-        if (dp < 0.00) {
+        if (dpc < 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)
@@ -445,10 +429,21 @@ const static Mesh bfculling(const Mesh c) {
         //     index++;
         // }
     }
-    // printf("dplus: %f\n", dplus);
-    printf("ZNear: %f\n", ZNear);
     r.indexes = index;
     return r;
+}
+/* Perspective division. */
+static void ppdiv(Mesh *c) {
+    for (int i = 0; i < c->indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+
+            if ( c->t[i].v[j].w > 0.00 ) {
+                c->t[i].v[j].x /= c->t[i].v[j].w;
+                c->t[i].v[j].y /= c->t[i].v[j].w;
+                c->t[i].v[j].z /= c->t[i].v[j].w;
+            }
+        }
+    }
 }
 /* Draws the Mesh's Triangles on screen in 2D coordinates. */
 const static void draw(const SCMesh sc, const Mesh c) {
