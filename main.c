@@ -38,14 +38,19 @@ Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         V        =   { 0.0, -1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
-Vector LightSC   =   { -1.0, -1.0, 0.1, 1.0 };
+Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
 
 float NPlane = 1.0;
 float FPlane = 1.0;
-float dplus = 0.00;
+float dplus = 1000.00;
+
+/* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
+/* Magnitude of a Vector with one point at origin (0, 0)  |v| =√(x2 + y2) */
+/* Magnitude of a Vector with 2 points |v| =√((x2 - x1)2 + (y2 - y1)2) */
 
 Mesh shape;
 Mat4x4 WorldMat = { 0 };
+Mat4x4 PosMat = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
@@ -79,10 +84,10 @@ static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
 static void project(Mesh c);
-static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
-const static void draw(const SCMesh sc, const Mesh c);
+static void ppdiv(Mesh *c);
 const static void rasterize(const Mesh c);
+const static void draw(const SCMesh sc, const Mesh c);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
@@ -144,15 +149,15 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/axis.obj");
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
-        // load_obj(&shape, "objects/city.obj");
+        load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
-        cube_create(&shape);
+        // cube_create(&shape);
         // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
-        Mat4x4 WorldMat = mxm(sm, tm);
-        shape = meshxm(shape, WorldMat);
+        PosMat = mxm(sm, tm);
+        shape = meshxm(shape, PosMat);
 
         MAPCOUNT = 1;
     }
@@ -221,9 +226,9 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.005;             /* / */
             printf("NPlane.z: %f\n", NPlane);
             break;
-        case 112 : LightSC.z += 0.01;                   /* Dot product increase */
+        case 112 : dplus += 10.01;                   /* Dot product increase */
             break;
-        case 246 : LightSC.z -= 0.01;                   /* Dot product decrease */
+        case 246 : dplus -= 10.01;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -303,17 +308,17 @@ static void project(Mesh c) {
 
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
-    // printf("View 0 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    // printf("View 1 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    // printf("View 2 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
+    // printf("View 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // printf("View 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    // printf("View 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
-    /* Applying perspective division. */
-    // ppdiv(&cache);
-    // printf("NDC 0 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
     free(cache.t);
-
+    if (!bf.indexes) {
+        free(bf.t);
+        return;
+    }
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
@@ -321,14 +326,12 @@ static void project(Mesh c) {
     free(bf.t);
 
     /* Applying perspective division. */
-    ppdiv(&nf);
-    // printf("NDC 0 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
-    // printf("NDC 1 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
-    // printf("NDC 2 --> X: %02f  Y: %02f  Z: %02f  W: %02f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
-    
-    /* Triangles must be checked for cross product. */
-    // Mesh bf = bfculling(nf);
-    // free(nf.t);
+    if (nf.indexes) {
+        ppdiv(&nf);
+        // printf("NDC 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
+        // printf("NDC 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
+        // printf("NDC 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
+    }
 
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
@@ -361,7 +364,7 @@ static void project(Mesh c) {
 
     // printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
-    printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
+    // printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -373,7 +376,7 @@ const static Mesh bfculling(const Mesh c) {
     Mesh r = { 0 };
     Triangle temp;
     Vector cp;
-    float dpc;
+    float dpc;//, dpl;
     int counter = 1;
     int index = 0;
     r.t = malloc(sizeof(Triangle));
@@ -384,7 +387,7 @@ const static Mesh bfculling(const Mesh c) {
 
         for (int j = 0; j < 3; j++) {
 
-            if ( c.t[i].v[j].w < 0.00 ) {
+            if ( c.t[i].v[j].w <= 0.00 ) {
                 c.t[i].v[j].w = 0.000001;
             }
             if ( c.t[i].v[j].w > 0.00 ) {
@@ -393,9 +396,10 @@ const static Mesh bfculling(const Mesh c) {
                 temp.v[j].z = c.t[i].v[j].z / c.t[i].v[j].w;
             }
         }
-        // cp = triangle_cp(c.t[i]);
         cp = triangle_cp(temp);
+        // cp = triangle_cp(c.t[i]);
         dpc = dot_product(Camera, cp);
+        // dpl = dot_product(norm_vec(LightSC), norm_vec(cp));
 
         if (dpc < 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -404,20 +408,23 @@ const static Mesh bfculling(const Mesh c) {
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
             r.t[index] = c.t[i];
-            // r.t[index].color = 0xffffff;
+
+            // if (dpl < 0.00)
+            //     r.t[index].color = 0xff00fb;
+
             counter++;
             index++;
-        }// else if (dp > 0.00) {
+        }// else if (dpc > 0.00) {
         //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
         //     if (!r.t)
         //         fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
         //     r.t[index] = c.t[i];
-        //     r.t[index].color = 0xd3f505;
+        //     r.t[index].color = 0x00ebff;
         //     counter++;
         //     index++;
-        // } else if (dp == 0.00) {
+        // } else if (dpc == 0.00) {
         //     r.t = realloc(r.t, sizeof(Triangle) * counter);
 
         //     if (!r.t)
@@ -428,6 +435,7 @@ const static Mesh bfculling(const Mesh c) {
         //     counter++;
         //     index++;
         // }
+        // printf("dpc: %f\n", dpc);
     }
     r.indexes = index;
     return r;
@@ -444,48 +452,6 @@ static void ppdiv(Mesh *c) {
             }
         }
     }
-}
-/* Draws the Mesh's Triangles on screen in 2D coordinates. */
-const static void draw(const SCMesh sc, const Mesh c) {
-
-    XGCValues gclines, gcil;
-    gclines.graphics_exposures = False;
-    gclines.line_width = 1;
-    gclines.foreground = 0xffffff;
-    GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
-
-    // Vector cp;
-    // float dp;
-    int vindex = 1;
-
-    for (int i = 0; i < sc.indexes; i++) {
-
-        for (int j = 0; j < 3; j++) {
-            /* Attention here.We compute the cross product of the world coordinates Mesh not the screen. */
-            // cp = triangle_cp(c.t[i]);
-            // dp = dot_product(LightSC, cp);
-
-            gcil.graphics_exposures = False;
-
-            // if (dp > 0.00) {
-            //     gcil.foreground = 0xff00fb;
-            // } else {
-                gcil.foreground = c.t[i].color;
-            // }
-
-            GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
-            XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
-
-            // printf("X: %02f  Y: %02f  Z: %02f  W: %02f\n", c.t[i].v[j].x, c.t[i].v[j].y, c.t[i].v[j].z, c.t[i].v[j].w);
-
-            if (j == 2)
-                vindex = 0;
-            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
-            vindex++;
-            XFreeGC(displ, gci);
-        }
-    }
-    XFreeGC(displ, gcl);
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
 const static void rasterize(const Mesh c) {
@@ -511,6 +477,36 @@ const static void rasterize(const Mesh c) {
     }
     draw(scmesh, c);
     free(scmesh.sct);
+}
+/* Draws the Mesh's Triangles on screen in 2D coordinates. */
+const static void draw(const SCMesh sc, const Mesh c) {
+
+    XGCValues gclines, gcfill;
+    /* Lines drawing GC */
+    gclines.graphics_exposures = False;
+    gclines.line_width = 1;
+    gclines.foreground = 0xffffff;
+    GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
+    /* Fill rectangle GC */
+    gcfill.graphics_exposures = False;
+    GC gcf = XCreateGC(displ, win, GCGraphicsExposures, &gcfill);
+
+    int vindex = 1;
+    for (int i = 0; i < sc.indexes; i++) {
+        gcfill.foreground = c.t[i].color;
+        XChangeGC(displ, gcf, GCForeground, &gcfill);
+
+        for (int j = 0; j < 3; j++) {
+
+            if (j == 2)
+                vindex = 0;
+            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
+            vindex++;
+        }
+        XFillPolygon(displ, win, gcf, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+    }
+    XFreeGC(displ, gcf);
+    XFreeGC(displ, gcl);
 }
 static KeySym get_keysym(XEvent *event) {
 
