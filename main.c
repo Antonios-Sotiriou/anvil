@@ -35,7 +35,7 @@ Atom wmatom[Atom_Last];
 
 Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
-        V        =   { 0.0, -1.0, 0.0, 0.0 },
+        V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
 Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
@@ -54,7 +54,7 @@ Mat4x4 PosMat = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
-float AspectRatio = 1.0;
+float AspectRatio = WIDTH / HEIGHT;
 float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
@@ -273,11 +273,11 @@ static void move_right(Vector *v) {
 }
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
-    v->y += 0.1;
+    v->y -= 0.1;
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
-    v->y -= 0.1;
+    v->y += 0.1;
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -308,9 +308,9 @@ static void project(Mesh c) {
 
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
-    // printf("View 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    // printf("View 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    // printf("View 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
+    printf("View 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    printf("View 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    printf("View 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
     /* Triangles must be checked for cross product. */
     Mesh bf = bfculling(cache);
@@ -364,7 +364,7 @@ static void project(Mesh c) {
 
     // printf("\x1b[H\x1b[J");
     printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
-    // printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
+    printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
 
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
@@ -384,24 +384,25 @@ const static Mesh bfculling(const Mesh c) {
         fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
     for (int i = 0; i < c.indexes; i++) {
-
+        temp = c.t[i];
         for (int j = 0; j < 3; j++) {
 
-            if ( c.t[i].v[j].w <= 0.00 ) {
-                c.t[i].v[j].w = 0.000001;
-            }
             if ( c.t[i].v[j].w > 0.00 ) {
-                temp.v[j].x = c.t[i].v[j].x / c.t[i].v[j].w;
-                temp.v[j].y = c.t[i].v[j].y / c.t[i].v[j].w;
-                temp.v[j].z = c.t[i].v[j].z / c.t[i].v[j].w;
+                // temp.v[j].w = 0.01;
+                temp.v[j].x /= temp.v[j].w;
+                temp.v[j].y /= temp.v[j].w;
+                temp.v[j].z /= temp.v[j].w;
             }
+            // temp.v[j].x /= temp.v[j].w;
+            // temp.v[j].y /= temp.v[j].w;
+            // temp.v[j].z /= temp.v[j].w;
         }
         cp = triangle_cp(temp);
-        // cp = triangle_cp(c.t[i]);
-        dpc = dot_product(Camera, cp);
+        dpc = dot_product(norm_vec(Camera), norm_vec(cp));
+        // printf("dpc Camera: %f\n", dpc);
         // dpl = dot_product(norm_vec(LightSC), norm_vec(cp));
 
-        if (dpc < 0.00) {
+        if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)
@@ -435,7 +436,6 @@ const static Mesh bfculling(const Mesh c) {
         //     counter++;
         //     index++;
         // }
-        // printf("dpc: %f\n", dpc);
     }
     r.indexes = index;
     return r;
@@ -450,6 +450,14 @@ static void ppdiv(Mesh *c) {
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
             }
+            // if ( -c->t[i].v[j].w <= c->t[i].v[j].x && c->t[i].v[j].w >= c->t[i].v[j].x)
+            //     if ( -c->t[i].v[j].w <= c->t[i].v[j].y && c->t[i].v[j].w >= c->t[i].v[j].y)
+            //         if ( -c->t[i].v[j].w <= c->t[i].v[j].z && c->t[i].v[j].w >= c->t[i].v[j].z)
+            //             if (c->t[i].v[j].w > 0.00) {
+            //                 c->t[i].v[j].x /= c->t[i].v[j].w;
+            //                 c->t[i].v[j].y /= c->t[i].v[j].w;
+            //                 c->t[i].v[j].z /= c->t[i].v[j].w;
+            //             }
         }
     }
 }
@@ -484,7 +492,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
     XGCValues gclines, gcfill;
     /* Lines drawing GC */
     gclines.graphics_exposures = False;
-    gclines.line_width = 1;
+    gclines.line_width = 3;
     gclines.foreground = 0xffffff;
     GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
     /* Fill rectangle GC */
