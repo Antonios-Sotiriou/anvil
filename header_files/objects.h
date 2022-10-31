@@ -18,17 +18,19 @@ typedef struct {
     unsigned int color;
 } Triangle;
 
-/* Screen Triangle */
-typedef struct {
-    /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
-    XPoint scv[LastVector];
-} SCTriangle;
-
 /* World Mesh */
 typedef struct {
     Triangle *t;
     int indexes;
 } Mesh;
+
+/* Screen Triangle */
+typedef struct {
+    /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
+    XPoint scv[LastVector];
+    float z[LastVector];
+    unsigned int color;
+} SCTriangle;
 
 /* Screen Mesh */
 typedef struct {

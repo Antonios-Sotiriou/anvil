@@ -84,10 +84,10 @@ static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
 static void project(Mesh c);
-const static Mesh bfculling(const Mesh c);
 static void ppdiv(Mesh *c);
 const static void rasterize(const Mesh c);
-const static void draw(const SCMesh sc, const Mesh c);
+const static Mesh bfculling(const Mesh c);
+const static void draw(const SCMesh sc);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
@@ -149,12 +149,13 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/axis.obj");
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
-        load_obj(&shape, "objects/city.obj");
+        // load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
+        load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(100.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -308,11 +309,8 @@ static void project(Mesh c) {
 
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
-    printf("View 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    printf("View 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    printf("View 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
 
-    /* Triangles must be checked for cross product. */
+    /* Performing 2d backface culling. */
     Mesh bf = bfculling(cache);
     free(cache.t);
     if (!bf.indexes) {
@@ -328,9 +326,6 @@ static void project(Mesh c) {
     /* Applying perspective division. */
     if (nf.indexes) {
         ppdiv(&nf);
-        // printf("NDC 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
-        // printf("NDC 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
-        // printf("NDC 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
     }
 
     /* Far Plane clipping and side clipping. */
@@ -362,14 +357,23 @@ static void project(Mesh c) {
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     df = sort_triangles(&df);
 
-    // printf("\x1b[H\x1b[J");
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
-    printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
-
     /* Sending to translation to Screen Coordinates. */
     rasterize(df);
     
     free(df.t);
+}
+/* Perspective division. */
+static void ppdiv(Mesh *c) {
+    for (int i = 0; i < c->indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+
+            if ( c->t[i].v[j].w > 0.00 ) {
+                c->t[i].v[j].x /= c->t[i].v[j].w;
+                c->t[i].v[j].y /= c->t[i].v[j].w;
+                c->t[i].v[j].z /= c->t[i].v[j].w;
+            }
+        }
+    }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
@@ -387,21 +391,15 @@ const static Mesh bfculling(const Mesh c) {
         temp = c.t[i];
         for (int j = 0; j < 3; j++) {
 
-            if ( c.t[i].v[j].w > 0.00 ) {
-                // temp.v[j].w = 0.01;
+            if ( temp.v[j].w > 0.00 ) {
                 temp.v[j].x /= temp.v[j].w;
                 temp.v[j].y /= temp.v[j].w;
                 temp.v[j].z /= temp.v[j].w;
             }
-            // temp.v[j].x /= temp.v[j].w;
-            // temp.v[j].y /= temp.v[j].w;
-            // temp.v[j].z /= temp.v[j].w;
         }
         cp = triangle_cp(temp);
         dpc = dot_product(norm_vec(Camera), norm_vec(cp));
-        // printf("dpc Camera: %f\n", dpc);
         // dpl = dot_product(norm_vec(LightSC), norm_vec(cp));
-
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
@@ -415,57 +413,15 @@ const static Mesh bfculling(const Mesh c) {
 
             counter++;
             index++;
-        }// else if (dpc > 0.00) {
-        //     r.t = realloc(r.t, sizeof(Triangle) * counter);
-
-        //     if (!r.t)
-        //         fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
-
-        //     r.t[index] = c.t[i];
-        //     r.t[index].color = 0x00ebff;
-        //     counter++;
-        //     index++;
-        // } else if (dpc == 0.00) {
-        //     r.t = realloc(r.t, sizeof(Triangle) * counter);
-
-        //     if (!r.t)
-        //         fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
-
-        //     r.t[index] = c.t[i];
-        //     r.t[index].color = 0xab00ff;
-        //     counter++;
-        //     index++;
-        // }
+        }
     }
     r.indexes = index;
     return r;
-}
-/* Perspective division. */
-static void ppdiv(Mesh *c) {
-    for (int i = 0; i < c->indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-
-            if ( c->t[i].v[j].w > 0.00 ) {
-                c->t[i].v[j].x /= c->t[i].v[j].w;
-                c->t[i].v[j].y /= c->t[i].v[j].w;
-                c->t[i].v[j].z /= c->t[i].v[j].w;
-            }
-            // if ( -c->t[i].v[j].w <= c->t[i].v[j].x && c->t[i].v[j].w >= c->t[i].v[j].x)
-            //     if ( -c->t[i].v[j].w <= c->t[i].v[j].y && c->t[i].v[j].w >= c->t[i].v[j].y)
-            //         if ( -c->t[i].v[j].w <= c->t[i].v[j].z && c->t[i].v[j].w >= c->t[i].v[j].z)
-            //             if (c->t[i].v[j].w > 0.00) {
-            //                 c->t[i].v[j].x /= c->t[i].v[j].w;
-            //                 c->t[i].v[j].y /= c->t[i].v[j].w;
-            //                 c->t[i].v[j].z /= c->t[i].v[j].w;
-            //             }
-        }
-    }
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
 const static void rasterize(const Mesh c) {
 
     SCMesh scmesh;
-    // Mesh normalized = c;
     scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
 
     if (!scmesh.sct)
@@ -476,18 +432,17 @@ const static void rasterize(const Mesh c) {
     for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            // normalized.t[i].v[j].x = NormalizeWorldX;
-            // normalized.t[i].v[j].y = NormalizeWorldY;           
-
             scmesh.sct[i].scv[j].x = XWorldToScreen;
             scmesh.sct[i].scv[j].y = YWorldToScreen;
+            scmesh.sct[i].z[j] = c.t[i].v[j].z;
+            scmesh.sct[i].color = c.t[i].color;
         }
     }
-    draw(scmesh, c);
+    draw(scmesh);
     free(scmesh.sct);
 }
 /* Draws the Mesh's Triangles on screen in 2D coordinates. */
-const static void draw(const SCMesh sc, const Mesh c) {
+const static void draw(const SCMesh sc) {
 
     XGCValues gclines, gcfill;
     /* Lines drawing GC */
@@ -501,7 +456,7 @@ const static void draw(const SCMesh sc, const Mesh c) {
 
     int vindex = 1;
     for (int i = 0; i < sc.indexes; i++) {
-        gcfill.foreground = c.t[i].color;
+        gcfill.foreground = sc.sct[i].color;
         XChangeGC(displ, gcf, GCForeground, &gcfill);
 
         for (int j = 0; j < 3; j++) {
