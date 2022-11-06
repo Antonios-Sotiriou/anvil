@@ -1,4 +1,5 @@
 #include "header_files/clipping.h"
+#include "header_files/vectors_math.h"
 
 Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
@@ -95,19 +96,35 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         return 3; /* Triangle is inside and it needs no clipping. */
     } else if (inside_count == 1 && outside_count == 2) {
         out_t1->v[0] = inside_points[0];
-        out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
-        out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1]);
+
+        if ( len_vec(inside_points[0]) == len_vec(in_t.v[1]) ) {
+            out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1]);
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+        } else {
+            out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1]);
+        }
         out_t1->color = in_t.color;
         return 1; /* A new Triangle is created. */
     } else if (inside_count == 2 && outside_count == 1) {
-        out_t1->v[0] = inside_points[0];
-        out_t1->v[1] = inside_points[1];
-        out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
-        out_t1->color = in_t.color;
+        if ( len_vec(outside_points[0]) == len_vec(in_t.v[1]) ) {
+            out_t1->v[0] = inside_points[1];
+            out_t1->v[1] = inside_points[0];
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
 
-        out_t2->v[0] = inside_points[0];
-        out_t2->v[1] = out_t1->v[2];
-        out_t2->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+            out_t2->v[0] = inside_points[0];
+            out_t2->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+            out_t2->v[2] = out_t1->v[2];
+        } else {
+            out_t1->v[0] = inside_points[0];
+            out_t1->v[1] = inside_points[1];
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
+
+            out_t2->v[0] = inside_points[0];
+            out_t2->v[1] = out_t1->v[2];
+            out_t2->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+        }
+        out_t1->color = in_t.color;
         out_t2->color = in_t.color;
         return 2; /* Two new Triangles are created. */
     }

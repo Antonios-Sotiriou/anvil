@@ -78,4 +78,20 @@ const Vector triangle_cp(const Triangle t) {
     cp = cross_product(line1, line2);
     return cp;
 }
+/* Identifies if the Vectors of the given Triangle < t > are in clockwise order < CW > or not. */
+const int winding(const Triangle t) {
+    int step1, step2, step3;
+    step1 = (t.v[0].x * t.v[1].y) - (t.v[0].y * t.v[1].x);
+    step2 = (t.v[1].x * t.v[2].y) - (t.v[1].y * t.v[2].x);
+    step3 = (t.v[2].x * t.v[0].y) - (t.v[2].y * t.v[0].x);
+    return step1 + step2 + step3;
+}
+/* Identifies if the Vectors of the given Triangle < t > are in clockwise order < CW > or not. */
+const float clippedwinding(const Triangle t) {
+    float step1, step2, step3;
+    step1 = (t.v[0].x * t.v[1].y) - (t.v[0].y * t.v[1].x);
+    step2 = (t.v[1].x * t.v[2].y) - (t.v[1].y * t.v[2].x);
+    step3 = (t.v[2].x * t.v[0].y) - (t.v[2].y * t.v[0].x);
+    return step1 + step2 + step3;
+}
 

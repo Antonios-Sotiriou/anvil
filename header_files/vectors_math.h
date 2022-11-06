@@ -20,6 +20,8 @@ const Vector sub_vecs(const Vector v1, const Vector v2);
 const Vector cross_product(const Vector v1, const Vector v2);
 const float dot_product(const Vector v1, const Vector v2);
 const Vector triangle_cp(const Triangle t);
+const int winding(const Triangle t);
+const float clippedwinding(const Triangle t);
 
 #endif /* _VECTORS_MATH_H */
 
