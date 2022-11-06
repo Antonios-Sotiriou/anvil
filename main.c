@@ -25,6 +25,15 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask | ExposureMask )
 
+#define NearPlane                 ( 0b00000001 )
+#define FarPlane                  ( 0b00000010 )
+#define RightPlane                ( 0b00000011 )
+#define LeftPlane                 ( 0b00000100 )
+#define UpPlane                   ( 0b00000101 )
+#define DownPlane                 ( 0b00000110 )
+#define Flags                     ( NearPlane | FarPlane | RightPlane | LeftPlane | UpPlane | DownPlane )
+
+
 /* Some Global Variables */
 Display *displ;
 Window win;
@@ -84,6 +93,7 @@ static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
 static void project(Mesh c);
+// const static Mesh bfculling(const Mesh c);
 static void ppdiv(Mesh *c);
 const static void rasterize(const Mesh c);
 const static Mesh bfculling(const Mesh c);
@@ -215,10 +225,10 @@ const static void keypress(XEvent *event) {
             break;
         case 122 : rotate_z(&shape, ANGLE);       /* z */
             break;
-        case 65451 : FPlane += 0.005;             /* + */
+        case 65451 : FPlane += 0.00001;             /* + */
             printf("FPlane.z: %f\n", FPlane);
             break;
-        case 65453 : FPlane -= 0.005;             /* - */
+        case 65453 : FPlane -= 0.00001;             /* - */
             printf("FPlane.z: %f\n", FPlane);
             break;
         case 65450 : NPlane += 0.005;             /* * */
@@ -310,75 +320,65 @@ static void project(Mesh c) {
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
 
-    /* Performing 2d backface culling. */
-    Mesh bf = bfculling(cache);
-    free(cache.t);
-    if (!bf.indexes) {
-        free(bf.t);
-        return;
-    }
+    // printf("VIEW SPACE 1 X: %09f Y: %09f Z: %09f W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z,  cache.t[0].v[0].w);
+    // printf("VIEW SPACE 1 X: %09f Y: %09f Z: %09f W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z,  cache.t[0].v[1].w);
+    // printf("VIEW SPACE 1 X: %09f Y: %09f Z: %09f W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z,  cache.t[0].v[2].w);
+
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
-    free(bf.t);
+    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+    free(cache.t);
 
     /* Applying perspective division. */
     if (nf.indexes) {
         ppdiv(&nf);
     }
 
+    Mesh bf = bfculling(nf);
+    free(nf.t);
+    if (!bf.indexes) {
+        free(bf.t);
+        return;
+    }
+
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
-    Mesh ff = clipp(nf, plane_far_p, plane_far_n);
-    free(nf.t);
+    Mesh ff = clipp(bf, plane_far_p, plane_far_n);
+    free(bf.t);
 
     Vector plane_right_p = { 1.0, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
     Mesh rf = clipp(ff, plane_right_p, plane_right_n);
     free(ff.t);
 
+    Vector plane_down_p = { 0.0, 1.0, 0.0 },
+           plane_down_n = { 0.0, -1.0, 0.0 };
+    Mesh df = clipp(rf, plane_down_p, plane_down_n);
+    free(rf.t);
+
     Vector plane_left_p = { -1.0, 0.0, 0.0 },
            plane_left_n = { 1.0, 0.0, 0.0 };
-    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
-    free(rf.t);
+    Mesh lf = clipp(df, plane_left_p, plane_left_n);
+    free(df.t);
 
     Vector plane_up_p = { 0.0, -1.0, 0.0 },
            plane_up_n = { 0.0, 1.0, 0.0 };
     Mesh uf = clipp(lf, plane_up_p, plane_up_n);
     free(lf.t);
 
-    Vector plane_down_p = { 0.0, 1.0, 0.0 },
-           plane_down_n = { 0.0, -1.0, 0.0 };
-    Mesh df = clipp(uf, plane_down_p, plane_down_n);
-    free(uf.t);
-
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    df = sort_triangles(&df);
+    uf = sort_triangles(&uf);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(df);
+    rasterize(uf);
     
-    free(df.t);
-}
-/* Perspective division. */
-static void ppdiv(Mesh *c) {
-    for (int i = 0; i < c->indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-
-            if ( c->t[i].v[j].w > 0.00 ) {
-                c->t[i].v[j].x /= c->t[i].v[j].w;
-                c->t[i].v[j].y /= c->t[i].v[j].w;
-                c->t[i].v[j].z /= c->t[i].v[j].w;
-            }
-        }
-    }
+    free(uf.t);
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
     Mesh r = { 0 };
-    Triangle temp;
     Vector cp;
     float dpc;//, dpl;
     int counter = 1;
@@ -388,17 +388,8 @@ const static Mesh bfculling(const Mesh c) {
         fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
     for (int i = 0; i < c.indexes; i++) {
-        temp = c.t[i];
-        for (int j = 0; j < 3; j++) {
-
-            if ( temp.v[j].w > 0.00 ) {
-                temp.v[j].x /= temp.v[j].w;
-                temp.v[j].y /= temp.v[j].w;
-                temp.v[j].z /= temp.v[j].w;
-            }
-        }
-        cp = triangle_cp(temp);
-        dpc = dot_product(norm_vec(Camera), norm_vec(cp));
+        cp = triangle_cp(c.t[i]);
+        dpc = dot_product(Camera, cp);
         // dpl = dot_product(norm_vec(LightSC), norm_vec(cp));
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -417,6 +408,19 @@ const static Mesh bfculling(const Mesh c) {
     }
     r.indexes = index;
     return r;
+}
+/* Perspective division. */
+static void ppdiv(Mesh *c) {
+    for (int i = 0; i < c->indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+
+            if ( c->t[i].v[j].w > 0.00 ) {
+                c->t[i].v[j].x /= c->t[i].v[j].w;
+                c->t[i].v[j].y /= c->t[i].v[j].w;
+                c->t[i].v[j].z /= c->t[i].v[j].w;
+            }
+        }
+    }
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
 const static void rasterize(const Mesh c) {

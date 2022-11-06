@@ -1,10 +1,10 @@
 /* Triangles must be checked for cross product. */
-// Mesh bf = bfculling(cache);
-// free(cache.t);
-// if (!bf.indexes) {
-//     free(bf.t);
-//     return;
-// }
+Mesh bf = bfculling(cache);
+free(cache.t);
+if (!bf.indexes) {
+    free(bf.t);
+    return;
+}
 
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
@@ -49,3 +49,39 @@ const static Mesh bfculling(const Mesh c) {
     r.indexes = index;
     return r;
 }
+/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
+const static Mesh bfculling(const Mesh c) {
+    Mesh r = { 0 };
+    Triangle temp;
+    int counter = 1, index = 0, wind;
+    r.t = malloc(sizeof(Triangle));
+    if (!r.t)
+        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
+
+    for (int i = 0; i < c.indexes; i++) {
+        temp = c.t[i];
+        for (int j = 0; j < 3; j++) {
+
+            temp.v[j].x = XWorldToScreen;
+            temp.v[j].y = YWorldToScreen;
+        }
+        wind = winding(temp);
+        // printf("Winding order: %d\n", wind);
+        if (wind > 0) {
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
+
+            if (!r.t)
+                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+
+            r.t[index] = c.t[i];
+
+            counter++;
+            index++;
+        }
+    }
+    r.indexes = index;
+    return r;
+}
+printf("Result: %d\n", ( ((-1 * -1) - (0 * 1)) + ((1 * 1) - (-1 * 1)) + ((1 * 0) - (1 * -1)) ));
+printf("Result: %d\n", ( ((-1 * 1) - (0 * 1)) + ((1 * -1) - (1 * 1)) + ((1 * 0) - (-1 * -1)) ));
+
