@@ -47,7 +47,7 @@ Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
-Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
+Vector LightSC   =   { -1.0, -1.0, -1.0, 1.0 };
 
 float NPlane = 1.0;
 float FPlane = 1.0;
@@ -93,10 +93,9 @@ static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
 static void project(Mesh c);
-// const static Mesh bfculling(const Mesh c);
 static void ppdiv(Mesh *c);
-const static void rasterize(const Mesh c);
 const static Mesh bfculling(const Mesh c);
+const static void rasterize(const Mesh c);
 const static void draw(const SCMesh sc);
 
 /* Xlib relative functions and event dispatcher. */
@@ -320,10 +319,6 @@ static void project(Mesh c) {
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
 
-    // printf("VIEW SPACE 1 X: %09f Y: %09f Z: %09f W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z,  cache.t[0].v[0].w);
-    // printf("VIEW SPACE 1 X: %09f Y: %09f Z: %09f W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z,  cache.t[0].v[1].w);
-    // printf("VIEW SPACE 1 X: %09f Y: %09f Z: %09f W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z,  cache.t[0].v[2].w);
-
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
@@ -335,6 +330,7 @@ static void project(Mesh c) {
         ppdiv(&nf);
     }
 
+    /* Applying Backface culling before we proceed to full frustum clipping. */
     Mesh bf = bfculling(nf);
     free(nf.t);
     if (!bf.indexes) {
@@ -390,7 +386,7 @@ const static Mesh bfculling(const Mesh c) {
     for (int i = 0; i < c.indexes; i++) {
         cp = triangle_cp(c.t[i]);
         dpc = dot_product(Camera, cp);
-        // dpl = dot_product(norm_vec(LightSC), norm_vec(cp));
+        // dpl = dot_product(norm_vec(ls), norm_vec(cp));
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
