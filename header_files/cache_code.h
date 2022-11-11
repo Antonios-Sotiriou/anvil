@@ -65,7 +65,7 @@ const static Mesh bfculling(const Mesh c) {
             temp.v[j].x = XWorldToScreen;
             temp.v[j].y = YWorldToScreen;
         }
-        wind = winding(temp);
+        wind = winding2D(temp);
         // printf("Winding order: %d\n", wind);
         if (wind > 0) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
