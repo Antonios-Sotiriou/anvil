@@ -50,7 +50,7 @@ const static Mesh bfculling(const Mesh c) {
     return r;
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
-const static Mesh bfculling(const Mesh c) {
+const static Mesh culling2d(const Mesh c) {
     Mesh r = { 0 };
     Triangle temp;
     int counter = 1, index = 0, wind;
