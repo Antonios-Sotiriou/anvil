@@ -319,6 +319,10 @@ static void project(Mesh c) {
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
 
+    printf("View 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    printf("View 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    printf("View 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
+
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
