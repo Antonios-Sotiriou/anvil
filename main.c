@@ -8,6 +8,7 @@
 /* Project specific headers */
 #include "header_files/locale.h"
 #include "header_files/objects.h"
+// #include "header_files/rasterizer.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
@@ -38,9 +39,14 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 Display *displ;
 Window win;
 Pixmap pixmap;
+GC gc;
+XGCValues gcvalues;
 XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
+
+char image_data[WIDTH * HEIGHT * 4];
+Pixel pixels[HEIGHT][WIDTH] = { {{ 0 }, { 0 }, { 0 }} };
 
 Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
@@ -95,8 +101,11 @@ static void rotate_z(Mesh *c, const float angle);
 static void project(Mesh c);
 static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
-const static void rasterize(const Mesh c);
-const static void draw(const SCMesh sc);
+const static void viewtoscreen(const Mesh c);
+const static void rasterize(const SCMesh sc);
+const static void fillnorthway(const SCTriangle sct);
+const static void fillsouthway(const SCTriangle sct);
+const static void fillgeneral(const SCTriangle sct);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
@@ -130,7 +139,8 @@ const static void clientmessage(XEvent *event) {
         printf("WM_DELETE_WINDOW");
 
         free(shape.t);
-
+        
+        XFree(gc);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         XCloseDisplay(displ);
@@ -159,12 +169,12 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        // load_obj(&shape, "objects/planet.obj");
-        load_obj(&shape, "objects/scene.obj");
+        load_obj(&shape, "objects/planet.obj");
+        // load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(100.0);
+        Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -243,9 +253,7 @@ const static void keypress(XEvent *event) {
         default :
             return;
     }
-
-    pixmapdisplay();
-
+    // pixmapdisplay();
     project(shape);
 }
 /* Rotates the camera to look left. */
@@ -319,10 +327,6 @@ static void project(Mesh c) {
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
 
-    printf("View 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    printf("View 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    printf("View 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
-
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
@@ -372,7 +376,7 @@ static void project(Mesh c) {
     uf = sort_triangles(&uf);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(uf);
+    viewtoscreen(uf);
     
     free(uf.t);
 }
@@ -423,57 +427,175 @@ static void ppdiv(Mesh *c) {
     }
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
-const static void rasterize(const Mesh c) {
+const static void viewtoscreen(const Mesh c) {
 
-    SCMesh scmesh;
-    scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
+    SCMesh sc;
+    sc.sct = calloc(c.indexes, sizeof(SCTriangle));
 
-    if (!scmesh.sct)
+    if (!sc.sct)
         fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
 
-    scmesh.indexes = c.indexes;
+    sc.indexes = c.indexes;
 
-    for (int i = 0; i < c.indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-
-            scmesh.sct[i].scv[j].x = XWorldToScreen;
-            scmesh.sct[i].scv[j].y = YWorldToScreen;
-            scmesh.sct[i].z[j] = c.t[i].v[j].z;
-            scmesh.sct[i].color = c.t[i].color;
-        }
-    }
-    draw(scmesh);
-    free(scmesh.sct);
-}
-/* Draws the Mesh's Triangles on screen in 2D coordinates. */
-const static void draw(const SCMesh sc) {
-
-    XGCValues gclines, gcfill;
-    /* Lines drawing GC */
-    gclines.graphics_exposures = False;
-    gclines.line_width = 3;
-    gclines.foreground = 0xffffff;
-    GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
-    /* Fill rectangle GC */
-    gcfill.graphics_exposures = False;
-    GC gcf = XCreateGC(displ, win, GCGraphicsExposures, &gcfill);
-
-    int vindex = 1;
     for (int i = 0; i < sc.indexes; i++) {
-        gcfill.foreground = sc.sct[i].color;
-        XChangeGC(displ, gcf, GCForeground, &gcfill);
-
         for (int j = 0; j < 3; j++) {
 
-            if (j == 2)
-                vindex = 0;
-            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
-            vindex++;
+            sc.sct[i].scv[j].x = XWorldToScreen;
+            sc.sct[i].scv[j].y = YWorldToScreen;
+            sc.sct[i].z[j] = c.t[i].v[j].z;
+            sc.sct[i].color = c.t[i].color;
         }
-        XFillPolygon(displ, win, gcf, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
     }
-    XFreeGC(displ, gcf);
-    XFreeGC(displ, gcl);
+    rasterize(sc);
+    free(sc.sct);
+}
+/* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
+const static void rasterize(const SCMesh sc) {
+    // image_data = calloc(1, wa.width * wa.height * 4);
+    // char image_data[WIDTH * HEIGHT * 4];
+    // memset(image_data, 1, WIDTH * HEIGHT * 4);
+    int height_inc = 0;
+    int width_inc = 0;
+    /* Sorting Vectors from smaller to larger y. */
+    SCVector temp;
+    for (int m = 0; m < sc.indexes; m++) {
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+                if (sc.sct[m].scv[i].y <= sc.sct[m].scv[j].y) {
+                    temp = sc.sct[m].scv[i];
+                    sc.sct[m].scv[i] = sc.sct[m].scv[j];
+                    sc.sct[m].scv[j] = temp;
+                }
+
+        if ( (sc.sct[m].scv[0].y == sc.sct[m].scv[1].y) && (sc.sct[m].scv[1].y == sc.sct[m].scv[2].y) )
+            return;
+        else if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
+            fillnorthway(sc.sct[m]);
+        else if ( (sc.sct[m].scv[0].y - sc.sct[m].scv[1].y) == 0 )
+            fillsouthway(sc.sct[m]);
+        else
+            fillgeneral(sc.sct[m]);
+    }
+
+    for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
+        image_data[i] = pixels[height_inc][width_inc].Blue;
+        image_data[i + 1] = pixels[height_inc][width_inc].Green;
+        image_data[i + 2] = pixels[height_inc][width_inc].Red;
+        i += 3;
+        if (width_inc == WIDTH) {
+            height_inc += 1;
+            width_inc = 0;
+        }
+        width_inc++;
+    }
+
+    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, 0);
+    XPutImage(displ, win, gc, image, 0, 0, 0, 0, wa.width, wa.height);
+    // pixmapdisplay();
+    XFree(image);
+    // free(image_data);
+}
+const static void fillnorthway(const SCTriangle sct) {
+    float ma, mb;
+    ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+    int y_start = sct.scv[0].y;
+    int y_end = sct.scv[1].y;
+
+    for (int y = y_start; y <= y_end; y++) {
+        int x_start, x_end;
+        float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+        if (p0 <= p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+            pixels[y][x].Red = 227;
+            pixels[y][x].Green = 9;
+            pixels[y][x].Blue = 90;
+        }
+    }
+}
+const static void fillsouthway(const SCTriangle sct) {
+    float mb, mc;
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+    mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    int y_start = sct.scv[1].y;
+    int y_end = sct.scv[2].y;
+
+    for (int y = y_start; y <= y_end; y++) {
+        int x_start, x_end;
+        float p0 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
+        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+        if (p0 <= p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+            pixels[y][x].Red = 227;
+            pixels[y][x].Green = 220;
+            pixels[y][x].Blue = 9;
+        }
+    }
+}
+const static void fillgeneral(const SCTriangle sct) {
+    float ma, mb, mc;
+    ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+    mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    int y_start = sct.scv[0].y;
+    int y_end = sct.scv[1].y;
+
+    for (int y = y_start; y <= y_end; y++) {
+        int x_start, x_end;
+        float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+        if (p0 <= p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+            pixels[y][x].Red = 9;
+            pixels[y][x].Green = 227;
+            pixels[y][x].Blue = 224;
+        }
+        if (y == y_end)
+            for (int y = y_end + 1; y <= sct.scv[2].y; y++) {
+
+                int x_start, x_end;
+                float p0 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
+                float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+                if (p0 <= p1) {
+                    x_start = (int)ceil(p0 - 0.5);
+                    x_end = (int)ceil(p1 - 0.5);
+                } else {
+                    x_start = (int)ceil(p1 - 0.5);
+                    x_end = (int)ceil(p0 - 0.5);
+                }
+                for (int x = x_start; x < x_end; x++) {
+                    pixels[y][x].Red = 9;
+                    pixels[y][x].Green = 227;
+                    pixels[y][x].Blue = 224;
+                }
+            }
+
+    }
 }
 static KeySym get_keysym(XEvent *event) {
 
@@ -507,23 +629,13 @@ static KeySym get_keysym(XEvent *event) {
     return keysym;
 }
 const static void pixmapupdate(void) {
-
-    XGCValues gc_vals;
-    gc_vals.graphics_exposures = False;
-    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
-
+    gcvalues.background = 0x000000;
+    XChangeGC(displ, gc, GCBackground, &gcvalues);
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
-    XCopyArea(displ, win, pixmap, pix, 0, 0, wa.width, wa.height, 0, 0);
-    XFreeGC(displ, pix);
+    XCopyArea(displ, win, pixmap, gc, 0, 0, wa.width, wa.height, 0, 0);
 }
 const static void pixmapdisplay(void) {
-
-    XGCValues gc_vals;
-    gc_vals.graphics_exposures = False;
-    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
-
-    XCopyArea(displ, pixmap, win, pix, 0, 0, wa.width, wa.height, 0, 0);
-    XFreeGC(displ, pix);
+    XCopyArea(displ, pixmap, win, gc, 0, 0, wa.width, wa.height, 0, 0);
 }
 const static void atomsinit(void) {
 
@@ -551,6 +663,9 @@ const static int board(void) {
     sa.background_pixel = 0x000000;
     win = XCreateWindow(displ, XRootWindow(displ, screen), 0, 0, WIDTH, HEIGHT, 0, CopyFromParent, InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &sa);
     XMapWindow(displ, win);
+
+    gcvalues.graphics_exposures = False;
+    gc = XCreateGC(displ, win, GCGraphicsExposures, &gcvalues);
 
     atomsinit();
 
