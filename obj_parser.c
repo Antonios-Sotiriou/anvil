@@ -27,7 +27,6 @@ void load_obj(Mesh *c, const char path[]) {
         c->t[i].v[0] = v[f[i].a - 1];    c->t[i].v[0].w = 1.00;
         c->t[i].v[1] = v[f[i].b - 1];    c->t[i].v[1].w = 1.00;
         c->t[i].v[2] = v[f[i].c - 1];    c->t[i].v[2].w = 1.00;
-        c->t[i].color = 0xa517a2;
     }
     
     /* Free The Vectors and Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */

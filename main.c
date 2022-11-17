@@ -46,7 +46,7 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
 char image_data[WIDTH * HEIGHT * 4];
-Pixel pixels[HEIGHT][WIDTH] = { {{ 0 }, { 0 }, { 0 }} };
+Pixel pixels[HEIGHT][WIDTH];
 
 Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
@@ -109,7 +109,7 @@ const static void fillgeneral(const SCTriangle sct);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
-const static void pixmapupdate(void);
+const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
 const static void atomsinit(void);
 const static int board(void);
@@ -185,7 +185,7 @@ const static void mapnotify(XEvent *event) {
 const static void expose(XEvent *event) {
 
     printf("expose event received\n");
-    pixmapupdate();
+    pixmapcreate();
     project(shape);
 }
 const static void resizerequest(XEvent *event) {
@@ -209,7 +209,7 @@ const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
     // printf("Key Pressed: %ld\n", keysym);
-    printf("\x1b[H\x1b[J");
+    // printf("\x1b[H\x1b[J");
     switch (keysym) {
 
         case 119 : move_forward(&Camera);         /* w */
@@ -380,39 +380,6 @@ static void project(Mesh c) {
     
     free(uf.t);
 }
-/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
-const static Mesh bfculling(const Mesh c) {
-    Mesh r = { 0 };
-    Vector cp;
-    float dpc;//, dpl;
-    int counter = 1;
-    int index = 0;
-    r.t = malloc(sizeof(Triangle));
-    if (!r.t)
-        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
-
-    for (int i = 0; i < c.indexes; i++) {
-        cp = triangle_cp(c.t[i]);
-        dpc = dot_product(Camera, cp);
-        // dpl = dot_product(norm_vec(ls), norm_vec(cp));
-        if (dpc > 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
-
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
-
-            r.t[index] = c.t[i];
-
-            // if (dpl < 0.00)
-            //     r.t[index].color = 0xff00fb;
-
-            counter++;
-            index++;
-        }
-    }
-    r.indexes = index;
-    return r;
-}
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
@@ -425,6 +392,37 @@ static void ppdiv(Mesh *c) {
             }
         }
     }
+}
+/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
+const static Mesh bfculling(const Mesh c) {
+    Mesh r = { 0 };
+    Vector cp;
+    float dpc;
+    int counter = 1;
+    int index = 0;
+    r.t = malloc(sizeof(Triangle));
+    if (!r.t)
+        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
+
+    for (int i = 0; i < c.indexes; i++) {
+        cp = triangle_cp(c.t[i]);
+        dpc = dot_product(norm_vec(Camera), norm_vec(cp));
+
+        if (dpc > 0.00) {
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
+
+            if (!r.t)
+                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+
+            r.t[index] = c.t[i];
+            r.t[index].normal = cp;
+
+            counter++;
+            index++;
+        }
+    }
+    r.indexes = index;
+    return r;
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
 const static void viewtoscreen(const Mesh c) {
@@ -443,7 +441,7 @@ const static void viewtoscreen(const Mesh c) {
             sc.sct[i].scv[j].x = XWorldToScreen;
             sc.sct[i].scv[j].y = YWorldToScreen;
             sc.sct[i].z[j] = c.t[i].v[j].z;
-            sc.sct[i].color = c.t[i].color;
+            sc.sct[i].normal = c.t[i].normal;
         }
     }
     rasterize(sc);
@@ -451,9 +449,7 @@ const static void viewtoscreen(const Mesh c) {
 }
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const SCMesh sc) {
-    // image_data = calloc(1, wa.width * wa.height * 4);
-    // char image_data[WIDTH * HEIGHT * 4];
-    // memset(image_data, 1, WIDTH * HEIGHT * 4);
+    memset(pixels, 0, (WIDTH * HEIGHT * sizeof(Pixel)));
     int height_inc = 0;
     int width_inc = 0;
     /* Sorting Vectors from smaller to larger y. */
@@ -467,9 +463,7 @@ const static void rasterize(const SCMesh sc) {
                     sc.sct[m].scv[j] = temp;
                 }
 
-        if ( (sc.sct[m].scv[0].y == sc.sct[m].scv[1].y) && (sc.sct[m].scv[1].y == sc.sct[m].scv[2].y) )
-            return;
-        else if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
+        if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
             fillnorthway(sc.sct[m]);
         else if ( (sc.sct[m].scv[0].y - sc.sct[m].scv[1].y) == 0 )
             fillsouthway(sc.sct[m]);
@@ -478,29 +472,34 @@ const static void rasterize(const SCMesh sc) {
     }
 
     for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
-        image_data[i] = pixels[height_inc][width_inc].Blue;
-        image_data[i + 1] = pixels[height_inc][width_inc].Green;
-        image_data[i + 2] = pixels[height_inc][width_inc].Red;
+
+        if (image_data[i] != pixels[height_inc][width_inc].Blue)
+            image_data[i] = pixels[height_inc][width_inc].Blue;
+        if (image_data[i + 1] != pixels[height_inc][width_inc].Green)
+            image_data[i + 1] = pixels[height_inc][width_inc].Green;
+        if (image_data[i + 2] != pixels[height_inc][width_inc].Red)
+            image_data[i + 2] = pixels[height_inc][width_inc].Red;
         i += 3;
+        width_inc++;
         if (width_inc == WIDTH) {
             height_inc += 1;
             width_inc = 0;
         }
-        width_inc++;
     }
 
-    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, 0);
-    XPutImage(displ, win, gc, image, 0, 0, 0, 0, wa.width, wa.height);
-    // pixmapdisplay();
+    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, (WIDTH * 4));
+    XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
     XFree(image);
-    // free(image_data);
+
+    pixmapdisplay();
 }
 const static void fillnorthway(const SCTriangle sct) {
     float ma, mb;
     ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
-    int y_start = sct.scv[0].y;
-    int y_end = sct.scv[1].y;
+
+    int y_start = (int)ceil(sct.scv[0].y - 0.5);
+    int y_end = (int)ceil(sct.scv[1].y - 0.5);
 
     for (int y = y_start; y <= y_end; y++) {
         int x_start, x_end;
@@ -526,13 +525,13 @@ const static void fillsouthway(const SCTriangle sct) {
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
     mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
 
-    int y_start = sct.scv[1].y;
-    int y_end = sct.scv[2].y;
+    int y_start = (int)ceil(sct.scv[1].y - 0.5);
+    int y_end = (int)ceil(sct.scv[2].y - 0.5);
 
     for (int y = y_start; y <= y_end; y++) {
         int x_start, x_end;
-        float p0 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
-        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
 
         if (p0 <= p1) {
             x_start = (int)ceil(p0 - 0.5);
@@ -549,15 +548,19 @@ const static void fillsouthway(const SCTriangle sct) {
     }
 }
 const static void fillgeneral(const SCTriangle sct) {
+    Vector light = vecxm(LightSC, WorldMat);
+    float illuminate = dot_product(light, sct.normal);
+    printf("Illuminate: %f\n", illuminate);
     float ma, mb, mc;
     ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
     mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
 
-    int y_start = sct.scv[0].y;
-    int y_end = sct.scv[1].y;
+    int y_start = (int)ceil(sct.scv[0].y - 0.5);
+    int y_end1 = (int)ceil(sct.scv[1].y - 0.5);
+    int y_end2 = (int)ceil(sct.scv[2].y - 0.5);
 
-    for (int y = y_start; y <= y_end; y++) {
+    for (int y = y_start; y <= y_end1; y++) {
         int x_start, x_end;
         float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
         float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
@@ -570,16 +573,16 @@ const static void fillgeneral(const SCTriangle sct) {
             x_end = (int)ceil(p0 - 0.5);
         }
         for (int x = x_start; x < x_end; x++) {
-            pixels[y][x].Red = 9;
-            pixels[y][x].Green = 227;
-            pixels[y][x].Blue = 224;
+            pixels[y][x].Red = 9 * illuminate;
+            pixels[y][x].Green = 227 * illuminate;
+            pixels[y][x].Blue = 224 * illuminate;
         }
-        if (y == y_end)
-            for (int y = y_end + 1; y <= sct.scv[2].y; y++) {
+        if (y == y_end1)
+            for (int y = y_end1 + 1; y <= y_end2; y++) {
 
                 int x_start, x_end;
-                float p0 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
-                float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+                float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+                float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
 
                 if (p0 <= p1) {
                     x_start = (int)ceil(p0 - 0.5);
@@ -589,9 +592,9 @@ const static void fillgeneral(const SCTriangle sct) {
                     x_end = (int)ceil(p0 - 0.5);
                 }
                 for (int x = x_start; x < x_end; x++) {
-                    pixels[y][x].Red = 9;
-                    pixels[y][x].Green = 227;
-                    pixels[y][x].Blue = 224;
+                    pixels[y][x].Red = 9 * illuminate;
+                    pixels[y][x].Green = 227 * illuminate;
+                    pixels[y][x].Blue = 224 * illuminate;
                 }
             }
 
@@ -628,11 +631,8 @@ static KeySym get_keysym(XEvent *event) {
     }
     return keysym;
 }
-const static void pixmapupdate(void) {
-    gcvalues.background = 0x000000;
-    XChangeGC(displ, gc, GCBackground, &gcvalues);
+const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
-    XCopyArea(displ, win, pixmap, gc, 0, 0, wa.width, wa.height, 0, 0);
 }
 const static void pixmapdisplay(void) {
     XCopyArea(displ, pixmap, win, gc, 0, 0, wa.width, wa.height, 0, 0);
@@ -672,7 +672,7 @@ const static int board(void) {
     while (RUNNING) {
 
         XNextEvent(displ, &event);
-        
+
         if (handler[event.type])
             handler[event.type](&event);
     }

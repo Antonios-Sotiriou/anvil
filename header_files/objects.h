@@ -15,7 +15,7 @@ typedef struct {
 /* World Triangle */
 typedef struct {
     Vector v[LastVector];
-    unsigned int color;
+    Vector normal;
 } Triangle;
 
 /* World Mesh */
@@ -34,7 +34,7 @@ typedef struct {
     /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
     SCVector scv[LastVector];
     float z[LastVector];
-    unsigned int color;
+    Vector normal;
 } SCTriangle;
 
 /* Screen Mesh */
