@@ -8,6 +8,7 @@
 /* Project specific headers */
 #include "header_files/locale.h"
 #include "header_files/objects.h"
+// #include "header_files/rasterizer.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
@@ -38,9 +39,14 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 Display *displ;
 Window win;
 Pixmap pixmap;
+GC gc;
+XGCValues gcvalues;
 XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
+
+char image_data[WIDTH * HEIGHT * 4];
+Pixel pixels[HEIGHT][WIDTH];
 
 Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         U        =   { 1.0, 0.0, 0.0, 0.0 },
@@ -95,12 +101,15 @@ static void rotate_z(Mesh *c, const float angle);
 static void project(Mesh c);
 static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
-const static void rasterize(const Mesh c);
-const static void draw(const SCMesh sc);
+const static void viewtoscreen(const Mesh c);
+const static void rasterize(const SCMesh sc);
+const static void fillnorthway(const SCTriangle sct);
+const static void fillsouthway(const SCTriangle sct);
+const static void fillgeneral(const SCTriangle sct);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
-const static void pixmapupdate(void);
+const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
 const static void atomsinit(void);
 const static int board(void);
@@ -130,7 +139,8 @@ const static void clientmessage(XEvent *event) {
         printf("WM_DELETE_WINDOW");
 
         free(shape.t);
-
+        
+        XFree(gc);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         XCloseDisplay(displ);
@@ -159,12 +169,12 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        // load_obj(&shape, "objects/planet.obj");
-        load_obj(&shape, "objects/scene.obj");
+        load_obj(&shape, "objects/planet.obj");
+        // load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(100.0);
+        Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -175,7 +185,7 @@ const static void mapnotify(XEvent *event) {
 const static void expose(XEvent *event) {
 
     printf("expose event received\n");
-    pixmapupdate();
+    pixmapcreate();
     project(shape);
 }
 const static void resizerequest(XEvent *event) {
@@ -199,7 +209,7 @@ const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
     // printf("Key Pressed: %ld\n", keysym);
-    printf("\x1b[H\x1b[J");
+    // printf("\x1b[H\x1b[J");
     switch (keysym) {
 
         case 119 : move_forward(&Camera);         /* w */
@@ -243,9 +253,7 @@ const static void keypress(XEvent *event) {
         default :
             return;
     }
-
-    pixmapdisplay();
-
+    // pixmapdisplay();
     project(shape);
 }
 /* Rotates the camera to look left. */
@@ -319,10 +327,6 @@ static void project(Mesh c) {
     Mesh cache = c;
     cache = meshxm(c, WorldMat);
 
-    printf("View 0 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    printf("View 1 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    printf("View 2 --> X: %09f  Y: %09f  Z: %09f  W: %09f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
-
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
@@ -372,42 +376,9 @@ static void project(Mesh c) {
     uf = sort_triangles(&uf);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(uf);
+    viewtoscreen(uf);
     
     free(uf.t);
-}
-/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
-const static Mesh bfculling(const Mesh c) {
-    Mesh r = { 0 };
-    Vector cp;
-    float dpc;//, dpl;
-    int counter = 1;
-    int index = 0;
-    r.t = malloc(sizeof(Triangle));
-    if (!r.t)
-        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
-
-    for (int i = 0; i < c.indexes; i++) {
-        cp = triangle_cp(c.t[i]);
-        dpc = dot_product(Camera, cp);
-        // dpl = dot_product(norm_vec(ls), norm_vec(cp));
-        if (dpc > 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
-
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
-
-            r.t[index] = c.t[i];
-
-            // if (dpl < 0.00)
-            //     r.t[index].color = 0xff00fb;
-
-            counter++;
-            index++;
-        }
-    }
-    r.indexes = index;
-    return r;
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
@@ -422,58 +393,212 @@ static void ppdiv(Mesh *c) {
         }
     }
 }
-/* Translates the Mesh's Triangles from world to Screen Coordinates. */
-const static void rasterize(const Mesh c) {
-
-    SCMesh scmesh;
-    scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
-
-    if (!scmesh.sct)
-        fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
-
-    scmesh.indexes = c.indexes;
+/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
+const static Mesh bfculling(const Mesh c) {
+    Mesh r = { 0 };
+    Vector cp;
+    float dpc;
+    int counter = 1;
+    int index = 0;
+    r.t = malloc(sizeof(Triangle));
+    if (!r.t)
+        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
     for (int i = 0; i < c.indexes; i++) {
-        for (int j = 0; j < 3; j++) {
+        cp = triangle_cp(c.t[i]);
+        dpc = dot_product(norm_vec(Camera), norm_vec(cp));
 
-            scmesh.sct[i].scv[j].x = XWorldToScreen;
-            scmesh.sct[i].scv[j].y = YWorldToScreen;
-            scmesh.sct[i].z[j] = c.t[i].v[j].z;
-            scmesh.sct[i].color = c.t[i].color;
+        if (dpc > 0.00) {
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
+
+            if (!r.t)
+                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+
+            r.t[index] = c.t[i];
+            r.t[index].normal = cp;
+
+            counter++;
+            index++;
         }
     }
-    draw(scmesh);
-    free(scmesh.sct);
+    r.indexes = index;
+    return r;
 }
-/* Draws the Mesh's Triangles on screen in 2D coordinates. */
-const static void draw(const SCMesh sc) {
+/* Translates the Mesh's Triangles from world to Screen Coordinates. */
+const static void viewtoscreen(const Mesh c) {
 
-    XGCValues gclines, gcfill;
-    /* Lines drawing GC */
-    gclines.graphics_exposures = False;
-    gclines.line_width = 3;
-    gclines.foreground = 0xffffff;
-    GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
-    /* Fill rectangle GC */
-    gcfill.graphics_exposures = False;
-    GC gcf = XCreateGC(displ, win, GCGraphicsExposures, &gcfill);
+    SCMesh sc;
+    sc.sct = calloc(c.indexes, sizeof(SCTriangle));
 
-    int vindex = 1;
+    if (!sc.sct)
+        fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
+
+    sc.indexes = c.indexes;
+
     for (int i = 0; i < sc.indexes; i++) {
-        gcfill.foreground = sc.sct[i].color;
-        XChangeGC(displ, gcf, GCForeground, &gcfill);
-
         for (int j = 0; j < 3; j++) {
 
-            if (j == 2)
-                vindex = 0;
-            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
-            vindex++;
+            sc.sct[i].scv[j].x = XWorldToScreen;
+            sc.sct[i].scv[j].y = YWorldToScreen;
+            sc.sct[i].z[j] = c.t[i].v[j].z;
+            sc.sct[i].normal = c.t[i].normal;
         }
-        XFillPolygon(displ, win, gcf, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
     }
-    XFreeGC(displ, gcf);
-    XFreeGC(displ, gcl);
+    rasterize(sc);
+    free(sc.sct);
+}
+/* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
+const static void rasterize(const SCMesh sc) {
+    memset(pixels, 0, (WIDTH * HEIGHT * sizeof(Pixel)));
+    int height_inc = 0;
+    int width_inc = 0;
+    /* Sorting Vectors from smaller to larger y. */
+    SCVector temp;
+    for (int m = 0; m < sc.indexes; m++) {
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+                if (sc.sct[m].scv[i].y <= sc.sct[m].scv[j].y) {
+                    temp = sc.sct[m].scv[i];
+                    sc.sct[m].scv[i] = sc.sct[m].scv[j];
+                    sc.sct[m].scv[j] = temp;
+                }
+
+        if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
+            fillnorthway(sc.sct[m]);
+        else if ( (sc.sct[m].scv[0].y - sc.sct[m].scv[1].y) == 0 )
+            fillsouthway(sc.sct[m]);
+        else
+            fillgeneral(sc.sct[m]);
+    }
+
+    for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
+
+        if (image_data[i] != pixels[height_inc][width_inc].Blue)
+            image_data[i] = pixels[height_inc][width_inc].Blue;
+        if (image_data[i + 1] != pixels[height_inc][width_inc].Green)
+            image_data[i + 1] = pixels[height_inc][width_inc].Green;
+        if (image_data[i + 2] != pixels[height_inc][width_inc].Red)
+            image_data[i + 2] = pixels[height_inc][width_inc].Red;
+        i += 3;
+        width_inc++;
+        if (width_inc == WIDTH) {
+            height_inc += 1;
+            width_inc = 0;
+        }
+    }
+
+    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, (WIDTH * 4));
+    XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
+    XFree(image);
+
+    pixmapdisplay();
+}
+const static void fillnorthway(const SCTriangle sct) {
+    float ma, mb;
+    ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+
+    int y_start = (int)ceil(sct.scv[0].y - 0.5);
+    int y_end = (int)ceil(sct.scv[1].y - 0.5);
+
+    for (int y = y_start; y <= y_end; y++) {
+        int x_start, x_end;
+        float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+        if (p0 <= p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+            pixels[y][x].Red = 227;
+            pixels[y][x].Green = 9;
+            pixels[y][x].Blue = 90;
+        }
+    }
+}
+const static void fillsouthway(const SCTriangle sct) {
+    float mb, mc;
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+    mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    int y_start = (int)ceil(sct.scv[1].y - 0.5);
+    int y_end = (int)ceil(sct.scv[2].y - 0.5);
+
+    for (int y = y_start; y <= y_end; y++) {
+        int x_start, x_end;
+        float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
+
+        if (p0 <= p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+            pixels[y][x].Red = 227;
+            pixels[y][x].Green = 220;
+            pixels[y][x].Blue = 9;
+        }
+    }
+}
+const static void fillgeneral(const SCTriangle sct) {
+    Vector light = vecxm(LightSC, WorldMat);
+    float illuminate = dot_product(light, sct.normal);
+    printf("Illuminate: %f\n", illuminate);
+    float ma, mb, mc;
+    ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+    mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    int y_start = (int)ceil(sct.scv[0].y - 0.5);
+    int y_end1 = (int)ceil(sct.scv[1].y - 0.5);
+    int y_end2 = (int)ceil(sct.scv[2].y - 0.5);
+
+    for (int y = y_start; y <= y_end1; y++) {
+        int x_start, x_end;
+        float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+        if (p0 <= p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+            pixels[y][x].Red = 9 * illuminate;
+            pixels[y][x].Green = 227 * illuminate;
+            pixels[y][x].Blue = 224 * illuminate;
+        }
+        if (y == y_end1)
+            for (int y = y_end1 + 1; y <= y_end2; y++) {
+
+                int x_start, x_end;
+                float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+                float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
+
+                if (p0 <= p1) {
+                    x_start = (int)ceil(p0 - 0.5);
+                    x_end = (int)ceil(p1 - 0.5);
+                } else {
+                    x_start = (int)ceil(p1 - 0.5);
+                    x_end = (int)ceil(p0 - 0.5);
+                }
+                for (int x = x_start; x < x_end; x++) {
+                    pixels[y][x].Red = 9 * illuminate;
+                    pixels[y][x].Green = 227 * illuminate;
+                    pixels[y][x].Blue = 224 * illuminate;
+                }
+            }
+
+    }
 }
 static KeySym get_keysym(XEvent *event) {
 
@@ -506,24 +631,11 @@ static KeySym get_keysym(XEvent *event) {
     }
     return keysym;
 }
-const static void pixmapupdate(void) {
-
-    XGCValues gc_vals;
-    gc_vals.graphics_exposures = False;
-    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
-
+const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
-    XCopyArea(displ, win, pixmap, pix, 0, 0, wa.width, wa.height, 0, 0);
-    XFreeGC(displ, pix);
 }
 const static void pixmapdisplay(void) {
-
-    XGCValues gc_vals;
-    gc_vals.graphics_exposures = False;
-    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
-
-    XCopyArea(displ, pixmap, win, pix, 0, 0, wa.width, wa.height, 0, 0);
-    XFreeGC(displ, pix);
+    XCopyArea(displ, pixmap, win, gc, 0, 0, wa.width, wa.height, 0, 0);
 }
 const static void atomsinit(void) {
 
@@ -552,12 +664,15 @@ const static int board(void) {
     win = XCreateWindow(displ, XRootWindow(displ, screen), 0, 0, WIDTH, HEIGHT, 0, CopyFromParent, InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &sa);
     XMapWindow(displ, win);
 
+    gcvalues.graphics_exposures = False;
+    gc = XCreateGC(displ, win, GCGraphicsExposures, &gcvalues);
+
     atomsinit();
 
     while (RUNNING) {
 
         XNextEvent(displ, &event);
-        
+
         if (handler[event.type])
             handler[event.type](&event);
     }
