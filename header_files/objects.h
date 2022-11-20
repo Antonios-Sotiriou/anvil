@@ -27,13 +27,13 @@ typedef struct {
 /* Screen Vector */
 typedef struct {
     int x, y;
+    float z;
 } SCVector;
 
 /* Screen Triangle */
 typedef struct {
     /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
     SCVector scv[LastVector];
-    float z[LastVector];
     Vector normal;
 } SCTriangle;
 

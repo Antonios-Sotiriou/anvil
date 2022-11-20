@@ -169,12 +169,12 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        load_obj(&shape, "objects/planet.obj");
-        // load_obj(&shape, "objects/scene.obj");
+        // load_obj(&shape, "objects/planet.obj");
+        load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(100.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -253,7 +253,6 @@ const static void keypress(XEvent *event) {
         default :
             return;
     }
-    // pixmapdisplay();
     project(shape);
 }
 /* Rotates the camera to look left. */
@@ -324,8 +323,7 @@ static void project(Mesh c) {
 
     WorldMat = mxm(reView, m);
 
-    Mesh cache = c;
-    cache = meshxm(c, WorldMat);
+    Mesh cache = meshxm(c, WorldMat);
 
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
@@ -388,6 +386,13 @@ static void ppdiv(Mesh *c) {
             }
         }
     }
+    for (int i = 0; i < 3; i++) {
+        if (LightSC.w > 0.00) {
+            LightSC.x /= LightSC.w;
+            LightSC.y /= LightSC.w;
+            LightSC.z /= LightSC.w;
+        }
+    }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
@@ -436,7 +441,7 @@ const static void viewtoscreen(const Mesh c) {
 
             sc.sct[i].scv[j].x = XWorldToScreen;
             sc.sct[i].scv[j].y = YWorldToScreen;
-            sc.sct[i].z[j] = c.t[i].v[j].z;
+            sc.sct[i].scv[j].z = c.t[i].v[j].z;
             sc.sct[i].normal = c.t[i].normal;
         }
     }
@@ -462,9 +467,16 @@ const static void rasterize(const SCMesh sc) {
                 }
 
         lightsc = vecxm(LightSC, WorldMat);
-        dpl = dot_product(lightsc, sc.sct[m].normal);
+        dpl = dot_product(norm_vec(lightsc), norm_vec(sc.sct[m].normal));
         if (dpl <= 0.00)
             dpl = 1;
+        printf("dpl: %f\n", dpl);
+        // printf("Light Source: X: %f  Y: %f  Z: %f  W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
+        // printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
+        // int point_a = (1 + lightsc.x) * (wa.width / 2);
+        // int point_b = (1 + lightsc.y) * (wa.height / 2);
+        // XDrawPoint(displ, win, gc, point_a, point_b);
+        // return;
 
         if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
             fillnorthway(sc.sct[m], dpl);
@@ -665,8 +677,9 @@ const static int board(void) {
     win = XCreateWindow(displ, XRootWindow(displ, screen), 0, 0, WIDTH, HEIGHT, 0, CopyFromParent, InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &sa);
     XMapWindow(displ, win);
 
+    gcvalues.foreground = 0xffffff;
     gcvalues.graphics_exposures = False;
-    gc = XCreateGC(displ, win, GCGraphicsExposures, &gcvalues);
+    gc = XCreateGC(displ, win, GCForeground | GCGraphicsExposures, &gcvalues);
 
     atomsinit();
 
