@@ -18,20 +18,16 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
             
             if (clipped_count == 1) {
                 r.t[index] = clipped[0];
-                // r.t[index].normal = bf.t[i].normal;
                 index++;
             } else if (clipped_count == 2) {
                 r.t = realloc(r.t, sizeof(Triangle) * (bf.indexes + dynamic_inc));
                 r.t[index] = clipped[0];
-                // r.t[index].normal = bf.t[i].normal;
 
                 r.t[index + 1] = clipped[1];
-                // r.t[index].normal = bf.t[i].normal;
                 index += 2;
                 dynamic_inc++;
             } else if (clipped_count == 3) {
                 r.t[index] = clipped[0];
-                // r.t[index].normal = bf.t[i].normal;
                 index++;
             }
         }
@@ -93,6 +89,7 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         return 0; /* Triangle is outside and must be ignored. */
     } else if (inside_count == 3) {
         *out_t1 = in_t;
+        out_t1->normal = in_t.normal;
         return 3; /* Triangle is inside and it needs no clipping. */
     } else if (inside_count == 1 && outside_count == 2) {
         out_t1->v[0] = inside_points[0];
@@ -104,6 +101,7 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
             out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
             out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1]);
         }
+        out_t1->normal = in_t.normal;
         return 1; /* A new Triangle is created. */
     } else if (inside_count == 2 && outside_count == 1) {
         if ( len_vec(outside_points[0]) == len_vec(in_t.v[1]) ) {
@@ -123,6 +121,8 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
             out_t2->v[1] = inside_points[0];
             out_t2->v[2] = out_t1->v[2];
         }
+        out_t1->normal = in_t.normal;
+        out_t2->normal = in_t.normal;
         return 2; /* Two new Triangles are created. */
     }
     return 0;

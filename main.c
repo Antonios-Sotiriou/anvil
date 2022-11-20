@@ -53,7 +53,7 @@ Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
         V        =   { 0.0, 1.0, 0.0, 0.0 },
         N        =   { 0.0, 0.0, 1.0, 0.0 };
 
-Vector LightSC   =   { -1.0, -1.0, -1.0, 1.0 };
+Vector LightSC   =   { -1.0, -1.0, 0.0, 1.0 };
 
 float NPlane = 1.0;
 float FPlane = 1.0;
@@ -103,9 +103,9 @@ static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
 const static void rasterize(const SCMesh sc);
-const static void fillnorthway(const SCTriangle sct);
-const static void fillsouthway(const SCTriangle sct);
-const static void fillgeneral(const SCTriangle sct);
+const static void fillnorthway(const SCTriangle sct, const float light);
+const static void fillsouthway(const SCTriangle sct, const float light);
+const static void fillgeneral(const SCTriangle sct, const float light);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
@@ -341,10 +341,6 @@ static void project(Mesh c) {
     /* Applying Backface culling before we proceed to full frustum clipping. */
     Mesh bf = bfculling(nf);
     free(nf.t);
-    if (!bf.indexes) {
-        free(bf.t);
-        return;
-    }
 
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
@@ -454,6 +450,8 @@ const static void rasterize(const SCMesh sc) {
     int width_inc = 0;
     /* Sorting Vectors from smaller to larger y. */
     SCVector temp;
+    Vector lightsc;
+    float dpl;
     for (int m = 0; m < sc.indexes; m++) {
         for (int i = 0; i < 3; i++)
             for (int j = 0; j < 3; j++)
@@ -463,12 +461,17 @@ const static void rasterize(const SCMesh sc) {
                     sc.sct[m].scv[j] = temp;
                 }
 
+        lightsc = vecxm(LightSC, WorldMat);
+        dpl = dot_product(lightsc, sc.sct[m].normal);
+        if (dpl <= 0.00)
+            dpl = 1;
+
         if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
-            fillnorthway(sc.sct[m]);
+            fillnorthway(sc.sct[m], dpl);
         else if ( (sc.sct[m].scv[0].y - sc.sct[m].scv[1].y) == 0 )
-            fillsouthway(sc.sct[m]);
+            fillsouthway(sc.sct[m], dpl);
         else
-            fillgeneral(sc.sct[m]);
+            fillgeneral(sc.sct[m], dpl);
     }
 
     for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
@@ -493,7 +496,7 @@ const static void rasterize(const SCMesh sc) {
 
     pixmapdisplay();
 }
-const static void fillnorthway(const SCTriangle sct) {
+const static void fillnorthway(const SCTriangle sct, const float light) {
     float ma, mb;
     ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
@@ -501,7 +504,7 @@ const static void fillnorthway(const SCTriangle sct) {
     int y_start = (int)ceil(sct.scv[0].y - 0.5);
     int y_end = (int)ceil(sct.scv[1].y - 0.5);
 
-    for (int y = y_start; y <= y_end; y++) {
+    for (int y = y_start; y < y_end; y++) {
         int x_start, x_end;
         float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
         float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
@@ -514,13 +517,13 @@ const static void fillnorthway(const SCTriangle sct) {
             x_end = (int)ceil(p0 - 0.5);
         }
         for (int x = x_start; x < x_end; x++) {
-            pixels[y][x].Red = 227;
-            pixels[y][x].Green = 9;
-            pixels[y][x].Blue = 90;
+            pixels[y][x].Red = 9 * light;
+            pixels[y][x].Green = 227 * light;
+            pixels[y][x].Blue = 224 * light;
         }
     }
 }
-const static void fillsouthway(const SCTriangle sct) {
+const static void fillsouthway(const SCTriangle sct, const float light) {
     float mb, mc;
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
     mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
@@ -541,16 +544,13 @@ const static void fillsouthway(const SCTriangle sct) {
             x_end = (int)ceil(p0 - 0.5);
         }
         for (int x = x_start; x < x_end; x++) {
-            pixels[y][x].Red = 227;
-            pixels[y][x].Green = 220;
-            pixels[y][x].Blue = 9;
+            pixels[y][x].Red = 9 * light;
+            pixels[y][x].Green = 227 * light;
+            pixels[y][x].Blue = 224 * light;
         }
     }
 }
-const static void fillgeneral(const SCTriangle sct) {
-    Vector light = vecxm(LightSC, WorldMat);
-    float illuminate = dot_product(light, sct.normal);
-    printf("Illuminate: %f\n", illuminate);
+const static void fillgeneral(const SCTriangle sct, const float light) {
     float ma, mb, mc;
     ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
@@ -573,9 +573,9 @@ const static void fillgeneral(const SCTriangle sct) {
             x_end = (int)ceil(p0 - 0.5);
         }
         for (int x = x_start; x < x_end; x++) {
-            pixels[y][x].Red = 9 * illuminate;
-            pixels[y][x].Green = 227 * illuminate;
-            pixels[y][x].Blue = 224 * illuminate;
+            pixels[y][x].Red = 9 * light;
+            pixels[y][x].Green = 227 * light;
+            pixels[y][x].Blue = 224 * light;
         }
         if (y == y_end1)
             for (int y = y_end1 + 1; y <= y_end2; y++) {
@@ -592,9 +592,9 @@ const static void fillgeneral(const SCTriangle sct) {
                     x_end = (int)ceil(p0 - 0.5);
                 }
                 for (int x = x_start; x < x_end; x++) {
-                    pixels[y][x].Red = 9 * illuminate;
-                    pixels[y][x].Green = 227 * illuminate;
-                    pixels[y][x].Blue = 224 * illuminate;
+                    pixels[y][x].Red = 9 * light;
+                    pixels[y][x].Green = 227 * light;
+                    pixels[y][x].Blue = 224 * light;
                 }
             }
 
@@ -629,6 +629,7 @@ static KeySym get_keysym(XEvent *event) {
     if (status == XBufferOverflow) {
         perror("Buffer Overflow...\n");
     }
+    XFree(xim);
     return keysym;
 }
 const static void pixmapcreate(void) {
