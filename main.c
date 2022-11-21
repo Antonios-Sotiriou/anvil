@@ -45,15 +45,14 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-char image_data[WIDTH * HEIGHT * 4];
 Pixel pixels[HEIGHT][WIDTH];
 
-Vector  Camera   =   { 0.0, 0.0, 498.1, 0.0 },
-        U        =   { 1.0, 0.0, 0.0, 0.0 },
-        V        =   { 0.0, 1.0, 0.0, 0.0 },
-        N        =   { 0.0, 0.0, 1.0, 0.0 };
+Vector  Camera   =   { 0.0, 0.0, 498.1, 1.0 },
+        U        =   { 1.0, 0.0, 0.0, 1.0 },
+        V        =   { 0.0, 1.0, 0.0, 1.0 },
+        N        =   { 0.0, 0.0, 1.0, 1.0 };
 
-Vector LightSC   =   { -1.0, -1.0, 0.0, 1.0 };
+Vector LightSC   =   { -500.5, -500.5, 1500.0, 1.0 };
 
 float NPlane = 1.0;
 float FPlane = 1.0;
@@ -73,6 +72,8 @@ float AspectRatio = WIDTH / HEIGHT;
 float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
+
+int DEBUG = 0;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -103,6 +104,8 @@ static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
 const static void rasterize(const SCMesh sc);
+const static void debug_rasterize(const SCMesh sc);
+const static void debug_draw(const SCMesh sc);
 const static void fillnorthway(const SCTriangle sct, const float light);
 const static void fillsouthway(const SCTriangle sct, const float light);
 const static void fillgeneral(const SCTriangle sct, const float light);
@@ -170,11 +173,11 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
-        load_obj(&shape, "objects/scene.obj");
+        // load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
-        // triangle_create(&shape);
+        triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(100.0);
+        Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -246,9 +249,9 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.005;             /* / */
             printf("NPlane.z: %f\n", NPlane);
             break;
-        case 112 : dplus += 10.01;                   /* Dot product increase */
+        case 112 : LightSC.z += 10.01;                   /* Dot product increase */
             break;
-        case 246 : dplus -= 10.01;                   /* Dot product decrease */
+        case 246 : LightSC.z -= 10.01;                   /* Dot product decrease */
             break;
         default :
             return;
@@ -291,10 +294,12 @@ static void move_right(Vector *v) {
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
     v->y -= 0.1;
+    // LightSC.y -= 0.1;
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
     v->y += 0.1;
+    // LightSC.y += 0.1;
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -386,13 +391,6 @@ static void ppdiv(Mesh *c) {
             }
         }
     }
-    for (int i = 0; i < 3; i++) {
-        if (LightSC.w > 0.00) {
-            LightSC.x /= LightSC.w;
-            LightSC.y /= LightSC.w;
-            LightSC.z /= LightSC.w;
-        }
-    }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
@@ -445,17 +443,30 @@ const static void viewtoscreen(const Mesh c) {
             sc.sct[i].normal = c.t[i].normal;
         }
     }
-    rasterize(sc);
+    if (DEBUG)
+        debug_rasterize(sc);
+    else
+        rasterize(sc);
     free(sc.sct);
 }
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const SCMesh sc) {
-    memset(pixels, 0, (WIDTH * HEIGHT * sizeof(Pixel)));
+
+    char image_data[wa.width * wa.height * 4];
+    memset(pixels, 0, (wa.height * wa.width * sizeof(Pixel)));
     int height_inc = 0;
     int width_inc = 0;
     /* Sorting Vectors from smaller to larger y. */
     SCVector temp;
-    Vector lightsc;
+    Vector lightsc = vecxm(LightSC, WorldMat);
+    // if (lightsc.w > 0.00) {
+        lightsc.x /= lightsc.w;
+        lightsc.y /= lightsc.w;
+        // lightsc.z /= lightsc.w;
+    // }
+    // Vector antilightsc = vecxm(antiLightSC, WorldMat);
+    // printf("Light Source: X: %f  Y: %f  Z: %f  W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
+    // printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
     float dpl;
     for (int m = 0; m < sc.indexes; m++) {
         for (int i = 0; i < 3; i++)
@@ -466,17 +477,10 @@ const static void rasterize(const SCMesh sc) {
                     sc.sct[m].scv[j] = temp;
                 }
 
-        lightsc = vecxm(LightSC, WorldMat);
-        dpl = dot_product(norm_vec(lightsc), norm_vec(sc.sct[m].normal));
+        dpl = dot_product(lightsc, sc.sct[m].normal);
         if (dpl <= 0.00)
             dpl = 1;
-        printf("dpl: %f\n", dpl);
-        // printf("Light Source: X: %f  Y: %f  Z: %f  W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
-        // printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
-        // int point_a = (1 + lightsc.x) * (wa.width / 2);
-        // int point_b = (1 + lightsc.y) * (wa.height / 2);
-        // XDrawPoint(displ, win, gc, point_a, point_b);
-        // return;
+        // printf("dpl: %f\n", dpl);
 
         if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
             fillnorthway(sc.sct[m], dpl);
@@ -496,17 +500,20 @@ const static void rasterize(const SCMesh sc) {
             image_data[i + 2] = pixels[height_inc][width_inc].Red;
         i += 3;
         width_inc++;
-        if (width_inc == WIDTH) {
+        if (width_inc == wa.width) {
             height_inc += 1;
             width_inc = 0;
         }
     }
 
-    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, (WIDTH * 4));
+    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, (wa.width * 4));
     XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
     XFree(image);
 
     pixmapdisplay();
+    int point_a = (1 + lightsc.x) * (wa.width / 2);
+    int point_b = (1 + lightsc.y) * (wa.height / 2);
+    XDrawPoint(displ, win, gc, point_a, point_b);
 }
 const static void fillnorthway(const SCTriangle sct, const float light) {
     float ma, mb;
@@ -612,6 +619,30 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
 
     }
 }
+/* Translates the Mesh's Triangles from world to Screen Coordinates. */
+const static void debug_rasterize(const SCMesh sc) {
+    debug_draw(sc);
+}
+/* Draws the Mesh's Triangles on screen in 2D coordinates. */
+const static void debug_draw(const SCMesh sc) {
+    int vindex = 1;
+    XClearWindow(displ, win);
+    for (int i = 0; i < sc.indexes; i++) {
+        gcvalues.foreground = 0xffffff;
+        XChangeGC(displ, gc, GCForeground, &gcvalues);
+
+        for (int j = 0; j < 3; j++) {
+
+            if (j == 2)
+                vindex = 0;
+            XDrawLine(displ, win, gc, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
+            vindex++;
+        }
+        // gcvalues.foreground = 0xcb3ecf;
+        // XChangeGC(displ, gc, GCForeground, &gcvalues);
+        // XFillPolygon(displ, win, gc, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+    }
+}
 static KeySym get_keysym(XEvent *event) {
 
     /* Get user text input */
@@ -696,6 +727,14 @@ int main(int argc, char *argv[]) {
 
     if (locale_init())
         fprintf(stderr, "Warning: Main -locale()\n");
+
+    if (argc > 1) {
+        printf("argc: %d\n", argc);
+        if (strcasecmp(argv[1], "Debug") == 0) {
+            fprintf(stderr, "INFO : ENABLED DEBUG Level 1\n");
+            DEBUG = 1;
+        }
+    }
 
     if (board())
         return EXIT_FAILURE;
