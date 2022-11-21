@@ -1,2 +1,5 @@
 anvil
+cache_code.h
+debug_rasterizer.h
+debug_rasterizer.c
 
