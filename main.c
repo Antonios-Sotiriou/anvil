@@ -54,7 +54,7 @@ Vector  Camera   =   { 0.0, 0.0, 498.1, 1.0 },
 
 Vector LightSC   =   { -500.5, -500.5, 1500.0, 1.0 };
 
-float NPlane = 1.0;
+float NPlane = 1.01;
 float FPlane = 1.0;
 float dplus = 1000.00;
 
@@ -172,10 +172,10 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        // load_obj(&shape, "objects/planet.obj");
+        load_obj(&shape, "objects/planet.obj");
         // load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
-        triangle_create(&shape);
+        // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -294,12 +294,10 @@ static void move_right(Vector *v) {
 /* Moves camera position Up. */
 static void move_up(Vector *v) {
     v->y -= 0.1;
-    // LightSC.y -= 0.1;
 }
 /* Moves camera position Down. */
 static void move_down(Vector *v) {
     v->y += 0.1;
-    // LightSC.y += 0.1;
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -459,14 +457,11 @@ const static void rasterize(const SCMesh sc) {
     /* Sorting Vectors from smaller to larger y. */
     SCVector temp;
     Vector lightsc = vecxm(LightSC, WorldMat);
-    // if (lightsc.w > 0.00) {
-        lightsc.x /= lightsc.w;
-        lightsc.y /= lightsc.w;
-        // lightsc.z /= lightsc.w;
-    // }
-    // Vector antilightsc = vecxm(antiLightSC, WorldMat);
+    lightsc.x /= lightsc.w;
+    lightsc.y /= lightsc.w;
+    // lightsc.z /= lightsc.w;
     // printf("Light Source: X: %f  Y: %f  Z: %f  W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
-    // printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
+    printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
     float dpl;
     for (int m = 0; m < sc.indexes; m++) {
         for (int i = 0; i < 3; i++)
@@ -478,8 +473,8 @@ const static void rasterize(const SCMesh sc) {
                 }
 
         dpl = dot_product(lightsc, sc.sct[m].normal);
-        if (dpl <= 0.00)
-            dpl = 1;
+        // if (dpl <= 0)
+        //     dpl = 1;
         // printf("dpl: %f\n", dpl);
 
         if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
@@ -638,9 +633,9 @@ const static void debug_draw(const SCMesh sc) {
             XDrawLine(displ, win, gc, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
             vindex++;
         }
-        // gcvalues.foreground = 0xcb3ecf;
-        // XChangeGC(displ, gc, GCForeground, &gcvalues);
-        // XFillPolygon(displ, win, gc, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
+        gcvalues.foreground = 0xcb3ecf;
+        XChangeGC(displ, gc, GCForeground, &gcvalues);
+        XFillPolygon(displ, win, gc, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
     }
 }
 static KeySym get_keysym(XEvent *event) {
