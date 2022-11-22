@@ -172,12 +172,12 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        load_obj(&shape, "objects/planet.obj");
-        // load_obj(&shape, "objects/scene.obj");
+        // load_obj(&shape, "objects/planet.obj");
+        load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(100.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -454,14 +454,16 @@ const static void rasterize(const SCMesh sc) {
     memset(pixels, 0, (wa.height * wa.width * sizeof(Pixel)));
     int height_inc = 0;
     int width_inc = 0;
-    /* Sorting Vectors from smaller to larger y. */
+
     SCVector temp;
     Vector lightsc = vecxm(LightSC, WorldMat);
     lightsc.x /= lightsc.w;
     lightsc.y /= lightsc.w;
     // lightsc.z /= lightsc.w;
     // printf("Light Source: X: %f  Y: %f  Z: %f  W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
-    printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
+    // printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
+
+    /* Sorting Vectors from smaller to larger y. */
     float dpl;
     for (int m = 0; m < sc.indexes; m++) {
         for (int i = 0; i < 3; i++)
@@ -620,11 +622,35 @@ const static void debug_rasterize(const SCMesh sc) {
 }
 /* Draws the Mesh's Triangles on screen in 2D coordinates. */
 const static void debug_draw(const SCMesh sc) {
-    int vindex = 1;
+    
     XClearWindow(displ, win);
-    for (int i = 0; i < sc.indexes; i++) {
-        gcvalues.foreground = 0xffffff;
+    if (DEBUG == 2) {
+        #include "header_files/debug_rasterizer.h"
+        DMesh dm;
+        dm.dt = calloc(sc.indexes, sizeof(SCTriangle));
+        gcvalues.foreground = 0xcb3ecf;
         XChangeGC(displ, gc, GCForeground, &gcvalues);
+
+        if (!dm.dt)
+            fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
+
+        dm.indexes = sc.indexes;
+
+        for (int i = 0; i < sc.indexes; i++) {
+            for (int j = 0; j < 3; j++) {
+
+                dm.dt[i].dv[j].x = sc.sct[i].scv[j].x;
+                dm.dt[i].dv[j].y = sc.sct[i].scv[j].y;
+            }
+            XFillPolygon(displ, win, gc, dm.dt[i].dv, 3, Convex, CoordModeOrigin);
+        }
+        free(dm.dt);
+    }
+
+    int vindex = 1;
+    gcvalues.foreground = 0xffffff;
+    XChangeGC(displ, gc, GCForeground, &gcvalues);
+    for (int i = 0; i < sc.indexes; i++) {
 
         for (int j = 0; j < 3; j++) {
 
@@ -633,9 +659,6 @@ const static void debug_draw(const SCMesh sc) {
             XDrawLine(displ, win, gc, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
             vindex++;
         }
-        gcvalues.foreground = 0xcb3ecf;
-        XChangeGC(displ, gc, GCForeground, &gcvalues);
-        XFillPolygon(displ, win, gc, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
     }
 }
 static KeySym get_keysym(XEvent *event) {
@@ -704,8 +727,9 @@ const static int board(void) {
     XMapWindow(displ, win);
 
     gcvalues.foreground = 0xffffff;
+    gcvalues.background = 0x000000;
     gcvalues.graphics_exposures = False;
-    gc = XCreateGC(displ, win, GCForeground | GCGraphicsExposures, &gcvalues);
+    gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 
     atomsinit();
 
@@ -726,8 +750,13 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         printf("argc: %d\n", argc);
         if (strcasecmp(argv[1], "Debug") == 0) {
-            fprintf(stderr, "INFO : ENABLED DEBUG Level 1\n");
-            DEBUG = 1;
+            if (strcasecmp(argv[2], "1") == 0) {
+                fprintf(stderr, "INFO : ENABLED DEBUG Level 1\n");
+                DEBUG = 1;
+            } else if (strcasecmp(argv[2], "2") == 0) {
+                fprintf(stderr, "INFO : ENABLED DEBUG Level 2\n");
+                DEBUG = 2;
+            }
         }
     }
 
