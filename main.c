@@ -46,21 +46,23 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
 Pixel pixels[HEIGHT][WIDTH];
+float depth_buffer[HEIGHT][WIDTH];
 
-Vector  Camera   =   { 0.0, 0.0, 498.1, 1.0 },
+Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
         U        =   { 1.0, 0.0, 0.0, 1.0 },
         V        =   { 0.0, 1.0, 0.0, 1.0 },
         N        =   { 0.0, 0.0, 1.0, 1.0 };
 
 Vector LightSC   =   { -500.5, -500.5, 1500.0, 1.0 };
 
-float NPlane = 1.01;
+float NPlane = 1.0;
 float FPlane = 1.0;
 float dplus = 1000.00;
 
 /* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
 /* Magnitude of a Vector with one point at origin (0, 0)  |v| =√(x2 + y2) */
 /* Magnitude of a Vector with 2 points |v| =√((x2 - x1)2 + (y2 - y1)2) */
+/* depth = (Point0 * (1 - t)) + (Point1 * t); */
 
 Mesh shape;
 Mat4x4 WorldMat = { 0 };
@@ -206,6 +208,8 @@ const static void configurenotify(XEvent *event) {
 const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
+    printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
+    printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
 }
 
 const static void keypress(XEvent *event) {
@@ -327,7 +331,9 @@ static void project(Mesh c) {
     WorldMat = mxm(reView, m);
 
     Mesh cache = meshxm(c, WorldMat);
-
+    // printf("VIEW: X: %f  Y: %f  Z: %f  W: %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
+    // printf("VIEW: X: %f  Y: %f  Z: %f  W: %f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
+    // printf("VIEW: X: %f  Y: %f  Z: %f  W: %f\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
@@ -338,6 +344,9 @@ static void project(Mesh c) {
     if (nf.indexes) {
         ppdiv(&nf);
     }
+    // printf("NDC: X: %f  Y: %f  Z: %f  W: %f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
+    // printf("NDC: X: %f  Y: %f  Z: %f  W: %f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
+    // printf("NDC: X: %f  Y: %f  Z: %f  W: %f\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
 
     /* Applying Backface culling before we proceed to full frustum clipping. */
     Mesh bf = bfculling(nf);
@@ -437,7 +446,7 @@ const static void viewtoscreen(const Mesh c) {
 
             sc.sct[i].scv[j].x = XWorldToScreen;
             sc.sct[i].scv[j].y = YWorldToScreen;
-            sc.sct[i].scv[j].z = c.t[i].v[j].z;
+            sc.sct[i].scv[j].z = 1 / c.t[i].v[j].w;
             sc.sct[i].normal = c.t[i].normal;
         }
     }
@@ -452,16 +461,16 @@ const static void rasterize(const SCMesh sc) {
 
     char image_data[wa.width * wa.height * 4];
     memset(pixels, 0, (wa.height * wa.width * sizeof(Pixel)));
-    int height_inc = 0;
-    int width_inc = 0;
-    /* Sorting Vectors from smaller to larger y. */
+
     SCVector temp;
     Vector lightsc = vecxm(LightSC, WorldMat);
     lightsc.x /= lightsc.w;
     lightsc.y /= lightsc.w;
     // lightsc.z /= lightsc.w;
     // printf("Light Source: X: %f  Y: %f  Z: %f  W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
-    printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
+    // printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
+
+    /* Sorting Vectors from smaller to larger y. */
     float dpl;
     for (int m = 0; m < sc.indexes; m++) {
         for (int i = 0; i < 3; i++)
@@ -485,14 +494,13 @@ const static void rasterize(const SCMesh sc) {
             fillgeneral(sc.sct[m], dpl);
     }
 
+    int height_inc = 0;
+    int width_inc = 0;
     for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
 
-        if (image_data[i] != pixels[height_inc][width_inc].Blue)
-            image_data[i] = pixels[height_inc][width_inc].Blue;
-        if (image_data[i + 1] != pixels[height_inc][width_inc].Green)
-            image_data[i + 1] = pixels[height_inc][width_inc].Green;
-        if (image_data[i + 2] != pixels[height_inc][width_inc].Red)
-            image_data[i + 2] = pixels[height_inc][width_inc].Red;
+        image_data[i] = pixels[height_inc][width_inc].Blue;
+        image_data[i + 1] = pixels[height_inc][width_inc].Green;
+        image_data[i + 2] = pixels[height_inc][width_inc].Red;
         i += 3;
         width_inc++;
         if (width_inc == wa.width) {
@@ -511,9 +519,12 @@ const static void rasterize(const SCMesh sc) {
     XDrawPoint(displ, win, gc, point_a, point_b);
 }
 const static void fillnorthway(const SCTriangle sct, const float light) {
-    float ma, mb;
+    float ma, mb, za, zb, depth;
     ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+
+    za = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+    zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
 
     int y_start = (int)ceil(sct.scv[0].y - 0.5);
     int y_end = (int)ceil(sct.scv[1].y - 0.5);
@@ -523,6 +534,9 @@ const static void fillnorthway(const SCTriangle sct, const float light) {
         float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
         float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
 
+        float z0 = (za * (y - sct.scv[0].y)) + sct.scv[0].z;
+        float z1 = (zb * (y - sct.scv[0].y)) + sct.scv[0].z;
+
         if (p0 <= p1) {
             x_start = (int)ceil(p0 - 0.5);
             x_end = (int)ceil(p1 - 0.5);
@@ -531,16 +545,27 @@ const static void fillnorthway(const SCTriangle sct, const float light) {
             x_end = (int)ceil(p0 - 0.5);
         }
         for (int x = x_start; x < x_end; x++) {
-            pixels[y][x].Red = 9 * light;
-            pixels[y][x].Green = 227 * light;
-            pixels[y][x].Blue = 224 * light;
+
+            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+            depth = z0 * (1 - barycentric) + (z1 * barycentric);
+            // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
+
+            if (depth > depth_buffer[y][x]) {
+                pixels[y][x].Red = 9 * light;
+                pixels[y][x].Green = 227 * light;
+                pixels[y][x].Blue = 224 * light;
+                depth_buffer[y][x] = depth;
+            }
         }
     }
 }
 const static void fillsouthway(const SCTriangle sct, const float light) {
-    float mb, mc;
+    float mb, mc, zb, zc, depth;
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
     mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+    zc = (float)(sct.scv[2].z - sct.scv[1].z) / (float)(sct.scv[2].y - sct.scv[1].y);
 
     int y_start = (int)ceil(sct.scv[1].y - 0.5);
     int y_end = (int)ceil(sct.scv[2].y - 0.5);
@@ -550,6 +575,9 @@ const static void fillsouthway(const SCTriangle sct, const float light) {
         float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
         float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
 
+        float z1 = (zb * (y - sct.scv[0].y)) + sct.scv[0].z;
+        float z2 = (zc * (y - sct.scv[1].y)) + sct.scv[1].z;
+
         if (p0 <= p1) {
             x_start = (int)ceil(p0 - 0.5);
             x_end = (int)ceil(p1 - 0.5);
@@ -558,17 +586,31 @@ const static void fillsouthway(const SCTriangle sct, const float light) {
             x_end = (int)ceil(p0 - 0.5);
         }
         for (int x = x_start; x < x_end; x++) {
-            pixels[y][x].Red = 9 * light;
-            pixels[y][x].Green = 227 * light;
-            pixels[y][x].Blue = 224 * light;
+
+            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+            depth = z2 * (1 - barycentric) + (z1 * barycentric);
+            // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
+
+            if (depth > depth_buffer[y][x]) {
+                pixels[y][x].Red = 9 * light;
+                pixels[y][x].Green = 227 * light;
+                pixels[y][x].Blue = 224 * light;
+                depth_buffer[y][x] = depth;
+            }
         }
     }
 }
 const static void fillgeneral(const SCTriangle sct, const float light) {
-    float ma, mb, mc;
+    float ma, mb, mc, za, zb, zc, depth;
     ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
     mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
     mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    za = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+    zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+    zc = (float)(sct.scv[2].z - sct.scv[1].z) / (float)(sct.scv[2].y - sct.scv[1].y);
+    // system("clear");
+    // printf("ZA Sloap: %f  ZB Sloap: %f\n", za, zb);
 
     int y_start = (int)ceil(sct.scv[0].y - 0.5);
     int y_end1 = (int)ceil(sct.scv[1].y - 0.5);
@@ -579,6 +621,10 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
         float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
         float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
 
+        float z0 = (za * (y - sct.scv[0].y)) + sct.scv[0].z;
+        float z1 = (zb * (y - sct.scv[0].y)) + sct.scv[0].z;
+        // printf("Z0 Step: %f  Z1 Step: %f\n", z0, z1);
+
         if (p0 <= p1) {
             x_start = (int)ceil(p0 - 0.5);
             x_end = (int)ceil(p1 - 0.5);
@@ -587,9 +633,17 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
             x_end = (int)ceil(p0 - 0.5);
         }
         for (int x = x_start; x < x_end; x++) {
-            pixels[y][x].Red = 9 * light;
-            pixels[y][x].Green = 227 * light;
-            pixels[y][x].Blue = 224 * light;
+
+            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+            depth = z0 * (1 - barycentric) + (z1 * barycentric);
+            // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
+
+            if (depth > depth_buffer[y][x]) {
+                pixels[y][x].Red = 9 * light;
+                pixels[y][x].Green = 227 * light;
+                pixels[y][x].Blue = 224 * light;
+                depth_buffer[y][x] = depth;
+            }
         }
         if (y == y_end1)
             for (int y = y_end1 + 1; y <= y_end2; y++) {
@@ -597,6 +651,10 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
                 int x_start, x_end;
                 float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
                 float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
+
+                float z1 = (zb * (y - sct.scv[0].y)) + sct.scv[0].z;
+                float z2 = (zc * (y - sct.scv[1].y)) + sct.scv[1].z;
+                // printf("Z2 Step: %f  Z1 Step: %f\n", z0, z1);
 
                 if (p0 <= p1) {
                     x_start = (int)ceil(p0 - 0.5);
@@ -606,9 +664,17 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
                     x_end = (int)ceil(p0 - 0.5);
                 }
                 for (int x = x_start; x < x_end; x++) {
-                    pixels[y][x].Red = 9 * light;
-                    pixels[y][x].Green = 227 * light;
-                    pixels[y][x].Blue = 224 * light;
+
+                    float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+                    depth = z2 * (1 - barycentric) + (z1 * barycentric);
+                    // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
+
+                    if (depth > depth_buffer[y][x]) {
+                        pixels[y][x].Red = 9 * light;
+                        pixels[y][x].Green = 227 * light;
+                        pixels[y][x].Blue = 224 * light;
+                        depth_buffer[y][x] = depth;
+                    }
                 }
             }
 
@@ -620,11 +686,35 @@ const static void debug_rasterize(const SCMesh sc) {
 }
 /* Draws the Mesh's Triangles on screen in 2D coordinates. */
 const static void debug_draw(const SCMesh sc) {
-    int vindex = 1;
+    
     XClearWindow(displ, win);
-    for (int i = 0; i < sc.indexes; i++) {
-        gcvalues.foreground = 0xffffff;
+    if (DEBUG == 2) {
+        #include "header_files/debug_rasterizer.h"
+        DMesh dm;
+        dm.dt = calloc(sc.indexes, sizeof(SCTriangle));
+        gcvalues.foreground = 0xcb3ecf;
         XChangeGC(displ, gc, GCForeground, &gcvalues);
+
+        if (!dm.dt)
+            fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
+
+        dm.indexes = sc.indexes;
+
+        for (int i = 0; i < sc.indexes; i++) {
+            for (int j = 0; j < 3; j++) {
+
+                dm.dt[i].dv[j].x = sc.sct[i].scv[j].x;
+                dm.dt[i].dv[j].y = sc.sct[i].scv[j].y;
+            }
+            XFillPolygon(displ, win, gc, dm.dt[i].dv, 3, Convex, CoordModeOrigin);
+        }
+        free(dm.dt);
+    }
+
+    int vindex = 1;
+    gcvalues.foreground = 0xffffff;
+    XChangeGC(displ, gc, GCForeground, &gcvalues);
+    for (int i = 0; i < sc.indexes; i++) {
 
         for (int j = 0; j < 3; j++) {
 
@@ -633,9 +723,6 @@ const static void debug_draw(const SCMesh sc) {
             XDrawLine(displ, win, gc, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
             vindex++;
         }
-        gcvalues.foreground = 0xcb3ecf;
-        XChangeGC(displ, gc, GCForeground, &gcvalues);
-        XFillPolygon(displ, win, gc, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
     }
 }
 static KeySym get_keysym(XEvent *event) {
@@ -704,10 +791,16 @@ const static int board(void) {
     XMapWindow(displ, win);
 
     gcvalues.foreground = 0xffffff;
+    gcvalues.background = 0x000000;
     gcvalues.graphics_exposures = False;
-    gc = XCreateGC(displ, win, GCForeground | GCGraphicsExposures, &gcvalues);
+    gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 
     atomsinit();
+
+    /* Initializing the frame buffer to depth of 1. */
+    for (int i = 0; i < HEIGHT; i++)
+        for (int j = 0; j < WIDTH; j++)
+            depth_buffer[i][j] = 0.0;
 
     while (RUNNING) {
 
@@ -726,8 +819,13 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         printf("argc: %d\n", argc);
         if (strcasecmp(argv[1], "Debug") == 0) {
-            fprintf(stderr, "INFO : ENABLED DEBUG Level 1\n");
-            DEBUG = 1;
+            if (strcasecmp(argv[2], "1") == 0) {
+                fprintf(stderr, "INFO : ENABLED DEBUG Level 1\n");
+                DEBUG = 1;
+            } else if (strcasecmp(argv[2], "2") == 0) {
+                fprintf(stderr, "INFO : ENABLED DEBUG Level 2\n");
+                DEBUG = 2;
+            }
         }
     }
 
