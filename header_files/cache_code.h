@@ -85,3 +85,19 @@ const static Mesh culling2d(const Mesh c) {
 printf("Result: %d\n", ( ((-1 * -1) - (0 * 1)) + ((1 * 1) - (-1 * 1)) + ((1 * 0) - (1 * -1)) ));
 printf("Result: %d\n", ( ((-1 * 1) - (0 * 1)) + ((1 * -1) - (1 * 1)) + ((1 * 0) - (-1 * -1)) ));
 
+// Usefull headers for testing
+#include <time.h>
+
+clock_t begin;
+clock_t end;
+double exec_time;
+
+// time count...
+begin = clock();
+
+/* Some code to be time measured. */
+
+end = clock();
+exec_time = (double)(end - begin) / CLOCKS_PER_SEC;
+printf("Execution Time : %f\n", exec_time);
+

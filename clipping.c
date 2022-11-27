@@ -1,5 +1,6 @@
 #include "header_files/clipping.h"
 #include "header_files/vectors_math.h"
+#include <stdio.h>
 
 Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
@@ -36,14 +37,14 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
     return r;
 }
 
-Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end) {
+Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end, float *t) {
 
     float plane_d = -dot_product(plane_n, plane_p);
     float ad = dot_product(line_start, plane_n);
     float bd = dot_product(line_end, plane_n);
-    float t = ((-plane_d - ad) / (bd - ad));
+    *t = ((-plane_d - ad) / (bd - ad));
     Vector line_ste = sub_vecs(line_end, line_start);
-    Vector line_ti = multiply_vec(line_ste, t);
+    Vector line_ti = multiply_vec(line_ste, *t);
 
     return add_vecs(line_start, line_ti);
 }
@@ -85,6 +86,7 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         outside_count++;
     }
 
+    float t;
     if (inside_count == 0) {
         return 0; /* Triangle is outside and must be ignored. */
     } else if (inside_count == 3) {
@@ -95,11 +97,15 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         out_t1->v[0] = inside_points[0];
 
         if ( len_vec(inside_points[0]) == len_vec(in_t.v[1]) ) {
-            out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1]);
-            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+            out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1], &t);
+            out_t1->v[1].w = (inside_points[0].w * (1 - t)) + (outside_points[1].w * t);
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
+            out_t1->v[2].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
         } else {
-            out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
-            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1]);
+            out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
+            out_t1->v[1].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1], &t);
+            out_t1->v[2].w = (inside_points[0].w * (1 - t)) + (outside_points[1].w * t);
         }
         out_t1->normal = in_t.normal;
         return 1; /* A new Triangle is created. */
@@ -107,17 +113,21 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
         if ( len_vec(outside_points[0]) == len_vec(in_t.v[1]) ) {
             out_t1->v[0] = inside_points[1];
             out_t1->v[1] = inside_points[0];
-            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
+            out_t1->v[2].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
 
-            out_t2->v[0] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
+            out_t2->v[0] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0], &t);
+            out_t2->v[0].w = (inside_points[1].w * (1 - t)) + (outside_points[0].w * t);
             out_t2->v[1] = inside_points[1];
             out_t2->v[2] = out_t1->v[2];
         } else {
             out_t1->v[0] = inside_points[0];
             out_t1->v[1] = inside_points[1];
-            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0]);
+            out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0], &t);
+            out_t1->v[2].w = (inside_points[1].w * (1 - t)) + (outside_points[0].w * t);
 
-            out_t2->v[0] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0]);
+            out_t2->v[0] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
+            out_t2->v[0].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
             out_t2->v[1] = inside_points[0];
             out_t2->v[2] = out_t1->v[2];
         }
