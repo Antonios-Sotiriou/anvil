@@ -53,11 +53,11 @@ Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
         V        =   { 0.0, 1.0, 0.0, 1.0 },
         N        =   { 0.0, 0.0, 1.0, 1.0 };
 
-Vector LightSC   =   { -500.5, -500.5, 1500.0, 1.0 };
+Vector LightSC   =   { -500.0, -500.0, 1500.0, 1.0 };
 
 float NPlane = 1.0;
 float FPlane = 1.0;
-float dplus = 1000.00;
+float dplus = 0.00;
 
 /* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
 /* Magnitude of a Vector with one point at origin (0, 0)  |v| =√(x2 + y2) */
@@ -174,12 +174,12 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
-        load_obj(&shape, "objects/planet.obj");
-        // load_obj(&shape, "objects/scene.obj");
+        // load_obj(&shape, "objects/planet.obj");
+        load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(100.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -379,7 +379,7 @@ static void project(Mesh c) {
     free(lf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    uf = sort_triangles(&uf);
+    // uf = sort_triangles(&uf);
 
     /* Sending to translation to Screen Coordinates. */
     viewtoscreen(uf);
@@ -421,7 +421,7 @@ const static Mesh bfculling(const Mesh c) {
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
             r.t[index] = c.t[i];
-            r.t[index].normal = cp;
+            r.t[index].normal = norm_vec(cp);
 
             counter++;
             index++;
@@ -460,14 +460,19 @@ const static void viewtoscreen(const Mesh c) {
 const static void rasterize(const SCMesh sc) {
 
     char image_data[wa.width * wa.height * 4];
+    /* Initializing the frame buffer to depth of 1. */
+    for (int i = 0; i < HEIGHT; i++)
+        for (int j = 0; j < WIDTH; j++)
+            depth_buffer[i][j] = 0.0;
     memset(pixels, 0, (wa.height * wa.width * sizeof(Pixel)));
 
     SCVector temp;
     Vector lightsc = vecxm(LightSC, WorldMat);
-    lightsc.x /= lightsc.w;
-    lightsc.y /= lightsc.w;
-    // lightsc.z /= lightsc.w;
-    // printf("Light Source: X: %f  Y: %f  Z: %f  W: %f\n", LightSC.x, LightSC.y, LightSC.z, LightSC.w);
+    // if (lightsc.w > 0.00) {
+        lightsc.x /= lightsc.w;
+        lightsc.y /= lightsc.w;
+        lightsc.z /= lightsc.w;
+    // }
     // printf("Light: X: %f  Y: %f  Z: %f  W: %f\n", lightsc.x, lightsc.y, lightsc.z, lightsc.w);
 
     /* Sorting Vectors from smaller to larger y. */
@@ -481,9 +486,9 @@ const static void rasterize(const SCMesh sc) {
                     sc.sct[m].scv[j] = temp;
                 }
 
-        dpl = dot_product(lightsc, sc.sct[m].normal);
+        dpl = dot_product(norm_vec(lightsc), sc.sct[m].normal);
         // if (dpl <= 0)
-        //     dpl = 1;
+        //     dpl *= -1;
         // printf("dpl: %f\n", dpl);
 
         if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
@@ -550,10 +555,10 @@ const static void fillnorthway(const SCTriangle sct, const float light) {
             depth = z0 * (1 - barycentric) + (z1 * barycentric);
             // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
 
-            if (depth > depth_buffer[y][x]) {
-                pixels[y][x].Red = 9 * light;
-                pixels[y][x].Green = 227 * light;
-                pixels[y][x].Blue = 224 * light;
+            if (depth > depth_buffer[y][x] + dplus) {
+                pixels[y][x].Red = 33 * light;
+                pixels[y][x].Green = 122 * light;
+                pixels[y][x].Blue = 157 * light;
                 depth_buffer[y][x] = depth;
             }
         }
@@ -591,10 +596,10 @@ const static void fillsouthway(const SCTriangle sct, const float light) {
             depth = z2 * (1 - barycentric) + (z1 * barycentric);
             // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
 
-            if (depth > depth_buffer[y][x]) {
-                pixels[y][x].Red = 9 * light;
-                pixels[y][x].Green = 227 * light;
-                pixels[y][x].Blue = 224 * light;
+            if (depth > depth_buffer[y][x] + dplus) {
+                pixels[y][x].Red = 33 * light;
+                pixels[y][x].Green = 122 * light;
+                pixels[y][x].Blue = 157 * light;
                 depth_buffer[y][x] = depth;
             }
         }
@@ -609,8 +614,6 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
     za = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
     zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
     zc = (float)(sct.scv[2].z - sct.scv[1].z) / (float)(sct.scv[2].y - sct.scv[1].y);
-    // system("clear");
-    // printf("ZA Sloap: %f  ZB Sloap: %f\n", za, zb);
 
     int y_start = (int)ceil(sct.scv[0].y - 0.5);
     int y_end1 = (int)ceil(sct.scv[1].y - 0.5);
@@ -623,7 +626,6 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
 
         float z0 = (za * (y - sct.scv[0].y)) + sct.scv[0].z;
         float z1 = (zb * (y - sct.scv[0].y)) + sct.scv[0].z;
-        // printf("Z0 Step: %f  Z1 Step: %f\n", z0, z1);
 
         if (p0 <= p1) {
             x_start = (int)ceil(p0 - 0.5);
@@ -638,10 +640,10 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
             depth = z0 * (1 - barycentric) + (z1 * barycentric);
             // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
 
-            if (depth > depth_buffer[y][x]) {
-                pixels[y][x].Red = 9 * light;
-                pixels[y][x].Green = 227 * light;
-                pixels[y][x].Blue = 224 * light;
+            if (depth > depth_buffer[y][x] + dplus) {
+                pixels[y][x].Red = 33 * light;
+                pixels[y][x].Green = 122 * light;
+                pixels[y][x].Blue = 157 * light;
                 depth_buffer[y][x] = depth;
             }
         }
@@ -654,7 +656,6 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
 
                 float z1 = (zb * (y - sct.scv[0].y)) + sct.scv[0].z;
                 float z2 = (zc * (y - sct.scv[1].y)) + sct.scv[1].z;
-                // printf("Z2 Step: %f  Z1 Step: %f\n", z0, z1);
 
                 if (p0 <= p1) {
                     x_start = (int)ceil(p0 - 0.5);
@@ -669,10 +670,10 @@ const static void fillgeneral(const SCTriangle sct, const float light) {
                     depth = z2 * (1 - barycentric) + (z1 * barycentric);
                     // printf("Y: %d  X: %d  depth: %f\n", y, x, depth);
 
-                    if (depth > depth_buffer[y][x]) {
-                        pixels[y][x].Red = 9 * light;
-                        pixels[y][x].Green = 227 * light;
-                        pixels[y][x].Blue = 224 * light;
+                    if (depth > depth_buffer[y][x] + dplus) {
+                        pixels[y][x].Red = 33 * light;
+                        pixels[y][x].Green = 122 * light;
+                        pixels[y][x].Blue = 157 * light;
                         depth_buffer[y][x] = depth;
                     }
                 }
@@ -796,11 +797,6 @@ const static int board(void) {
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 
     atomsinit();
-
-    /* Initializing the frame buffer to depth of 1. */
-    for (int i = 0; i < HEIGHT; i++)
-        for (int j = 0; j < WIDTH; j++)
-            depth_buffer[i][j] = 0.0;
 
     while (RUNNING) {
 
