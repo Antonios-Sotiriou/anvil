@@ -1,6 +1,5 @@
 #include "header_files/clipping.h"
 #include "header_files/vectors_math.h"
-#include <stdio.h>
 
 Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 
