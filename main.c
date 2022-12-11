@@ -29,26 +29,45 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 Display *displ;
 Window win;
 Pixmap pixmap;
+GC gc;
+XGCValues gcvalues;
 XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-Vector  Camera   =   { 0.0, 0.0, 0.0, 0.0 },
-        U        =   { 1.0, 0.0, 0.0, 0.0 },
-        V        =   { 0.0, 1.0, 0.0, 0.0 },
-        N        =   { 0.0, 0.0, 1.0, 0.0 };
+Pixel pixels[HEIGHT][WIDTH];
+float depth_buffer[HEIGHT][WIDTH];
 
-Vector LightSC   =   { -1.0, -1.0, 0.0, 0.0 };
+Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
+        U        =   { 1.0, 0.0, 0.0, 1.0 },
+        V        =   { 0.0, 1.0, 0.0, 1.0 },
+        N        =   { 0.0, 0.0, 1.0, 1.0 };
 
-Mesh cube;
+Vector LightSC   =   { 0.0, 0.0, 1.0, 1.0 };
+
+float NPlane = 1.0;
+float FPlane = 1.0;
+float dplus = 0.00;
+
+/* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
+/* Magnitude of a Vector with one point at origin (0, 0)  |v| =√(x2 + y2) */
+/* Magnitude of a Vector with 2 points |v| =√((x2 - x1)2 + (y2 - y1)2) */
+/* float t = (Point0 - X0) / (X1 - X0) */
+/* depth = (Point0 * (1 - t)) + (Point1 * t); */
+/* depth = z1 + t * (z0 - z1) */
+
+Mesh shape;
 Mat4x4 WorldMat = { 0 };
+Mat4x4 PosMat = { 0 };
 
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
-float AspectRatio = 0;
+float AspectRatio = WIDTH / HEIGHT;
 float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
+
+int DEBUG = 0;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -77,12 +96,17 @@ static void rotate_z(Mesh *c, const float angle);
 static void project(Mesh c);
 static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
-const static void draw(const SCMesh sc, const Mesh c);
-const static void rasterize(const Mesh c);
+const static void viewtoscreen(const Mesh c);
+const static void rasterize(const SCMesh sc);
+const static void debug_rasterize(const SCMesh sc);
+const static void debug_draw(const SCMesh sc);
+const static void fillnorthway(const SCTriangle sct, const float light, const float winding);
+const static void fillsouthway(const SCTriangle sct, const float light, const float winding);
+const static void fillgeneral(const SCTriangle sct, const float light, const float winding);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
-const static void pixmapupdate(void);
+const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
 const static void atomsinit(void);
 const static int board(void);
@@ -104,15 +128,16 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 #include "header_files/clipping.h"
 
 /* Testing */
-#include "header_files/test_shape.h"
+#include "header_files/test_shapes.h"
 
 const static void clientmessage(XEvent *event) {
 
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
-        free(cube.t);
-
+        free(shape.t);
+        
+        XFree(gc);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         XCloseDisplay(displ);
@@ -133,21 +158,32 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&cube, "objects/teapot.obj");
-        shape_create(&cube);
+        // load_obj(&shape, "objects/bigterrain.obj");
+        // load_obj(&shape, "objects/middleterrain.obj");
+        // load_obj(&shape, "objects/smallterrain.obj");
+        load_obj(&shape, "objects/mountains.obj");
+        // load_obj(&shape, "objects/axis.obj");
+        // load_obj(&shape, "objects/teapot.obj");
+        // load_obj(&shape, "objects/spaceship.obj");
+        // load_obj(&shape, "objects/city.obj");
+        // load_obj(&shape, "objects/planet.obj");
+        // load_obj(&shape, "objects/scene.obj");
+        // cube_create(&shape);
+        // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 0.0);
-        Mat4x4 WorldMat = mxm(sm, tm);
-        cube = meshxm(cube, WorldMat);
+        Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
+        PosMat = mxm(sm, tm);
+        shape = meshxm(shape, PosMat);
+
         MAPCOUNT = 1;
     }
 }
 const static void expose(XEvent *event) {
 
     printf("expose event received\n");
-    pixmapupdate();
-    project(cube);
+    pixmapcreate();
+    project(shape);
 }
 const static void resizerequest(XEvent *event) {
 
@@ -164,11 +200,15 @@ const static void configurenotify(XEvent *event) {
 const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
+    printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
+    printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
 }
 
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
+    // printf("Key Pressed: %ld\n", keysym);
+    printf("\x1b[H\x1b[J");
     switch (keysym) {
 
         case 119 : move_forward(&Camera);         /* w */
@@ -187,19 +227,32 @@ const static void keypress(XEvent *event) {
             break;
         case 65364 : move_down(&Camera);          /* down arrow */
             break;
-        case 120 : rotate_x(&cube, ANGLE);       /* x */
+        case 120 : rotate_x(&shape, ANGLE);       /* x */
             break;
-        case 121 : rotate_y(&cube, ANGLE);       /* y */
+        case 121 : rotate_y(&shape, ANGLE);       /* y */
             break;
-        case 122 : rotate_z(&cube, ANGLE);       /* z */
+        case 122 : rotate_z(&shape, ANGLE);       /* z */
+            break;
+        case 65451 : FPlane += 0.00001;             /* + */
+            printf("FPlane.z: %f\n", FPlane);
+            break;
+        case 65453 : FPlane -= 0.00001;             /* - */
+            printf("FPlane.z: %f\n", FPlane);
+            break;
+        case 65450 : NPlane += 0.005;             /* * */
+            printf("NPlane.z: %f\n", NPlane);
+            break;
+        case 65455 : NPlane -= 0.005;             /* / */
+            printf("NPlane.z: %f\n", NPlane);
+            break;
+        case 112 : LightSC.z += 10.0;                   /* Dot product increase */
+            break;
+        case 246 : LightSC.z -= 10.0;                   /* Dot product decrease */
             break;
         default :
             return;
     }
-
-    pixmapdisplay();
-    
-    project(cube);
+    project(shape);
 }
 /* Rotates the camera to look left. */
 static void look_left(float fyaw) {
@@ -245,17 +298,17 @@ static void move_down(Vector *v) {
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
-    *c = meshxm(cube, m);
+    *c = meshxm(shape, m);
 }
 /* Rotates object according to World Y axis. */
 static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
-    *c = meshxm(cube, m);
+    *c = meshxm(shape, m);
 }
 /* Rotates object according to World Z axis. */
 static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
-    *c = meshxm(cube, m);
+    *c = meshxm(shape, m);
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
@@ -267,68 +320,65 @@ static void project(Mesh c) {
     
     Mat4x4 m = projection_mat(FOV, AspectRatio);
 
-    Mat4x4 nm = mxm(reView, m);
+    WorldMat = mxm(reView, m);
 
-    Mesh cache = { 0 };
-    cache = meshxm(c, nm);
-
-    /* Applying perspective division. */
-    ppdiv(&cache);
-
-    /* Triangles must be checked for cross product. */
-    Mesh bf = bfculling(cache);
-    free(cache.t);
+    Mesh cache = meshxm(c, WorldMat);
 
     /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = { 0.0, 0.0, 1.0 },
+    Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(bf, plane_near_p, plane_near_n);
-    free(bf.t);
+    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+    free(cache.t);
 
-    Vector plane_right_p = { 0.995, 0.0, 0.0 },
-           plane_right_n = { -1.0, 0.0, 0.0 };
-    Mesh rf = clipp(nf, plane_right_p, plane_right_n);
+    /* Applying perspective division. */
+    if (nf.indexes) {
+        ppdiv(&nf);
+    }
+
+    /* Applying Backface culling before we proceed to full frustum clipping. */
+    Mesh bf = bfculling(nf);
     free(nf.t);
 
-    Vector plane_left_p = { -0.995, 0.0, 0.0 },
-           plane_left_n = { 1.0, 0.0, 0.0 };
-    Mesh lf = clipp(rf, plane_left_p, plane_left_n);
+    /* Far Plane clipping and side clipping. */
+    Vector plane_far_p = { 0.0, 0.0, FPlane },
+           plane_far_n = { 0.0, 0.0, 1.0 };
+    Mesh ff = clipp(bf, plane_far_p, plane_far_n);
+    free(bf.t);
+
+    Vector plane_right_p = { 1.0, 0.0, 0.0 },
+           plane_right_n = { -1.0, 0.0, 0.0 };
+    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    free(ff.t);
+
+    Vector plane_down_p = { 0.0, 1.0, 0.0 },
+           plane_down_n = { 0.0, -1.0, 0.0 };
+    Mesh df = clipp(rf, plane_down_p, plane_down_n);
     free(rf.t);
 
-    Vector plane_up_p = { 0.0, -0.995, 0.0 },
+    Vector plane_left_p = { -1.0, 0.0, 0.0 },
+           plane_left_n = { 1.0, 0.0, 0.0 };
+    Mesh lf = clipp(df, plane_left_p, plane_left_n);
+    free(df.t);
+
+    Vector plane_up_p = { 0.0, -1.0, 0.0 },
            plane_up_n = { 0.0, 1.0, 0.0 };
     Mesh uf = clipp(lf, plane_up_p, plane_up_n);
     free(lf.t);
 
-    Vector plane_down_p = { 0.0, 0.995, 0.0 },
-           plane_down_n = { 0.0, -1.0, 0.0 };
-    Mesh df = clipp(uf, plane_down_p, plane_down_n);
-    free(uf.t);
-
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    df = sort_triangles(&df);
-
-    printf("\x1b[H\x1b[J");
-    printf("Camera X: %f\nCamera Y: %f\nCamera Z: %f\n", Camera.x, Camera.y, Camera.z);
-    printf("------------------------------------------------------\n");
-    printf("U X: %f\nU Y: %f\nU Z: %f\n", U.x, U.y, U.z);
-    printf("------------------------------------------------------\n");
-    printf("V X: %f\nV Y: %f\nV Z: %f\n", V.x, V.y, V.z);
-    printf("------------------------------------------------------\n");
-    printf("N X: %f\nN Y: %f\nN Z: %f\n", N.x, N.y, N.z);
-    printf("------------------------------------------------------\n");
+    // uf = sort_triangles(&uf);
 
     /* Sending to translation to Screen Coordinates. */
-    rasterize(df);
+    viewtoscreen(uf);
     
-    free(df.t);
+    free(uf.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
-            if (c->t[i].v[j].w > 0.00) {
+            if ( c->t[i].v[j].w > 0.00 ) {
                 c->t[i].v[j].x /= c->t[i].v[j].w;
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
@@ -340,7 +390,7 @@ static void ppdiv(Mesh *c) {
 const static Mesh bfculling(const Mesh c) {
     Mesh r = { 0 };
     Vector cp;
-    float dp;
+    float dpc;
     int counter = 1;
     int index = 0;
     r.t = malloc(sizeof(Triangle));
@@ -348,22 +398,18 @@ const static Mesh bfculling(const Mesh c) {
         fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
     for (int i = 0; i < c.indexes; i++) {
-
         cp = triangle_cp(c.t[i]);
-        dp = dot_product(Camera, cp);
+        dpc = dot_product(norm_vec(Camera), norm_vec(cp));
 
-        if (Camera.z < 0.00)
-            dp *= -1;
-        else if (Camera.z == 0.00)
-            Camera.z += 0.001;
-
-        if (dp >= 0.00) {
+        if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
 
             if (!r.t)
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
             r.t[index] = c.t[i];
+            r.t[index].normal = norm_vec(cp);
+
             counter++;
             index++;
         }
@@ -371,71 +417,328 @@ const static Mesh bfculling(const Mesh c) {
     r.indexes = index;
     return r;
 }
+/* Translates the Mesh's Triangles from world to Screen Coordinates. */
+const static void viewtoscreen(const Mesh c) {
+
+    SCMesh sc;
+    sc.sct = calloc(c.indexes, sizeof(SCTriangle));
+
+    if (!sc.sct)
+        fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
+
+    sc.indexes = c.indexes;
+
+    for (int i = 0; i < sc.indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+
+            sc.sct[i].scv[j].x = XWorldToScreen;
+            sc.sct[i].scv[j].y = YWorldToScreen;
+            sc.sct[i].scv[j].z = 1 / c.t[i].v[j].w;
+        }
+        sc.sct[i].normal = c.t[i].normal;
+    }
+    if (DEBUG)
+        debug_rasterize(sc);
+    else
+        rasterize(sc);
+    free(sc.sct);
+}
+/* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
+const static void rasterize(const SCMesh sc) {
+
+    char image_data[wa.width * wa.height * 4];
+    /* Initializing the frame buffer to depth of 1. */
+    for (int i = 0; i < HEIGHT; i++)
+        for (int j = 0; j < WIDTH; j++)
+            depth_buffer[i][j] = 0.0;
+    memset(pixels, 0, (wa.height * wa.width * sizeof(Pixel)));
+
+    /* Sorting Vectors from smaller to larger y. */
+    SCVector temp;
+    float dpl, winding;
+    for (int m = 0; m < sc.indexes; m++) {
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+                if (sc.sct[m].scv[i].y < sc.sct[m].scv[j].y) {
+                    temp = sc.sct[m].scv[i];
+                    sc.sct[m].scv[i] = sc.sct[m].scv[j];
+                    sc.sct[m].scv[j] = temp;
+                }
+
+        dpl = dot_product(LightSC, sc.sct[m].normal);
+        winding = winding2D(sc.sct[m]);
+
+        if ( (sc.sct[m].scv[1].y - sc.sct[m].scv[2].y) == 0 )
+            fillnorthway(sc.sct[m], dpl, winding);
+        else if ( (sc.sct[m].scv[0].y - sc.sct[m].scv[1].y) == 0 )
+            fillsouthway(sc.sct[m], dpl, winding);
+        else
+            fillgeneral(sc.sct[m], dpl, winding);
+    }
+
+    int height_inc = 0;
+    int width_inc = 0;
+    for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
+
+        image_data[i] = pixels[height_inc][width_inc].Blue;
+        image_data[i + 1] = pixels[height_inc][width_inc].Green;
+        image_data[i + 2] = pixels[height_inc][width_inc].Red;
+
+        i += 3;
+        width_inc++;
+        if (width_inc == wa.width) {
+            height_inc += 1;
+            width_inc = 0;
+        }
+    }
+
+    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, (wa.width * 4));
+    XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
+    XFree(image);
+
+    pixmapdisplay();
+}
+const static void fillnorthway(const SCTriangle sct, const float light, const float winding) {
+    float ma, mb, za, zb, depth;
+    ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+
+    za = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+    zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+
+    int y_start = (int)ceil(sct.scv[0].y - 0.5);
+    int y_end = (int)ceil(sct.scv[1].y - 0.5);
+
+    for (int y = y_start; y < y_end; y++) {
+        int x_start, x_end;
+        float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+        float z0, z1;
+        if (winding < 0) {
+            z0 = (za * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+            z1 = (zb * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+        } else {
+            z1 = (za * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+            z0 = (zb * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+        }
+
+        if (p0 < p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+
+            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+            depth = (z0 * (1 - barycentric)) + (z1 * barycentric);
+
+            if (depth > depth_buffer[y][x] + dplus) {
+                pixels[y][x].Red = 33 * (light * depth);
+                pixels[y][x].Green = 122 * (light * depth);
+                pixels[y][x].Blue = 157 * (light * depth);
+                depth_buffer[y][x] = depth;
+            }
+        }
+    }
+}
+const static void fillsouthway(const SCTriangle sct, const float light, const float winding) {
+    float mb, mc, zb, zc, depth;
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+    mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+    zc = (float)(sct.scv[2].z - sct.scv[1].z) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    int y_start = (int)ceil(sct.scv[1].y - 0.5);
+    int y_end = (int)ceil(sct.scv[2].y - 0.5);
+
+    for (int y = y_start; y <= y_end; y++) {
+        int x_start, x_end;
+        float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
+
+        float z1, z2;
+        if (winding < 0) {
+            z1 = (zb * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+            z2 = (zc * (float)(y - sct.scv[1].y)) + sct.scv[1].z;
+        } else {
+            z2 = (zb * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+            z1 = (zc * (float)(y - sct.scv[1].y)) + sct.scv[1].z;
+        }
+
+        if (p0 < p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+
+            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+            depth = (z2 * (1 - barycentric)) + (z1 * barycentric);
+
+            if (depth > depth_buffer[y][x] + dplus) {
+                pixels[y][x].Red = 33 * (light * depth);
+                pixels[y][x].Green = 122 * (light * depth);
+                pixels[y][x].Blue = 157 * (light * depth);
+                depth_buffer[y][x] = depth;
+            }
+        }
+    }
+}
+const static void fillgeneral(const SCTriangle sct, const float light, const float winding) {
+    float ma, mb, mc, za, zb, zc, depth;
+    ma = (float)(sct.scv[1].x - sct.scv[0].x) / (float)(sct.scv[1].y - sct.scv[0].y);
+    mb = (float)(sct.scv[2].x - sct.scv[0].x) / (float)(sct.scv[2].y - sct.scv[0].y);
+    mc = (float)(sct.scv[2].x - sct.scv[1].x) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    if ( (sct.scv[1].x < sct.scv[0].x) && (sct.scv[1].x < sct.scv[2].x) ) {
+
+        za = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+        zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+    } else if ( (sct.scv[1].x >= sct.scv[0].x) && (sct.scv[1].x >= sct.scv[2].x) ) {
+
+        za = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+        zb = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+    } else if ( (sct.scv[1].x < sct.scv[0].x) && (sct.scv[1].x >= sct.scv[2].x) ) {
+
+        if (winding < 0) {
+            za = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+            zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+        } else {
+            za = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+            zb = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+        }
+    } else if ( (sct.scv[1].x >= sct.scv[0].x) && (sct.scv[1].x < sct.scv[2].x) ) {
+
+        if (winding < 0) {
+            za = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+            zb = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+        } else {
+            za = (float)(sct.scv[2].z - sct.scv[0].z) / (float)(sct.scv[2].y - sct.scv[0].y);
+            zb = (float)(sct.scv[1].z - sct.scv[0].z) / (float)(sct.scv[1].y - sct.scv[0].y);
+        }
+    }
+    zc = (float)(sct.scv[2].z - sct.scv[1].z) / (float)(sct.scv[2].y - sct.scv[1].y);
+
+    int y_start = (int)ceil(sct.scv[0].y - 0.5);
+    int y_end1 = (int)ceil(sct.scv[1].y - 0.5);
+    int y_end2 = (int)ceil(sct.scv[2].y - 0.5);
+
+    for (int y = y_start; y <= y_end1; y++) {
+
+        int x_start, x_end;
+        float p0 = (ma * (y - sct.scv[0].y)) + sct.scv[0].x;
+        float p1 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+
+        float z0 = (za * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+        float z1 = (zb * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+
+        if (p0 < p1) {
+            x_start = (int)ceil(p0 - 0.5);
+            x_end = (int)ceil(p1 - 0.5);
+        } else {
+            x_start = (int)ceil(p1 - 0.5);
+            x_end = (int)ceil(p0 - 0.5);
+        }
+        for (int x = x_start; x < x_end; x++) {
+
+            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+            depth = (z0 * (1 - barycentric)) + (z1 * barycentric);
+
+            if (depth > depth_buffer[y][x] + dplus) {
+                pixels[y][x].Red = 33 * (light * depth);
+                pixels[y][x].Green = 122 * (light * depth);
+                pixels[y][x].Blue = 157 * (light * depth);
+                depth_buffer[y][x] = depth;
+            }
+        }
+        if (y == y_end1)
+            for (int y = y_end1 + 1; y <= y_end2; y++) {
+
+                int x_start, x_end;
+                float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
+                float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
+
+                float z1, z2;
+                if (winding < 0) {
+                    z1 = (zb * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+                    z2 = (zc * (float)(y - sct.scv[1].y)) + sct.scv[1].z;
+                } else {
+                    z2 = (za * (float)(y - sct.scv[0].y)) + sct.scv[0].z;
+                    z1 = (zc * (float)(y - sct.scv[1].y)) + sct.scv[1].z;
+                }
+
+                if (p0 < p1) {
+                    x_start = (int)ceil(p0 - 0.5);
+                    x_end = (int)ceil(p1 - 0.5);
+                } else {
+                    x_start = (int)ceil(p1 - 0.5);
+                    x_end = (int)ceil(p0 - 0.5);
+                }
+                for (int x = x_start; x < x_end; x++) {
+
+                    float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+                    depth = (z2 * (1 - barycentric)) + (z1 * barycentric);
+
+                    if (depth > depth_buffer[y][x] + dplus) {
+                        pixels[y][x].Red = 33 * (light * depth);
+                        pixels[y][x].Green = 122 * (light * depth);
+                        pixels[y][x].Blue = 157 * (light * depth);
+                        depth_buffer[y][x] = depth;
+                    }
+                }
+            }
+    }
+}
+/* Translates the Mesh's Triangles from world to Screen Coordinates. */
+const static void debug_rasterize(const SCMesh sc) {
+    debug_draw(sc);
+}
 /* Draws the Mesh's Triangles on screen in 2D coordinates. */
-const static void draw(const SCMesh sc, const Mesh c) {
+const static void debug_draw(const SCMesh sc) {
+    
+    XClearWindow(displ, win);
+    if (DEBUG == 2) {
+        #include "header_files/debug_rasterizer.h"
+        DMesh dm;
+        dm.dt = calloc(sc.indexes, sizeof(SCTriangle));
+        gcvalues.foreground = 0xcb3ecf;
+        XChangeGC(displ, gc, GCForeground, &gcvalues);
 
-    XGCValues gclines, gcil;
-    gclines.graphics_exposures = False;
-    gclines.line_width = 1;
-    gclines.foreground = 0xffffff;
-    GC gcl = XCreateGC(displ, win, GCGraphicsExposures | GCForeground | GCLineWidth, &gclines);
+        if (!dm.dt)
+            fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
 
-    Vector cp;
-    float dp;
+        dm.indexes = sc.indexes;
+
+        for (int i = 0; i < sc.indexes; i++) {
+            for (int j = 0; j < 3; j++) {
+
+                dm.dt[i].dv[j].x = sc.sct[i].scv[j].x;
+                dm.dt[i].dv[j].y = sc.sct[i].scv[j].y;
+            }
+            XFillPolygon(displ, win, gc, dm.dt[i].dv, 3, Convex, CoordModeOrigin);
+        }
+        free(dm.dt);
+    }
+
     int vindex = 1;
-
+    gcvalues.foreground = 0xffffff;
+    XChangeGC(displ, gc, GCForeground, &gcvalues);
     for (int i = 0; i < sc.indexes; i++) {
 
         for (int j = 0; j < 3; j++) {
-            /* Attention here.We compute the cross product of the world coordinates Mesh not the screen. */
-            cp = triangle_cp(c.t[i]);
-            dp = dot_product(LightSC, cp);
-
-            gcil.graphics_exposures = False;
-            // gcil.foreground = c.t[i].color; /* To be removed when illumination is ready. */
-
-            if (dp > 0.00) {
-                gcil.foreground = 0xff00fb;
-            } else {
-                gcil.foreground = c.t[i].color;
-            }
-
-            GC gci = XCreateGC(displ, win, GCGraphicsExposures | GCForeground, &gcil);
-            XFillPolygon(displ, win, gci, sc.sct[i].scv, 3, Convex, CoordModeOrigin);
 
             if (j == 2)
                 vindex = 0;
-            XDrawLine(displ, win, gcl, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
+            XDrawLine(displ, win, gc, sc.sct[i].scv[j].x, sc.sct[i].scv[j].y, sc.sct[i].scv[vindex].x, sc.sct[i].scv[vindex].y);
             vindex++;
-            XFreeGC(displ, gci);
         }
     }
-    XFreeGC(displ, gcl);
-}
-/* Translates the Mesh's Triangles from world to Screen Coordinates. */
-const static void rasterize(const Mesh c) {
-
-    SCMesh scmesh;
-    // Mesh normalized = c;
-    scmesh.sct = calloc(c.indexes, sizeof(SCTriangle));
-
-    if (!scmesh.sct)
-        fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
-
-    scmesh.indexes = c.indexes;
-
-    for (int i = 0; i < c.indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-
-            // normalized.t[i].v[j].x = NormalizeWorldX;
-            // normalized.t[i].v[j].y = NormalizeWorldY;           
-
-            scmesh.sct[i].scv[j].x = XWorldToScreen;
-            scmesh.sct[i].scv[j].y = YWorldToScreen;
-        }
-    }
-    draw(scmesh, c);
-    free(scmesh.sct);
 }
 static KeySym get_keysym(XEvent *event) {
 
@@ -466,26 +769,14 @@ static KeySym get_keysym(XEvent *event) {
     if (status == XBufferOverflow) {
         perror("Buffer Overflow...\n");
     }
+    XFree(xim);
     return keysym;
 }
-const static void pixmapupdate(void) {
-
-    XGCValues gc_vals;
-    gc_vals.graphics_exposures = False;
-    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
-
+const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
-    XCopyArea(displ, win, pixmap, pix, 0, 0, wa.width, wa.height, 0, 0);
-    XFreeGC(displ, pix);
 }
 const static void pixmapdisplay(void) {
-
-    XGCValues gc_vals;
-    gc_vals.graphics_exposures = False;
-    GC pix = XCreateGC(displ, win, GCGraphicsExposures, &gc_vals);
-
-    XCopyArea(displ, pixmap, win, pix, 0, 0, wa.width, wa.height, 0, 0);
-    XFreeGC(displ, pix);
+    XCopyArea(displ, pixmap, win, gc, 0, 0, wa.width, wa.height, 0, 0);
 }
 const static void atomsinit(void) {
 
@@ -514,12 +805,17 @@ const static int board(void) {
     win = XCreateWindow(displ, XRootWindow(displ, screen), 0, 0, WIDTH, HEIGHT, 0, CopyFromParent, InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &sa);
     XMapWindow(displ, win);
 
+    gcvalues.foreground = 0xffffff;
+    gcvalues.background = 0x000000;
+    gcvalues.graphics_exposures = False;
+    gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
+
     atomsinit();
 
     while (RUNNING) {
 
         XNextEvent(displ, &event);
-        
+
         if (handler[event.type])
             handler[event.type](&event);
     }
@@ -529,6 +825,19 @@ int main(int argc, char *argv[]) {
 
     if (locale_init())
         fprintf(stderr, "Warning: Main -locale()\n");
+
+    if (argc > 1) {
+        printf("argc: %d\n", argc);
+        if (strcasecmp(argv[1], "Debug") == 0) {
+            if (strcasecmp(argv[2], "1") == 0) {
+                fprintf(stderr, "INFO : ENABLED DEBUG Level 1\n");
+                DEBUG = 1;
+            } else if (strcasecmp(argv[2], "2") == 0) {
+                fprintf(stderr, "INFO : ENABLED DEBUG Level 2\n");
+                DEBUG = 2;
+            }
+        }
+    }
 
     if (board())
         return EXIT_FAILURE;

@@ -22,7 +22,7 @@
 #endif
 
 #define ZNear                     0.01
-#define ZFar                      1000.00 
+#define ZFar                      1000.0
 #define FovRadius                 ( 1 / tanf(fov * 0.5 / 180.0 * 3.14159) )
 
 /* 3D graphics Matrices and computations. */

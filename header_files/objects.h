@@ -15,20 +15,27 @@ typedef struct {
 /* World Triangle */
 typedef struct {
     Vector v[LastVector];
-    unsigned int color;
+    Vector normal;
 } Triangle;
-
-/* Screen Triangle */
-typedef struct {
-    /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
-    XPoint scv[LastVector];
-} SCTriangle;
 
 /* World Mesh */
 typedef struct {
     Triangle *t;
     int indexes;
 } Mesh;
+
+/* Screen Vector */
+typedef struct {
+    int x, y;
+    float z;
+} SCVector;
+
+/* Screen Triangle */
+typedef struct {
+    /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
+    SCVector scv[LastVector];
+    Vector normal;
+} SCTriangle;
 
 /* Screen Mesh */
 typedef struct {
@@ -40,6 +47,13 @@ typedef struct {
 typedef struct {
     float m[4][4];
 } Mat4x4;
+
+/* Pixels Struct for rgb values 0 - 65535 */
+typedef struct {
+    unsigned short Red;
+    unsigned short Blue;
+    unsigned short Green;
+} Pixel;
 
 #endif /* _OBJECTS_H */
 
