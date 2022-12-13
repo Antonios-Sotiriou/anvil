@@ -5,9 +5,13 @@
 #include <math.h>
 #include <unistd.h>
 
+// signal
+#include <signal.h>
+
 /* Project specific headers */
 #include "header_files/locale.h"
 #include "header_files/objects.h"
+#include "header_files/bmp.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
@@ -35,6 +39,7 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
+Texel **texels;
 Pixel pixels[HEIGHT][WIDTH];
 float depth_buffer[HEIGHT][WIDTH];
 
@@ -78,6 +83,7 @@ const static void resizerequest(XEvent *event);
 const static void configurenotify(XEvent *event);
 const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
+void signal_handler(int sig);
 
 /* Moving functions */
 static void look_left(float fyaw);
@@ -93,6 +99,7 @@ static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
+static void texture_loader(void);
 static void project(Mesh c);
 static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
@@ -131,7 +138,7 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 #include "header_files/test_shapes.h"
 
 const static void clientmessage(XEvent *event) {
-
+    printf("Received client message event\n");
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW");
 
@@ -200,8 +207,10 @@ const static void configurenotify(XEvent *event) {
 const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
-    printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
-    printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
+    // printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
+    // printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
+    texture_loader();
+    signal_handler(0);
 }
 
 const static void keypress(XEvent *event) {
@@ -309,6 +318,69 @@ static void rotate_y(Mesh *c, const float angle) {
 static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(shape, m);
+}
+/* Creates an obj 2d array of height and width with obj_size of each entry. */
+static void *dynamic2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
+    obj = malloc(sizeof(obj) * height);
+    if (obj == NULL)
+        fprintf(stderr, "Could not allocate texels height memory! dynamic2darray -- malloc().\n");
+
+    for (int i = 0; i <= height; i++) {
+        obj[i] = malloc(obj_size * width);
+        if (obj[i] == NULL)
+            fprintf(stderr, "Could not allocate texels width memory! dynamic2darray -- malloc().\n");
+    }
+    return obj;
+}
+/* Frees all resources of an obj 2d array of height. */
+const static void free2darray(void **obj, const int height) {
+    for (int i = 0; i <= height; i++)
+        free(texels[i]);
+    free(texels);
+}
+static void texture_loader(void) {
+
+    char texture_name[28] = "/home/as/Desktop/stones.bmp";
+    BMP_Header bmp_header;
+    BMP_Info bmp_info;
+
+    FILE *fp;
+    fp = fopen(texture_name, "rb");
+    if (fp == NULL){
+        fclose(fp);
+        fprintf(stderr, "Could not open file < %s >! texture_loader -- fopen().\n", texture_name);
+    } else {
+        fread(&bmp_header, sizeof(BMP_Header), 1, fp);
+        fseek(fp, 14, SEEK_SET);
+        fread(&bmp_info, sizeof(BMP_Info), 1, fp);
+        fseek(fp, (14 + bmp_info.Size), SEEK_SET);
+
+        texels = dynamic2darray((void*)texels, sizeof(Texel), bmp_info.Height, bmp_info.Width);
+        
+        char image[(bmp_info.Height * bmp_info.Width) * 4];
+
+        for (int y = (bmp_info.Height - 1); y >= 0; y--) {
+            for (int x = 0; x < bmp_info.Width; x++) {
+                fread(&texels[y][x], sizeof(Texel), 1, fp);
+            }
+        }
+
+        int texels_inc = 0;
+        for (int y = 0; y < bmp_info.Height; y++)
+            for (int x = 0; x < bmp_info.Width; x++) {
+
+                image[texels_inc] = texels[y][x].Red;
+                image[texels_inc + 1] = texels[y][x].Green;
+                image[texels_inc + 2] = texels[y][x].Blue;
+                texels_inc += 4;
+            }
+
+        XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, bmp_info.Width, bmp_info.Height, 32, (bmp_info.Width * 4));
+        XPutImage(displ, win, gc, im, 0, 0, 100, 100, bmp_info.Width, bmp_info.Height);
+        XFree(im);
+        free2darray((void*)texels, bmp_info.Height);
+    }
+    fclose(fp);
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
@@ -772,6 +844,14 @@ static KeySym get_keysym(XEvent *event) {
     XFree(xim);
     return keysym;
 }
+void signal_handler(int sig) {
+    printf("Received Signal from OS with ID: %d\n", sig);
+    XEvent event = { 0 };
+    event.type = ClientMessage;
+    event.xclient.data.l[0] = wmatom[Win_Close];
+    /* Send the signal to our event dispatcher for further processing. */
+    handler[event.type](&event);
+}
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
 }
@@ -811,6 +891,15 @@ const static int board(void) {
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 
     atomsinit();
+
+    /* Signal handling for effectivelly releasing the resources. */
+    struct sigaction sig = { 0 };
+    sig.sa_handler = &signal_handler;
+    int sig_val = sigaction(SIGSEGV, &sig, NULL);
+    if (sig_val == -1) {
+        fprintf(stderr, "Warning: board - sigaction()\n");
+        return EXIT_FAILURE;
+    }
 
     while (RUNNING) {
 
