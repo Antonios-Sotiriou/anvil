@@ -12,9 +12,15 @@ typedef struct {
     float x, y, z, w;
 } Vector;
 
+/* Textures Vector */
+typedef struct {
+    float u, v, w;
+} Textor;
+
 /* World Triangle */
 typedef struct {
     Vector v[LastVector];
+    Textor tex[LastVector];
     Vector normal;
 } Triangle;
 

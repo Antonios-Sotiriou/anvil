@@ -39,9 +39,10 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
+BMP_Info texture;
 Texel **texels;
-Pixel pixels[HEIGHT][WIDTH];
-float depth_buffer[HEIGHT][WIDTH];
+Pixel **pixels;
+float **depth_buffer;
 
 Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
         U        =   { 1.0, 0.0, 0.0, 1.0 },
@@ -98,6 +99,11 @@ static void rotate_x(Mesh *c, const float angle);
 static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
 
+/* General purposes functions */
+static void *create2darray(void **obj, const unsigned long obj_size, const int height, const int width);
+static void *resize2darray(void **obj, const unsigned long obj_size, const int height, const int width);
+const static void free2darray(void **obj, const int height);
+
 /* Represantation functions */
 static void texture_loader(void);
 static void project(Mesh c);
@@ -140,10 +146,15 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 const static void clientmessage(XEvent *event) {
     printf("Received client message event\n");
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
-        printf("WM_DELETE_WINDOW");
+        printf("WM_DELETE_WINDOW\n");
 
         free(shape.t);
         
+        if (texture.Height != 0)
+            free2darray((void*)texels, 512);
+        free2darray((void*)pixels, wa.height);
+        free2darray((void*)depth_buffer, wa.height);
+
         XFree(gc);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
@@ -168,7 +179,7 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/bigterrain.obj");
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/smallterrain.obj");
-        load_obj(&shape, "objects/mountains.obj");
+        // load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/axis.obj");
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
@@ -176,12 +187,16 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/planet.obj");
         // load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
-        // triangle_create(&shape);
+        triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
+
+        /* The pixels and depth buffer creation. */
+        pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+        depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
 
         MAPCOUNT = 1;
     }
@@ -189,6 +204,9 @@ const static void mapnotify(XEvent *event) {
 const static void expose(XEvent *event) {
 
     printf("expose event received\n");
+    /* Resize pixels and depth buffer to match the screen size. */
+    pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     pixmapcreate();
     project(shape);
 }
@@ -210,7 +228,6 @@ const static void buttonpress(XEvent *event) {
     // printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
     // printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
     texture_loader();
-    signal_handler(0);
 }
 
 const static void keypress(XEvent *event) {
@@ -320,29 +337,41 @@ static void rotate_z(Mesh *c, const float angle) {
     *c = meshxm(shape, m);
 }
 /* Creates an obj 2d array of height and width with obj_size of each entry. */
-static void *dynamic2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
+static void *create2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
     obj = malloc(sizeof(obj) * height);
     if (obj == NULL)
-        fprintf(stderr, "Could not allocate texels height memory! dynamic2darray -- malloc().\n");
+        fprintf(stderr, "Could not allocate texels height memory! create2darray -- malloc().\n");
 
-    for (int i = 0; i <= height; i++) {
-        obj[i] = malloc(obj_size * width);
-        if (obj[i] == NULL)
-            fprintf(stderr, "Could not allocate texels width memory! dynamic2darray -- malloc().\n");
+    for (int y = 0; y < height; y++) {
+        obj[y] = malloc(obj_size * width);
+        if (obj[y] == NULL)
+            fprintf(stderr, "Could not allocate texels width memory! create2darray -- malloc().\n");
+    }
+    return obj;
+}
+/* Resizes an obj 2d array of height and width with obj_size of each entry. */
+static void *resize2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
+    obj = realloc(obj, sizeof(obj) * height);
+    if (obj == NULL)
+        fprintf(stderr, "Could not reallocate texels height memory! resize2darray -- malloc().\n");
+
+    for (int y = 0; y < height; y++) {
+        obj[y] = malloc(obj_size * width);
+        if (obj[y] == NULL)
+            fprintf(stderr, "Could not reallocate texels width memory! resize2darray -- malloc().\n");
     }
     return obj;
 }
 /* Frees all resources of an obj 2d array of height. */
 const static void free2darray(void **obj, const int height) {
-    for (int i = 0; i <= height; i++)
-        free(texels[i]);
-    free(texels);
+    for (int y = 0; y < height; y++)
+        free(obj[y]);
+    free(obj);
 }
 static void texture_loader(void) {
 
     char texture_name[28] = "/home/as/Desktop/stones.bmp";
     BMP_Header bmp_header;
-    BMP_Info bmp_info;
 
     FILE *fp;
     fp = fopen(texture_name, "rb");
@@ -352,22 +381,22 @@ static void texture_loader(void) {
     } else {
         fread(&bmp_header, sizeof(BMP_Header), 1, fp);
         fseek(fp, 14, SEEK_SET);
-        fread(&bmp_info, sizeof(BMP_Info), 1, fp);
-        fseek(fp, (14 + bmp_info.Size), SEEK_SET);
+        fread(&texture, sizeof(BMP_Info), 1, fp);
+        fseek(fp, (14 + texture.Size), SEEK_SET);
 
-        texels = dynamic2darray((void*)texels, sizeof(Texel), bmp_info.Height, bmp_info.Width);
+        texels = create2darray((void*)texels, sizeof(Texel), texture.Height, texture.Width);
         
-        char image[(bmp_info.Height * bmp_info.Width) * 4];
+        char image[(texture.Height * texture.Width) * 4];
 
-        for (int y = (bmp_info.Height - 1); y >= 0; y--) {
-            for (int x = 0; x < bmp_info.Width; x++) {
+        for (int y = (texture.Height - 1); y >= 0; y--) {
+            for (int x = 0; x < texture.Width; x++) {
                 fread(&texels[y][x], sizeof(Texel), 1, fp);
             }
         }
 
         int texels_inc = 0;
-        for (int y = 0; y < bmp_info.Height; y++)
-            for (int x = 0; x < bmp_info.Width; x++) {
+        for (int y = 0; y < texture.Height; y++)
+            for (int x = 0; x < texture.Width; x++) {
 
                 image[texels_inc] = texels[y][x].Red;
                 image[texels_inc + 1] = texels[y][x].Green;
@@ -375,10 +404,9 @@ static void texture_loader(void) {
                 texels_inc += 4;
             }
 
-        XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, bmp_info.Width, bmp_info.Height, 32, (bmp_info.Width * 4));
-        XPutImage(displ, win, gc, im, 0, 0, 100, 100, bmp_info.Width, bmp_info.Height);
+        XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, texture.Width, texture.Height, 32, (texture.Width * 4));
+        XPutImage(displ, win, gc, im, 0, 0, 100, 100, texture.Width, texture.Height);
         XFree(im);
-        free2darray((void*)texels, bmp_info.Height);
     }
     fclose(fp);
 }
@@ -519,11 +547,21 @@ const static void viewtoscreen(const Mesh c) {
 const static void rasterize(const SCMesh sc) {
 
     char image_data[wa.width * wa.height * 4];
-    /* Initializing the frame buffer to depth of 1. */
-    for (int i = 0; i < HEIGHT; i++)
-        for (int j = 0; j < WIDTH; j++)
-            depth_buffer[i][j] = 0.0;
-    memset(pixels, 0, (wa.height * wa.width * sizeof(Pixel)));
+
+    /* Initializing the frame buffer to depth of 1 and reseting the Pixels. */
+    for (int y = 0; y < wa.height; y++)
+        for (int x = 0; x < wa.width; x++) {
+
+            if (pixels[y][x].Red != 0)
+                pixels[y][x].Red = 0;
+            if (pixels[y][x].Green != 0)
+                pixels[y][x].Green = 0;
+            if (pixels[y][x].Blue != 0)
+                pixels[y][x].Blue = 0;
+
+            if (depth_buffer[y][x] != 0.0)
+                depth_buffer[y][x] = 0.0;
+        }
 
     /* Sorting Vectors from smaller to larger y. */
     SCVector temp;
@@ -627,7 +665,7 @@ const static void fillsouthway(const SCTriangle sct, const float light, const fl
     int y_start = (int)ceil(sct.scv[1].y - 0.5);
     int y_end = (int)ceil(sct.scv[2].y - 0.5);
 
-    for (int y = y_start; y <= y_end; y++) {
+    for (int y = y_start; y < y_end; y++) {
         int x_start, x_end;
         float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
         float p1 = (mc * (y - sct.scv[1].y)) + sct.scv[1].x;
@@ -730,7 +768,7 @@ const static void fillgeneral(const SCTriangle sct, const float light, const flo
             }
         }
         if (y == y_end1)
-            for (int y = y_end1 + 1; y <= y_end2; y++) {
+            for (int y = y_end1 + 1; y < y_end2; y++) {
 
                 int x_start, x_end;
                 float p0 = (mb * (y - sct.scv[0].y)) + sct.scv[0].x;
@@ -766,6 +804,7 @@ const static void fillgeneral(const SCTriangle sct, const float light, const flo
                 }
             }
     }
+    // printf("depth before divide: %f  After: %f\n", depth, 1 / depth);
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
 const static void debug_rasterize(const SCMesh sc) {
