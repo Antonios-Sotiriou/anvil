@@ -40,7 +40,6 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
 }
 
 Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end, float *t) {
-
     float plane_d = -dot_product(plane_n, plane_p);
     float ad = dot_product(line_start, plane_n);
     float bd = dot_product(line_end, plane_n);
@@ -52,7 +51,6 @@ Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector
 }
 /* Return signed shortest distance from point to plane, plane normal must be normalised. */
 float dist(Vector plane_p, Vector plane_n, Vector v) {
-
     return ( ((plane_n.x * v.x) + (plane_n.y * v.y) + (plane_n.z * v.z)) - dot_product(plane_n, plane_p) );
 }
 
