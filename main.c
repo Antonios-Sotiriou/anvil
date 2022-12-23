@@ -103,6 +103,7 @@ static void rotate_z(Mesh *c, const float angle);
 static void *create2darray(void **obj, const unsigned long obj_size, const int height, const int width);
 static void *resize2darray(void **obj, const unsigned long obj_size, const int height, const int width);
 const static void free2darray(void **obj, const int height);
+// const void swap(void *a, void *b, const unsigned long size);
 
 /* Represantation functions */
 static void texture_loader(void);
@@ -137,6 +138,7 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
 #include "header_files/vectors_math.h"
 #include "header_files/obj_parser.h"
 #include "header_files/clipping.h"
+#include "header_files/draw_functions.h"
 
 /* Testing */
 #include "header_files/test_shapes.h"
@@ -369,6 +371,14 @@ const static void free2darray(void **obj, const int height) {
         free(obj[y]);
     free(obj);
 }
+/* Swaping two variables a and b of any type with size. */
+// const void swap(void *a, void *b, unsigned long size) {
+//     void *temp = malloc(size);
+//     memcpy(temp, a, size);
+//     memcpy(a, b, size);
+//     memcpy(b, temp, size);
+//     free(temp);
+// }
 static void texture_loader(void) {
 
     char texture_name[28] = "/home/as/Desktop/stones.bmp";
@@ -424,9 +434,7 @@ static void project(Mesh c) {
     WorldMat = mxm(reView, m);
 
     Mesh cache = meshxm(c, WorldMat);
-    printf("View space v0.x: %f   v0.y: %f   v0.z: %f   v0.w: %f\n", cache.t[0].v[0].x, cache.t[0].v[0].y, cache.t[0].v[0].z, cache.t[0].v[0].w);
-    printf("View space v1.x: %f   v1.y: %f   v1.z: %f   v1.w: %f\n", cache.t[0].v[1].x, cache.t[0].v[1].y, cache.t[0].v[1].z, cache.t[0].v[1].w);
-    printf("View space v2.x: %f   v2.y: %f   v2.z: %f   v2.w: %f\n\n", cache.t[0].v[2].x, cache.t[0].v[2].y, cache.t[0].v[2].z, cache.t[0].v[2].w);
+
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
@@ -437,9 +445,7 @@ static void project(Mesh c) {
     if (nf.indexes) {
         ppdiv(&nf);
     }
-    printf("NDC space v0.x: %f   v0.y: %f   v0.z: %f   v0.w: %f\n", nf.t[0].v[0].x, nf.t[0].v[0].y, nf.t[0].v[0].z, nf.t[0].v[0].w);
-    printf("NDC space v1.x: %f   v1.y: %f   v1.z: %f   v1.w: %f\n", nf.t[0].v[1].x, nf.t[0].v[1].y, nf.t[0].v[1].z, nf.t[0].v[1].w);
-    printf("NDC space v2.x: %f   v2.y: %f   v2.z: %f   v2.w: %f\n\n", nf.t[0].v[2].x, nf.t[0].v[2].y, nf.t[0].v[2].z, nf.t[0].v[2].w);
+
     /* Applying Backface culling before we proceed to full frustum clipping. */
     Mesh bf = bfculling(nf);
     free(nf.t);
@@ -499,26 +505,15 @@ const static Mesh bfculling(const Mesh c) {
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
 const static void viewtoscreen(const Mesh c) {
 
-    // SCMesh sc;
-    // sc.sct = calloc(c.indexes, sizeof(SCTriangle));
-
-    // if (!sc.sct)
-    //     fprintf(stderr, "Could not allocate memory - rasterize() - calloc\n");
-
-    // sc.indexes = c.indexes;
-
     for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            // sc.sct[i].scv[j].z = 1 / (c.t[i].v[j].z * c.t[i].v[j].w);
             c.t[i].v[j].z = 1 / c.t[i].v[j].w;
-            // sc.sct[i].scv[j].z = 1 / c.t[i].v[j].z;
-            // sc.sct[i].scv[j].w = c.t[i].v[j].w;
 
-            c.t[i].tex[j].u = c.t[i].tex[j].u;
-            c.t[i].tex[j].v = c.t[i].tex[j].v;
+            // c.t[i].tex[j].u = c.t[i].tex[j].u;
+            // c.t[i].tex[j].v = c.t[i].tex[j].v;
             // sc.sct[i].tex[j].w = c.t[i].tex[j].w;
         }
     }
@@ -530,12 +525,12 @@ const static void viewtoscreen(const Mesh c) {
     Mesh ff = clipp(c, plane_far_p, plane_far_n);
     free(c.t);
 
-    Vector plane_right_p = { wa.width, 0.0, 0.0 },
+    Vector plane_right_p = { (float)wa.width - 1.0, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
     Mesh rf = clipp(ff, plane_right_p, plane_right_n);
     free(ff.t);
 
-    Vector plane_down_p = { 0.0, wa.height, 0.0 },
+    Vector plane_down_p = { 0.0, (float)wa.height - 1.0, 0.0 },
            plane_down_n = { 0.0, -1.0, 0.0 };
     Mesh df = clipp(rf, plane_down_p, plane_down_n);
     free(rf.t);
@@ -550,11 +545,7 @@ const static void viewtoscreen(const Mesh c) {
     Mesh uf = clipp(lf, plane_up_p, plane_up_n);
     free(lf.t);
 
-    if (DEBUG)
-        // debug_rasterize(uf);
-        printf("Debugging flag\n");
-    else
-        rasterize(uf);
+    rasterize(uf);
     free(uf.t);
 }
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
@@ -584,7 +575,7 @@ const static void rasterize(const Mesh c) {
     for (int m = 0; m < c.indexes; m++) {
         for (int i = 0; i < 3; i++)
             for (int j = 0; j < 3; j++)
-                if (c.t[m].v[i].y < c.t[m].v[j].y) {
+                if (c.t[m].v[i].y <= c.t[m].v[j].y) {
 
                     temp_v = c.t[m].v[i];
                     temp_t = c.t[m].tex[i];
@@ -599,12 +590,18 @@ const static void rasterize(const Mesh c) {
         dpl = dot_product(LightSC, c.t[m].normal);
         winding = winding3D(c.t[m]);
 
-        if ( (c.t[m].v[1].y - c.t[m].v[2].y) == 0 )
-            fillnorthway(c.t[m], dpl, winding);
-        else if ( (c.t[m].v[0].y - c.t[m].v[1].y) == 0 )
-            fillsouthway(c.t[m], dpl, winding);
-        else
-            fillgeneral(c.t[m], dpl, winding);
+        if (DEBUG == 1) {
+            draw_line(pixels, c.t[m].v[0].x, c.t[m].v[0].y, c.t[m].v[1].x, c.t[m].v[1].y, 255, 0, 0);
+            draw_line(pixels, c.t[m].v[1].x, c.t[m].v[1].y, c.t[m].v[2].x, c.t[m].v[2].y, 0, 255, 0);
+            draw_line(pixels, c.t[m].v[2].x, c.t[m].v[2].y, c.t[m].v[0].x, c.t[m].v[0].y, 0, 0, 255);
+        } else {
+            if ( (c.t[m].v[1].y - c.t[m].v[2].y) == 0 )
+                fillnorthway(c.t[m], dpl, winding);
+            else if ( (c.t[m].v[0].y - c.t[m].v[1].y) == 0 )
+                fillsouthway(c.t[m], dpl, winding);
+            else
+                fillgeneral(c.t[m], dpl, winding);
+        }
     }
 
     int height_inc = 0;
@@ -723,9 +720,9 @@ const static void fillsouthway(const Triangle t, const float light, const float 
 }
 const static void fillgeneral(Triangle t, const float light, const float winding) {
     // printf("clipped: %s\n", t.clipped ? "True" : "False");
-    printf("Raster space v0.x: %f   v0.y: %f   v0.z: %f\n", t.v[0].x, t.v[0].y, t.v[0].z);
-    printf("Raster space v1.x: %f   v1.y: %f   v1.z: %f\n", t.v[1].x, t.v[1].y, t.v[1].z);
-    printf("Raster space v2.x: %f   v2.y: %f   v2.z: %f\n\n", t.v[2].x, t.v[2].y, t.v[2].z);
+    // printf("Raster space v0.x: %f   v0.y: %f   v0.z: %f\n", t.v[0].x, t.v[0].y, t.v[0].z);
+    // printf("Raster space v1.x: %f   v1.y: %f   v1.z: %f\n", t.v[1].x, t.v[1].y, t.v[1].z);
+    // printf("Raster space v2.x: %f   v2.y: %f   v2.z: %f\n\n", t.v[2].x, t.v[2].y, t.v[2].z);
     float ma, mb, mc, za, zb, zc, depth;
     ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
@@ -756,12 +753,11 @@ const static void fillgeneral(Triangle t, const float light, const float winding
     }
     zc = (t.v[2].z - t.v[1].z) / (t.v[2].y - t.v[1].y);
 
-    int y_start = (int)ceil(t.v[0].y - 0.5);
-    int y_end1 = (int)ceil(t.v[1].y - 0.5);
-    int y_end2 = (int)ceil(t.v[2].y - 0.5);
+    int y_start = ceil(t.v[0].y - 0.5);
+    int y_end1 = ceil(t.v[1].y - 0.5);
+    int y_end2 = ceil(t.v[2].y - 0.5);
 
     for (int y = y_start; y <= y_end1; y++) {
-
         int x_start, x_end;
         float p0 = (ma * (y - t.v[0].y)) + t.v[0].x;
         float p1 = (mb * (y - t.v[0].y)) + t.v[0].x;
@@ -770,11 +766,11 @@ const static void fillgeneral(Triangle t, const float light, const float winding
         float z1 = (zb * (y - t.v[0].y)) + t.v[0].z;
 
         if (p0 < p1) {
-            x_start = (int)ceil(p0 - 0.5);
-            x_end = (int)ceil(p1 - 0.5);
+            x_start = ceil(p0 - 0.5);
+            x_end = ceil(p1 - 0.5);
         } else {
-            x_start = (int)ceil(p1 - 0.5);
-            x_end = (int)ceil(p0 - 0.5);
+            x_start = ceil(p1 - 0.5);
+            x_end = ceil(p0 - 0.5);
         }
 
         for (int x = x_start; x < x_end; x++) {
@@ -788,8 +784,6 @@ const static void fillgeneral(Triangle t, const float light, const float winding
                 pixels[y][x].Blue = 157 * (light * depth);
                 depth_buffer[y][x] = depth;
             }
-            if (y > 799 || x > 799)
-                printf("An Error has occured --> y: %d    x: %d\n", y, x);
         }
         if (y == y_end1)
             for (int y = y_end1 + 1; y < y_end2; y++) {
@@ -807,11 +801,11 @@ const static void fillgeneral(Triangle t, const float light, const float winding
                 }
 
                 if (p0 < p1) {
-                    x_start = (int)ceil(p0 - 0.5);
-                    x_end = (int)ceil(p1 - 0.5);
+                    x_start = ceil(p0 - 0.5);
+                    x_end = ceil(p1 - 0.5);
                 } else {
-                    x_start = (int)ceil(p1 - 0.5);
-                    x_end = (int)ceil(p0 - 0.5);
+                    x_start = ceil(p1 - 0.5);
+                    x_end = ceil(p0 - 0.5);
                 }
                 for (int x = x_start; x < x_end; x++) {
 
@@ -824,8 +818,6 @@ const static void fillgeneral(Triangle t, const float light, const float winding
                         pixels[y][x].Blue = 157 * (light * depth);
                         depth_buffer[y][x] = depth;
                     }
-                    if (y > 799 || x > 799)
-                        printf("An Error has occured --> y: %d    x: %d\n", y, x);
                 }
             }
     }
