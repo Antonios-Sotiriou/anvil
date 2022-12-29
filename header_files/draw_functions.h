@@ -6,7 +6,15 @@
 #endif
 
 #ifndef _MATH_H
-    #include "math.h"
+    #include <math.h>
+#endif
+
+#ifndef _STDIO_H
+    #include <stdio.h>
+#endif
+
+#ifndef _STDLIB_H
+    #include <stdlib.h>
 #endif
 
 const void draw_line(Pixel **buffer, float x1, float y1, float x2, float y2, const int red, const int green, const int blue);
