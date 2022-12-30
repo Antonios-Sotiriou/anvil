@@ -1,18 +1,17 @@
 #include "header_files/clipping.h"
-#include "header_files/vectors_math.h"
 
-Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
+Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
 
     Mesh r;
-    r.t = malloc(sizeof(Triangle) * bf.indexes);
+    r.t = malloc(sizeof(Triangle) * c.indexes);
     int index = 0;
     int dynamic_inc = 1;
 
     int clipped_count = 0;
     Triangle clipped[2];
-    for (int i = 0; i < bf.indexes; i++) {
+    for (int i = 0; i < c.indexes; i++) {
 
-        clipped_count = clipp_triangle(plane_p, plane_n, bf.t[i], &clipped[0], &clipped[1]);
+        clipped_count = clipp_triangle(plane_p, plane_n, c.t[i], &clipped[0], &clipped[1]);
 
         if (clipped_count) {
             
@@ -21,7 +20,7 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
                 r.t[index].clipped = True;
                 index++;
             } else if (clipped_count == 2) {
-                r.t = realloc(r.t, sizeof(Triangle) * (bf.indexes + dynamic_inc));
+                r.t = realloc(r.t, sizeof(Triangle) * (c.indexes + dynamic_inc));
                 r.t[index] = clipped[0];
                 r.t[index].clipped = True;
 
@@ -36,6 +35,7 @@ Mesh clipp(Mesh bf, Vector plane_p, Vector plane_n) {
         }
     }
     r.indexes = index;
+    free(c.t);
     return r;
 }
 

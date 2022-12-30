@@ -5,20 +5,29 @@
 #include <math.h>
 #include <unistd.h>
 
-// signal
+/* signal */
 #include <signal.h>
 
 /* Project specific headers */
 #include "header_files/locale.h"
 #include "header_files/objects.h"
 #include "header_files/bmp.h"
+#include "header_files/matrices.h"
+#include "header_files/vectors_math.h"
+#include "header_files/obj_parser.h"
+#include "header_files/clipping.h"
+#include "header_files/draw_functions.h"
+#include "header_files/general_functions.h"
+
+/* Testing */
+#include "header_files/test_shapes.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define XWorldToScreen            ( (1 + c.t[i].v[j].x) * (wa.width / 2.00) )
-#define YWorldToScreen            ( (1 + c.t[i].v[j].y) * (wa.height / 2.00) )
+#define XWorldToScreen            ( (1 + c.t[i].v[j].x) * HALFW )
+#define YWorldToScreen            ( (1 + c.t[i].v[j].y) * HALFH )
 
 // #define NormalizeWorldX           ( (c.t[i].v[j].x + (wa.width / 2.00)) / wa.width )
 // #define NormalizeWorldY           ( (c.t[i].v[j].y + (wa.height / 2.00)) / wa.height )
@@ -29,7 +38,7 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask | ExposureMask )
 
-/* Some Global Variables */
+/* X Global Structures. */
 Display *displ;
 Window win;
 Pixmap pixmap;
@@ -39,10 +48,12 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
+/* Project Global Structures. */
 BMP_Info texture;
-Texel **texels;
+Pixel **texels;
 Pixel **pixels;
 float **depth_buffer;
+float **shadow_buffer;
 
 Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
         U        =   { 1.0, 0.0, 0.0, 1.0 },
@@ -51,9 +62,9 @@ Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
 
 Vector LightSC   =   { 0.0, 0.0, 1.0, 1.0 };
 
-float NPlane = 1.0;
-float FPlane = 0.009;
-float dplus = 0.0;
+Mesh shape;
+Mat4x4 WorldMat = { 0 };
+Mat4x4 PosMat = { 0 };
 
 /* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
 /* Magnitude of a Vector with one point at origin (0, 0)  |v| =√(x2 + y2) */
@@ -62,18 +73,19 @@ float dplus = 0.0;
 /* depth = (Point0 * (1 - t)) + (Point1 * t); */
 /* depth = z1 + t * (z0 - z1) */
 
-Mesh shape;
-Mat4x4 WorldMat = { 0 };
-Mat4x4 PosMat = { 0 };
-
+/* Project Global Variables. */
 static int MAPCOUNT = 0;
 static int RUNNING = 1;
-float AspectRatio = WIDTH / HEIGHT;
-float FOV = 75.0;
+static int HALFW = 0; // Half width of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
+static int HALFH = 0; // Half height of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
+static float AspectRatio = 0;
+static float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
-
-int DEBUG = 0;
+static float NPlane = 1.0;
+static float FPlane = 0.009;
+static float dplus = 0.0;
+static int DEBUG = 0;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -99,12 +111,6 @@ static void rotate_x(Mesh *c, const float angle);
 static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
 
-/* General purposes functions */
-static void *create2darray(void **obj, const unsigned long obj_size, const int height, const int width);
-static void *resize2darray(void **obj, const unsigned long obj_size, const int height, const int width);
-const static void free2darray(void **obj, const int height);
-const void swap(void *a, void *b, const unsigned long size);
-
 /* Represantation functions */
 static void texture_loader(void);
 static void project(Mesh c);
@@ -112,9 +118,6 @@ static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
 const static void rasterize(const Mesh sc);
-const static void fillnorthway(const Triangle t, const float light, const float winding);
-const static void fillsouthway(const Triangle t, const float light, const float winding);
-const static void fillgeneral(const Triangle t, const float light, const float winding);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
@@ -132,16 +135,6 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
     [ButtonPress] = buttonpress,
     [KeyPress] = keypress,
 };
-
-/* Project specific inludes. */
-#include "header_files/matrices.h"
-#include "header_files/vectors_math.h"
-#include "header_files/obj_parser.h"
-#include "header_files/clipping.h"
-#include "header_files/draw_functions.h"
-
-/* Testing */
-#include "header_files/test_shapes.h"
 
 const static void clientmessage(XEvent *event) {
     printf("Received client message event\n");
@@ -209,14 +202,15 @@ const static void expose(XEvent *event) {
 
     printf("expose event received\n");
     /* Resize pixels and depth buffer to match the screen size. */
-    // if (MAPCOUNT) {
-        // pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        // depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-    // } else {
-    //     texture_loader();
-        // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-    // }
+    if (MAPCOUNT) {
+        pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+        depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    } else {
+        texture_loader();
+        pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+        depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+        sleep(2);
+    }
     pixmapcreate();
     project(shape);
 }
@@ -230,6 +224,8 @@ const static void configurenotify(XEvent *event) {
         printf("configurenotify event received\n");
         XGetWindowAttributes(displ, win, &wa);
         AspectRatio = ((float)wa.width / (float)wa.height);
+        HALFW = wa.width / 2.00;
+        HALFH = wa.height / 2.00;
     }
 }
 const static void buttonpress(XEvent *event) {
@@ -347,46 +343,6 @@ static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(shape, m);
 }
-/* Creates an obj 2d array of height and width with obj_size of each entry. */
-static void *create2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
-    obj = malloc(sizeof(obj) * height);
-    if (obj == NULL)
-        fprintf(stderr, "Could not allocate texels height memory! create2darray() -- malloc().\n");
-
-    for (int y = 0; y < height; y++) {
-        obj[y] = malloc(obj_size * width);
-        if (obj[y] == NULL)
-            fprintf(stderr, "Could not allocate texels width memory! create2darray() -- malloc().\n");
-    }
-    return obj;
-}
-/* Resizes an obj 2d array of height and width with obj_size of each entry. */
-static void *resize2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
-    obj = realloc(obj, sizeof(obj) * height);
-    if (obj == NULL)
-        fprintf(stderr, "Could not reallocate texels height memory! resize2darray() -- malloc().\n");
-
-    for (int y = 0; y < height; y++) {
-        obj[y] = realloc(obj[y], obj_size * width);
-        if (obj[y] == NULL)
-            fprintf(stderr, "Could not reallocate texels width memory! resize2darray() -- malloc().\n");
-    }
-    return obj;
-}
-/* Frees all resources of an obj 2d array of height. */
-const static void free2darray(void **obj, const int height) {
-    for (int y = 0; y < height; y++)
-        free(obj[y]);
-    free(obj);
-}
-/* Swaping two variables a and b of any type with size. */
-const void swap(void *a, void *b, unsigned long size) {
-    void *temp = malloc(size);
-    memcpy(temp, a, size);
-    memcpy(a, b, size);
-    memcpy(b, temp, size);
-    free(temp);
-}
 static void texture_loader(void) {
 
     char texture_name[28] = "/home/as/Desktop/stones.bmp";
@@ -403,29 +359,29 @@ static void texture_loader(void) {
         fread(&texture, sizeof(BMP_Info), 1, fp);
         fseek(fp, (14 + texture.Size), SEEK_SET);
 
-        texels = create2darray((void*)texels, sizeof(Texel), texture.Height, texture.Width);
+        texels = create2darray((void*)texels, sizeof(Pixel), texture.Height, texture.Width);
         
-        // char image[(texture.Height * texture.Width) * 4];
+        char image[(texture.Height * texture.Width) * 4];
 
         for (int y = (texture.Height - 1); y >= 0; y--) {
             for (int x = 0; x < texture.Width; x++) {
-                fread(&texels[y][x], sizeof(Texel), 1, fp);
+                fread(&texels[y][x], sizeof(Pixel), 1, fp);
             }
         }
 
-        // int texels_inc = 0;
-        // for (int y = 0; y < texture.Height; y++)
-        //     for (int x = 0; x < texture.Width; x++) {
+        int texels_inc = 0;
+        for (int y = 0; y < texture.Height; y++)
+            for (int x = 0; x < texture.Width; x++) {
 
-        //         image[texels_inc] = texels[y][x].Red;
-        //         image[texels_inc + 1] = texels[y][x].Green;
-        //         image[texels_inc + 2] = texels[y][x].Blue;
-        //         texels_inc += 4;
-        //     }
+                image[texels_inc] = texels[y][x].Red;
+                image[texels_inc + 1] = texels[y][x].Green;
+                image[texels_inc + 2] = texels[y][x].Blue;
+                texels_inc += 4;
+            }
 
-        // XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, texture.Width, texture.Height, 32, (texture.Width * 4));
-        // XPutImage(displ, win, gc, im, 0, 0, 100, 100, texture.Width, texture.Height);
-        // XFree(im);
+        XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, texture.Width, texture.Height, 32, (texture.Width * 4));
+        XPutImage(displ, win, gc, im, 0, 0, 100, 100, texture.Width, texture.Height);
+        XFree(im);
     }
     fclose(fp);
 }
@@ -447,7 +403,6 @@ static void project(Mesh c) {
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
     Mesh nf = clipp(cache, plane_near_p, plane_near_n);
-    free(cache.t);
 
     /* Applying perspective division. */
     if (nf.indexes) {
@@ -456,15 +411,12 @@ static void project(Mesh c) {
 
     /* Applying Backface culling before we proceed to full frustum clipping. */
     Mesh bf = bfculling(nf);
-    free(nf.t);
 
     /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
     // uf = sort_triangles(&uf);
 
-    /* Sending to translation to Screen Coordinates. */
+    /* Sending to translation from NDC to Screen Coordinates. */
     viewtoscreen(bf);
-    
-    // free(bf.t);
 }
 /* Perspective division. */
 static void ppdiv(Mesh *c) {
@@ -508,6 +460,7 @@ const static Mesh bfculling(const Mesh c) {
         }
     }
     r.indexes = index;
+    free(c.t);
     return r;
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
@@ -522,36 +475,30 @@ const static void viewtoscreen(const Mesh c) {
 
             // c.t[i].tex[j].u = c.t[i].tex[j].u;
             // c.t[i].tex[j].v = c.t[i].tex[j].v;
-            // sc.sct[i].tex[j].w = c.t[i].tex[j].w;
+            // c.t[i].tex[j].w = c.t[i].tex[j].w;
         }
     }
-
 
     /* Far Plane clipping and side clipping. */
     Vector plane_far_p = { 0.0, 0.0, FPlane },
            plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(c, plane_far_p, plane_far_n);
-    free(c.t);
 
     Vector plane_right_p = { (float)wa.width - 1.0, 0.0, 0.0 },
            plane_right_n = { -1.0, 0.0, 0.0 };
     Mesh rf = clipp(ff, plane_right_p, plane_right_n);
-    free(ff.t);
 
     Vector plane_down_p = { 0.0, (float)wa.height - 1.0, 0.0 },
            plane_down_n = { 0.0, -1.0, 0.0 };
     Mesh df = clipp(rf, plane_down_p, plane_down_n);
-    free(rf.t);
 
     Vector plane_left_p = { 0.0, 0.0, 0.0 },
            plane_left_n = { 1.0, 0.0, 0.0 };
     Mesh lf = clipp(df, plane_left_p, plane_left_n);
-    free(df.t);
 
     Vector plane_up_p = { 0.0, 0.0, 0.0 },
            plane_up_n = { 0.0, 1.0, 0.0 };
     Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-    free(lf.t);
 
     rasterize(uf);
     free(uf.t);
@@ -560,8 +507,7 @@ const static void viewtoscreen(const Mesh c) {
 const static void rasterize(const Mesh c) {
 
     char image_data[wa.width * wa.height * 4];
-
-    /* Initializing the frame buffer to depth of 1 and reseting the Pixels. */
+    /* Initializing the frame buffer to depth of 0 and reseting the Pixels. */
     for (int y = 0; y < wa.height; y++)
         for (int x = 0; x < wa.width; x++) {
 
@@ -576,39 +522,17 @@ const static void rasterize(const Mesh c) {
                 depth_buffer[y][x] = 0.0;
         }
 
-    /* Sorting Vectors from smaller to larger y. */
-    Vector temp_v;
-    Textor temp_t;
-    float dpl, winding;
-    for (int m = 0; m < c.indexes; m++) {
-        for (int i = 0; i < 3; i++)
-            for (int j = 0; j < 3; j++)
-                if (c.t[m].v[i].y <= c.t[m].v[j].y) {
+    float dpl;
+    for (int i = 0; i < c.indexes; i++) {
 
-                    temp_v = c.t[m].v[i];
-                    temp_t = c.t[m].tex[i];
-
-                    c.t[m].v[i] = c.t[m].v[j];
-                    c.t[m].tex[i] = c.t[m].tex[j];
-
-                    c.t[m].v[j] = temp_v;
-                    c.t[m].tex[j] = temp_t;
-                }
-
-        dpl = dot_product(LightSC, c.t[m].normal);
-        winding = winding3D(c.t[m]);
-
+        dpl = dot_product(LightSC, c.t[i].normal);
         if (DEBUG == 1) {
-            draw_line(pixels, c.t[m].v[0].x, c.t[m].v[0].y, c.t[m].v[1].x, c.t[m].v[1].y, 255, 0, 0);
-            draw_line(pixels, c.t[m].v[1].x, c.t[m].v[1].y, c.t[m].v[2].x, c.t[m].v[2].y, 0, 255, 0);
-            draw_line(pixels, c.t[m].v[2].x, c.t[m].v[2].y, c.t[m].v[0].x, c.t[m].v[0].y, 0, 0, 255);
+            drawline(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
+            drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
+            drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else {
-            if ( (c.t[m].v[1].y - c.t[m].v[2].y) == 0 )
-                fillnorthway(c.t[m], dpl, winding);
-            else if ( (c.t[m].v[0].y - c.t[m].v[1].y) == 0 )
-                fillsouthway(c.t[m], dpl, winding);
-            else
-                fillgeneral(c.t[m], dpl, winding);
+            filltriangle(pixels, depth_buffer, &c.t[i], dpl, 33, 122, 157);
+            // textriangle(pixels, depth_buffer, &c.t[i], dpl, texels);
         }
     }
 
@@ -633,173 +557,6 @@ const static void rasterize(const Mesh c) {
     XFree(image);
 
     pixmapdisplay();
-}
-const static void fillnorthway(const Triangle t, const float light, const float winding) {
-    float ma, mb, za, zb, depth;
-    ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
-    mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
-
-    za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-    zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-
-    int y_start = (int)ceil(t.v[0].y - 0.5);
-    int y_end = (int)ceil(t.v[1].y - 0.5);
-
-    for (int y = y_start; y < y_end; y++) {
-
-        int x_start = (ma * (y - y_start)) + ceil(t.v[0].x - 0.5);
-        int x_end = (mb * (y - y_start)) + ceil(t.v[0].x - 0.5);
-        if (x_start > x_end)
-            swap(&x_start, &x_end, sizeof(int));
-
-        float z0 = (za * (y - y_start)) + t.v[0].z;
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-        if (winding > 0)
-            swap(&z0, &z1, sizeof(float));
-
-        for (int x = x_start; x < x_end; x++) {
-
-            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
-            depth = (z0 * (1 - barycentric)) + (z1 * barycentric);
-
-            if (depth > depth_buffer[y][x]) {
-                pixels[y][x].Red = 33 * (light * depth);
-                pixels[y][x].Green = 122 * (light * depth);
-                pixels[y][x].Blue = 157 * (light * depth);
-                depth_buffer[y][x] = depth;
-            }
-        }
-    }
-}
-const static void fillsouthway(const Triangle t, const float light, const float winding) {
-    float mb, mc, zb, zc, depth;
-    mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
-    mc = (t.v[2].x - t.v[1].x) / (t.v[2].y - t.v[1].y);
-
-    zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-    zc = (t.v[2].z - t.v[1].z) / (t.v[2].y - t.v[1].y);
-
-    int y_start = ceil(t.v[1].y - 0.5);
-    int y_end = ceil(t.v[2].y - 0.5);
-
-    for (int y = y_start; y < y_end; y++) {
-
-        int x_start = (mb * (y - y_start)) + ceil(t.v[0].x - 0.5);
-        int x_end = (mc * (y - y_start)) + ceil(t.v[1].x - 0.5);
-        if (x_start > x_end)
-            swap(&x_start, &x_end, sizeof(int));
-
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-        float z2 = (zc * (y - y_start)) + t.v[1].z;
-        if (winding > 0)
-            swap(&z1, &z2, sizeof(float));
-
-        for (int x = x_start; x < x_end; x++) {
-
-            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
-            depth = (z2 * (1 - barycentric)) + (z1 * barycentric);
-
-            if (depth > depth_buffer[y][x]) {
-                pixels[y][x].Red = 33 * (light * depth);
-                pixels[y][x].Green = 122 * (light * depth);
-                pixels[y][x].Blue = 157 * (light * depth);
-                depth_buffer[y][x] = depth;
-            }
-        }
-    }
-}
-const static void fillgeneral(Triangle t, const float light, const float winding) {
-    // printf("clipped: %s\n", t.clipped ? "True" : "False");
-    // printf("Raster space v0.x: %f   v0.y: %f   v0.z: %f\n", t.v[0].x, t.v[0].y, t.v[0].z);
-    // printf("Raster space v1.x: %f   v1.y: %f   v1.z: %f\n", t.v[1].x, t.v[1].y, t.v[1].z);
-    // printf("Raster space v2.x: %f   v2.y: %f   v2.z: %f\n\n", t.v[2].x, t.v[2].y, t.v[2].z);
-    float ma, mb, mc, za, zb, zc, depth;
-    ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
-    mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
-    mc = (t.v[2].x - t.v[1].x) / (t.v[2].y - t.v[1].y);
-    // printf("Raster space ma: %f   mb: %f   mc: %f\n\n", ma, mb, mc);
-    if ( (t.v[1].x < t.v[0].x) && (t.v[1].x < t.v[2].x) ) {
-        za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-        zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-    } else if ( (t.v[1].x >= t.v[0].x) && (t.v[1].x >= t.v[2].x) ) {
-        za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-        zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-    } else if ( (t.v[1].x < t.v[0].x) && (t.v[1].x >= t.v[2].x) ) {
-        if (winding < 0) {
-            za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-            zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-        } else {
-            za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-            zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-        }
-    } else if ( (t.v[1].x >= t.v[0].x) && (t.v[1].x < t.v[2].x) ) {
-        if (winding < 0) {
-            za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-            zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-        } else {
-            za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-            zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-        }
-    }
-    zc = (t.v[2].z - t.v[1].z) / (t.v[2].y - t.v[1].y);
-
-    int y_start = ceil(t.v[0].y - 0.5);
-    int y_end1 = ceil(t.v[1].y - 0.5);
-    int y_end2 = ceil(t.v[2].y - 0.5);
-
-    for (int y = y_start; y < y_end1; y++) {
-
-        int x_start = (ma * (y - y_start)) + ceil(t.v[0].x - 0.5);
-        int x_end = (mb * (y - y_start)) + ceil(t.v[0].x - 0.5);
-        if (x_start > x_end)
-            swap(&x_start, &x_end, sizeof(int));
-
-        float z0 = (za * (y - y_start)) + t.v[0].z;
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-
-        for (int x = x_start; x < x_end; x++) {
-
-            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
-            depth = ((z0 * (1 - barycentric)) + (z1 * barycentric));// - (z0 - z1);
-
-            if (depth > depth_buffer[y][x]) {
-                pixels[y][x].Red = 33 * (light * depth);
-                pixels[y][x].Green = 122 * (light * depth);
-                pixels[y][x].Blue = 157 * (light * depth);
-                depth_buffer[y][x] = depth;
-            }
-        }
-    }
-    for (int y = y_end1; y < y_end2; y++) {
-
-        int x_start = (mb * (y - y_start)) + ceil(t.v[0].x - 0.5);
-        int x_end = (mc * (y - y_end1)) + ceil(t.v[1].x - 0.5);
-        if (x_start > x_end)
-            swap(&x_start, &x_end, sizeof(int));
-
-        float z1, z2;
-        if (winding < 0) {
-            z1 = (zb * (y - y_start)) + t.v[0].z;
-            z2 = (zc * (y - y_end1)) + t.v[1].z;
-        } else {
-            z2 = (za * (y - y_start)) + t.v[0].z;
-            z1 = (zc * (y - y_end1)) + t.v[1].z;
-        }
-
-        for (int x = x_start; x < x_end; x++) {
-
-            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
-            depth = ((z2 * (1 - barycentric)) + (z1 * barycentric));// - (z2 - z1);
-
-            if (depth > depth_buffer[y][x]) {
-                pixels[y][x].Red = 33 * (light * depth);
-                pixels[y][x].Green = 122 * (light * depth);
-                pixels[y][x].Blue = 157 * (light * depth);
-                depth_buffer[y][x] = depth;
-            }
-        }
-    }
-    // printf("depth before divide: %f  After: %f\n", depth, 1 / depth);
 }
 static KeySym get_keysym(XEvent *event) {
 
@@ -883,7 +640,7 @@ const static int board(void) {
 
     /* Signal handling for effectivelly releasing the resources. */
     struct sigaction sig = { 0 };
-    // sig.sa_handler = &signal_handler;
+    sig.sa_handler = &signal_handler;
     int sig_val = sigaction(SIGSEGV, &sig, NULL);
     if (sig_val == -1) {
         fprintf(stderr, "Warning: board() -- sigaction()\n");

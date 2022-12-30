@@ -31,27 +31,6 @@ typedef struct {
     int indexes;
 } Mesh;
 
-/* Screen Vector */
-typedef struct {
-    int x, y;
-    float z, w;
-} SCVector;
-
-/* Screen Triangle */
-typedef struct {
-    /* Importand! XPoint here so we can use the xlib build in function to fill the triangles. */
-    SCVector scv[LastVector];
-    Textor tex[LastVector];
-    Vector normal;
-    Bool clipped;
-} SCTriangle;
-
-/* Screen Mesh */
-typedef struct {
-    SCTriangle *sct;
-    int indexes;
-} SCMesh;
-
 /* Initialization matrix */
 typedef struct {
     float m[4][4];
@@ -63,6 +42,12 @@ typedef struct {
     unsigned char Green;
     unsigned char Blue;
 } Pixel;
+
+typedef struct {
+    unsigned char Red;
+    unsigned char Green;
+    unsigned char Blue;
+} Texel;
 
 #endif /* _OBJECTS_H */
 

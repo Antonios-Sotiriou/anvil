@@ -1,5 +1,4 @@
 anvil
 header_files/code_cache.h
 header_files/bmp.h
-debug_rasterizer.c
 
