@@ -87,11 +87,11 @@ const float winding3D(const Triangle t) {
     return step1 + step2 + step3;
 }
 /* Identifies if the Vectors of the given Triangle < t > are in clockwise order < CW > or not. */
-const int winding2D(const SCTriangle sct) {
-    int step1, step2, step3;
-    step1 = (sct.scv[0].x * sct.scv[1].y) - (sct.scv[0].y * sct.scv[1].x);
-    step2 = (sct.scv[1].x * sct.scv[2].y) - (sct.scv[1].y * sct.scv[2].x);
-    step3 = (sct.scv[2].x * sct.scv[0].y) - (sct.scv[2].y * sct.scv[0].x);
+const float winding2D(const Triangle t) {
+    float step1, step2, step3;
+    step1 = (t.v[0].x * t.v[1].y) - (t.v[0].y * t.v[1].x);
+    step2 = (t.v[1].x * t.v[2].y) - (t.v[1].y * t.v[2].x);
+    step3 = (t.v[2].x * t.v[0].y) - (t.v[2].y * t.v[0].x);
     return step1 + step2 + step3;
 }
 
