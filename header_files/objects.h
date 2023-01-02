@@ -43,11 +43,5 @@ typedef struct {
     unsigned char Blue;
 } Pixel;
 
-typedef struct {
-    unsigned char Red;
-    unsigned char Green;
-    unsigned char Blue;
-} Texel;
-
 #endif /* _OBJECTS_H */
 

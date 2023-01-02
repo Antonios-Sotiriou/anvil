@@ -25,8 +25,17 @@ void load_obj(Mesh *c, const char path[]) {
     /* Assign the Faces of the Vectors to the Mesh triangle array creating the final object. */
     for (int i = 0; i < c->indexes; i++) {
         c->t[i].v[0] = v[f[i].a - 1];    c->t[i].v[0].w = 1.00;
+        c->t[i].tex[0].u = 0.0;
+        c->t[i].tex[0].v = 1.0;
+        c->t[i].tex[0].w = 1.0;
         c->t[i].v[1] = v[f[i].b - 1];    c->t[i].v[1].w = 1.00;
+        c->t[i].tex[1].u = 0.0;
+        c->t[i].tex[1].v = 0.0;
+        c->t[i].tex[1].w = 1.0;
         c->t[i].v[2] = v[f[i].c - 1];    c->t[i].v[2].w = 1.00;
+        c->t[i].tex[2].u = 1.0;
+        c->t[i].tex[2].v = 0.0;
+        c->t[i].tex[2].w = 1.0;
     }
     
     /* Free The Vectors and Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */
