@@ -62,7 +62,7 @@ Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
 
 Vector LightSC   =   { 0.0, 0.0, 1.0, 1.0 };
 
-Mesh shape;
+Mesh shape = { 0 };
 Mat4x4 WorldMat = { 0 };
 Mat4x4 PosMat = { 0 };
 
@@ -96,7 +96,7 @@ const static void resizerequest(XEvent *event);
 const static void configurenotify(XEvent *event);
 const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
-void signal_handler(int sig);
+const static void signal_handler(const int sig);
 
 /* Moving functions */
 static void look_left(float fyaw);
@@ -175,7 +175,7 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/bigterrain.obj");
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/smallterrain.obj");
-        // load_obj(&shape, "objects/mountains.obj");
+        load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/axis.obj");
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
@@ -183,7 +183,7 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/planet.obj");
         // load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
-        triangle_create(&shape);
+        // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -202,15 +202,15 @@ const static void expose(XEvent *event) {
 
     printf("expose event received\n");
     /* Resize pixels and depth buffer to match the screen size. */
-    if (MAPCOUNT) {
-        pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-    } else {
-        texture_loader();
-        pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-        sleep(2);
-    }
+    // if (MAPCOUNT) {
+    //     pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    //     depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    // } else {
+    //     texture_loader();
+    //     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    //     depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    //     sleep(2);
+    // }
     pixmapcreate();
     project(shape);
 }
@@ -361,7 +361,7 @@ static void texture_loader(void) {
 
         texels = create2darray((void*)texels, sizeof(Pixel), texture.Height, texture.Width);
         
-        char image[(texture.Height * texture.Width) * 4];
+        // char image[(texture.Height * texture.Width) * 4];
 
         for (int y = (texture.Height - 1); y >= 0; y--) {
             for (int x = 0; x < texture.Width; x++) {
@@ -369,19 +369,19 @@ static void texture_loader(void) {
             }
         }
 
-        int texels_inc = 0;
-        for (int y = 0; y < texture.Height; y++)
-            for (int x = 0; x < texture.Width; x++) {
+    //     int texels_inc = 0;
+    //     for (int y = 0; y < texture.Height; y++)
+    //         for (int x = 0; x < texture.Width; x++) {
 
-                image[texels_inc] = texels[y][x].Red;
-                image[texels_inc + 1] = texels[y][x].Green;
-                image[texels_inc + 2] = texels[y][x].Blue;
-                texels_inc += 4;
-            }
+    //             image[texels_inc] = texels[y][x].Red;
+    //             image[texels_inc + 1] = texels[y][x].Green;
+    //             image[texels_inc + 2] = texels[y][x].Blue;
+    //             texels_inc += 4;
+    //         }
 
-        XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, texture.Width, texture.Height, 32, (texture.Width * 4));
-        XPutImage(displ, win, gc, im, 0, 0, 100, 100, texture.Width, texture.Height);
-        XFree(im);
+    //     XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, texture.Width, texture.Height, 32, (texture.Width * 4));
+    //     XPutImage(displ, win, gc, im, 0, 0, 100, 100, texture.Width, texture.Height);
+    //     XFree(im);
     }
     fclose(fp);
 }
@@ -473,9 +473,9 @@ const static void viewtoscreen(const Mesh c) {
             c.t[i].v[j].y = YWorldToScreen;
             c.t[i].v[j].z = 1 / c.t[i].v[j].w;
 
-            // c.t[i].tex[j].u = c.t[i].tex[j].u;
-            // c.t[i].tex[j].v = c.t[i].tex[j].v;
-            // c.t[i].tex[j].w = c.t[i].tex[j].w;
+            c.t[i].tex[j].u /= c.t[i].v[j].w;
+            c.t[i].tex[j].v /= c.t[i].v[j].w;
+            c.t[i].tex[j].w = 1 / c.t[i].v[j].w;
         }
     }
 
@@ -530,9 +530,10 @@ const static void rasterize(const Mesh c) {
             drawline(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
             drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
-        } else {
+        } else if (DEBUG == 2) {
             filltriangle(pixels, depth_buffer, &c.t[i], dpl, 33, 122, 157);
-            // textriangle(pixels, depth_buffer, &c.t[i], dpl, texels);
+        } else {
+            textriangle(pixels, depth_buffer, &c.t[i], dpl, texels, texture);
         }
     }
 
@@ -540,9 +541,9 @@ const static void rasterize(const Mesh c) {
     int width_inc = 0;
     for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
 
-        image_data[i] = pixels[height_inc][width_inc].Blue;
+        image_data[i] = pixels[height_inc][width_inc].Red;
         image_data[i + 1] = pixels[height_inc][width_inc].Green;
-        image_data[i + 2] = pixels[height_inc][width_inc].Red;
+        image_data[i + 2] = pixels[height_inc][width_inc].Blue;
 
         i += 3;
         width_inc++;
@@ -590,7 +591,7 @@ static KeySym get_keysym(XEvent *event) {
     XFree(xim);
     return keysym;
 }
-void signal_handler(int sig) {
+const static void signal_handler(const int sig) {
     printf("Received Signal from OS with ID: %d\n", sig);
     XEvent event = { 0 };
     event.type = ClientMessage;
