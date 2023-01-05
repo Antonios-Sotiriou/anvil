@@ -15,7 +15,9 @@
 
 /* Usefull struct to parse the obj file Faces */
 typedef struct {
-    int a, b, c;
+    int va, vb, vc;
+    int ta, tb, tc;
+    int na, nb, nc;
 } Face;
 
 void load_obj(Mesh *c, const char path[]);

@@ -29,11 +29,6 @@ enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 #define XWorldToScreen            ( (1 + c.t[i].v[j].x) * HALFW )
 #define YWorldToScreen            ( (1 + c.t[i].v[j].y) * HALFH )
 
-// #define NormalizeWorldX           ( (c.t[i].v[j].x + (wa.width / 2.00)) / wa.width )
-// #define NormalizeWorldY           ( (c.t[i].v[j].y + (wa.height / 2.00)) / wa.height )
-// #define XWorldToScreen            ( normalized.t[i].v[j].x * wa.width )
-// #define YWorldToScreen            ( normalized.t[i].v[j].y * wa.height )
-
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask | ExposureMask )
@@ -83,7 +78,7 @@ static float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
 static float NPlane = 1.0;
-static float FPlane = 0.009;
+static float FPlane = 0.0001;
 static float dplus = 0.0;
 static int DEBUG = 0;
 
@@ -175,12 +170,13 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/bigterrain.obj");
         // load_obj(&shape, "objects/middleterrain.obj");
         // load_obj(&shape, "objects/smallterrain.obj");
-        load_obj(&shape, "objects/mountains.obj");
+        // load_obj(&shape, "objects/mountains.obj");
         // load_obj(&shape, "objects/axis.obj");
         // load_obj(&shape, "objects/teapot.obj");
         // load_obj(&shape, "objects/spaceship.obj");
         // load_obj(&shape, "objects/city.obj");
         // load_obj(&shape, "objects/planet.obj");
+        load_obj(&shape, "objects/skybox.obj");
         // load_obj(&shape, "objects/scene.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
@@ -207,9 +203,8 @@ const static void expose(XEvent *event) {
     //     depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // } else {
     //     texture_loader();
-    //     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-    //     depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-    //     sleep(2);
+        // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+        // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // }
     pixmapcreate();
     project(shape);
@@ -266,10 +261,10 @@ const static void keypress(XEvent *event) {
             break;
         case 122 : rotate_z(&shape, ANGLE);       /* z */
             break;
-        case 65451 : FPlane += 0.001;             /* + */
+        case 65451 : FPlane += 0.0001;             /* + */
             printf("FPlane.z: %f\n", FPlane);
             break;
-        case 65453 : FPlane -= 0.001;             /* - */
+        case 65453 : FPlane -= 0.0001;             /* - */
             printf("FPlane.z: %f\n", FPlane);
             break;
         case 65450 : dplus += 0.01;             /* * */
@@ -345,7 +340,7 @@ static void rotate_z(Mesh *c, const float angle) {
 }
 static void texture_loader(void) {
 
-    char texture_name[28] = "/home/as/Desktop/stones.bmp";
+    char texture_name[34] = "textures/skybox_cross_texture.bmp";
     BMP_Header bmp_header;
 
     FILE *fp;
@@ -411,9 +406,6 @@ static void project(Mesh c) {
 
     /* Applying Backface culling before we proceed to full frustum clipping. */
     Mesh bf = bfculling(nf);
-
-    /* Triangles must possibly be sorted according to z value and then be passed to rasterizer. */
-    // uf = sort_triangles(&uf);
 
     /* Sending to translation from NDC to Screen Coordinates. */
     viewtoscreen(bf);
@@ -522,18 +514,19 @@ const static void rasterize(const Mesh c) {
                 depth_buffer[y][x] = 0.0;
         }
 
-    float dpl;
+    float dp;
     for (int i = 0; i < c.indexes; i++) {
 
-        dpl = dot_product(LightSC, c.t[i].normal);
+        dp = dot_product(LightSC, c.t[i].normal);
+
         if (DEBUG == 1) {
             drawline(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
             drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
-            filltriangle(pixels, depth_buffer, &c.t[i], dpl, 33, 122, 157);
+            filltriangle(pixels, depth_buffer, &c.t[i], dp, 33, 122, 157);
         } else {
-            textriangle(pixels, depth_buffer, &c.t[i], dpl, texels, texture);
+            textriangle(pixels, depth_buffer, &c.t[i], dp, texels, texture);
         }
     }
 
