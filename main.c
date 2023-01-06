@@ -167,21 +167,12 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&shape, "objects/bigterrain.obj");
-        // load_obj(&shape, "objects/middleterrain.obj");
-        // load_obj(&shape, "objects/smallterrain.obj");
-        // load_obj(&shape, "objects/mountains.obj");
-        // load_obj(&shape, "objects/axis.obj");
-        // load_obj(&shape, "objects/teapot.obj");
-        // load_obj(&shape, "objects/spaceship.obj");
-        // load_obj(&shape, "objects/city.obj");
-        // load_obj(&shape, "objects/planet.obj");
         load_obj(&shape, "objects/skybox.obj");
-        // load_obj(&shape, "objects/scene.obj");
+        // load_obj(&shape, "objects/terrain.obj");
         // cube_create(&shape);
         // triangle_create(&shape);
 
-        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 sm = scale_mat(1000.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
@@ -340,7 +331,8 @@ static void rotate_z(Mesh *c, const float angle) {
 }
 static void texture_loader(void) {
 
-    char texture_name[34] = "textures/skybox_cross_texture.bmp";
+    char texture_name[25] = "textures/skybox_test.bmp";
+    // char texture_name[20] = "textures/stones.bmp";
     BMP_Header bmp_header;
 
     FILE *fp;
