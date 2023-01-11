@@ -17,8 +17,8 @@
     #include "general_functions.h"
 #endif
 
-#ifndef _EXEC_TIME_H
-    #include "exec_time.h"
+#ifndef _LIGHTING_H
+    #include "lighting.h"
 #endif
 
 #ifndef _MATH_H

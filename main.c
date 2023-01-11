@@ -21,7 +21,7 @@
 
 /* Testing */
 #include "header_files/test_shapes.h"
-#include "header_files/exec_time.h"
+// #include "header_files/exec_time.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
@@ -59,14 +59,14 @@ Global camera = {
 };
 
 Global light = {
-    .Pos = { 0.0, 0.0, 500.0, 1.0 },
+    .Pos = { -1.0, -1.0, 500.0, 1.0 },
     .U   = { 1.0, 0.0, 0.0, 0.0 },
     .V   = { 0.0, 1.0, 0.0, 0.0 },
     .N   = { 0.0, 0.0, 1.0, 0.0 },
     .C   = { 1.0, 1.0, 1.0}
 };
 
-Mesh shape = { 0 };
+Mesh scene = { 0 }, shape = { 0 }, test = { 0 };
 Mat4x4 WorldMat = { 0 };
 Mat4x4 PosMat = { 0 };
 
@@ -86,6 +86,7 @@ static float AspectRatio = 0;
 static float FOV = 75.0;
 static float ANGLE = 0.05;
 static float FYaw = 0.1;
+static float Pitch = 0.1;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
 static float dplus = 0.0;
@@ -107,6 +108,8 @@ static void look_left(Global *g, float fyaw);
 static void move_backward(Global *g);
 static void look_right(Global *g, float fyaw);
 static void move_forward(Global *g);
+static void look_up(Global *g, float pitch);
+static void look_down(Global *g, float pitch);
 static void move_left(Global *g);
 static void move_right(Global *g);
 static void move_up(Global *g);
@@ -146,7 +149,8 @@ const static void clientmessage(XEvent *event) {
         printf("WM_DELETE_WINDOW\n");
 
         free(shape.t);
-        
+        free(test.t);
+        free(scene.t);
         if (texture.Height != 0)
             free2darray((void*)texels, texture.Height);
         printf("Reached step 1\n");
@@ -180,12 +184,32 @@ const static void mapnotify(XEvent *event) {
         // load_obj(&shape, "objects/spacedom.obj");
         load_obj(&shape, "objects/terrain.obj");
         // cube_create(&shape);
+        cube_create(&test);
         // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
+        Mat4x4 tm = translation_mat(0.0, 0.2, 500.0);
         PosMat = mxm(sm, tm);
         shape = meshxm(shape, PosMat);
+        test = meshxm(test, PosMat);
+
+        scene.t = malloc(sizeof(Triangle) * shape.indexes);
+        if (scene.t == NULL)
+            exit(EXIT_FAILURE);
+        for (int i = 0; i < shape.indexes; i++) {
+            scene.t[i] = shape.t[i];
+        }
+        scene.indexes = shape.indexes;
+
+        int counter = 0;
+        scene.t = realloc(scene.t, sizeof(Triangle) * (scene.indexes + test.indexes));
+        if (scene.t == NULL)
+            exit(EXIT_FAILURE);
+        for (int i = scene.indexes; i < (scene.indexes + test.indexes); i++) {
+            scene.t[i] = test.t[counter];
+            counter++;
+        }
+        scene.indexes += test.indexes;
 
         /* The pixels and depth buffer creation. */
         texture_loader();
@@ -208,7 +232,7 @@ const static void expose(XEvent *event) {
         // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // }
     pixmapcreate();
-    project(shape);
+    project(scene);
 }
 const static void resizerequest(XEvent *event) {
 
@@ -236,17 +260,21 @@ const static void buttonpress(XEvent *event) {
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
-    // printf("Key Pressed: %ld\n", keysym);
+    printf("Key Pressed: %ld\n", keysym);
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
         case 119 : move_forward(&camera);         /* w */
             break;
-        case 97 : look_left(&camera, FYaw);                /* a */
+        case 97 : look_left(&camera, FYaw);       /* a */
             break;
         case 115 : move_backward(&camera);        /* s */
             break;
-        case 100 : look_right(&camera, FYaw);              /* d */
+        case 100 : look_right(&camera, FYaw);     /* d */
+            break;
+        case 113 : look_up(&camera, Pitch);       /* q */
+            break;
+        case 101 : look_down(&camera, Pitch);     /* e */
             break;
         case 65361 : move_left(&camera);          /* left arrow */
             break;
@@ -293,9 +321,7 @@ const static void keypress(XEvent *event) {
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, float fyaw) {
-    fyaw = -FYaw;
-    fyaw += 0.05;
-    Mat4x4 m = rotate_ymat(fyaw);
+    Mat4x4 m = rotate_ymat(-fyaw);
     g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
 }
@@ -305,7 +331,6 @@ static void move_backward(Global *g) {
 }
 /* Rotates the camera to look right. */
 static void look_right(Global *g, float fyaw) {
-    fyaw -= 0.05;
     Mat4x4 m = rotate_ymat(fyaw);
     g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
@@ -313,6 +338,18 @@ static void look_right(Global *g, float fyaw) {
 static void move_forward(Global *g) {
     Vector tempN = multiply_vec(g->N, 0.1);
     g->Pos = add_vecs(g->Pos, tempN);
+}
+/* Rotates the camera to look Up. */
+static void look_up(Global *g, float pitch) {
+    Mat4x4 m = rotate_xmat(-pitch);
+    g->V = vecxm(g->V, m);
+    g->N = vecxm(g->N, m);
+}
+/* Rotates the camera to look Down. */
+static void look_down(Global *g, float pitch) {
+    Mat4x4 m = rotate_xmat(pitch);
+    g->V = vecxm(g->V, m);
+    g->N = vecxm(g->N, m);
 }
 /* Moves camera position left. */
 static void move_left(Global *g) {
@@ -497,15 +534,15 @@ const static void rasterize(const Mesh c) {
     Global dirlight = light;
     dirlight.Pos = vecxm(light.Pos, WorldMat);
 
-    // if (lightsc.x < -1.0)
-    //     lightsc.x = -1.0;
-    // else if (lightsc.x > 1.0)
-    //     lightsc.x = 1.0;
+    // if (dirlight.Pos.x < -1.0)
+    //     dirlight.Pos.x = -1.0;
+    // else if (dirlight.Pos.x > 1.0)
+    //     dirlight.Pos.x = 1.0;
 
-    // if (lightsc.y < -1.0)
-    //     lightsc.y = -1.0;
-    // else if (lightsc.y > 1.0)
-    //     lightsc.y = 1.0;
+    // if (dirlight.Pos.y < -1.0)
+    //     dirlight.Pos.y = -1.0;
+    // else if (dirlight.Pos.y > 1.0)
+    //     dirlight.Pos.y = 1.0;
 
     if (dirlight.Pos.w <= 0.1)
         dirlight.Pos.w = 0.1;

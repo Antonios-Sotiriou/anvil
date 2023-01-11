@@ -1,6 +1,5 @@
 #include "header_files/draw_functions.h"
-
-const Vector phong(Vector pixpos, const Vector normal, const Global light, const Global camera, const Vector obj_color);
+#include "header_files/exec_time.h"
 
 const void drawline(Pixel **pixels, float x1, float y1, float x2, float y2, const int red, const int green, const int blue) {
 
@@ -72,25 +71,14 @@ const void drawline(Pixel **pixels, float x1, float y1, float x2, float y2, cons
     }
 }
 const void filltriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const Global light, const Global camera, const float red, const float green, const float blue) {
-    Vector temp_v;
-    Textor temp_t;
-
     Vector obj_color = { red / 255.0, green / 255.0, blue / 255.0 };
-
-    /* Sorting Vectors from smaller to larger y. */
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-            if (t->v[i].y <= t->v[j].y) {
-
-                temp_v = t->v[i];
-                temp_t = t->tex[i];
-
-                t->v[i] = t->v[j];
-                t->tex[i] = t->tex[j];
-
-                t->v[j] = temp_v;
-                t->tex[j] = temp_t;
-            }
+    /* Sorting vertices from smaller to higher y Value. */
+    if (t->v[0].y > t->v[1].y)
+        swap(&t->v[0], &t->v[1], sizeof(Vector));
+    if (t->v[0].y > t->v[2].y)
+        swap(&t->v[0], &t->v[2], sizeof(Vector));
+    if (t->v[1].y > t->v[2].y)
+        swap(&t->v[1], &t->v[2], sizeof(Vector));
 
     float winding = winding3D(*t);
 
@@ -131,8 +119,8 @@ const void fillnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
 
             if (depth > depth_buffer[(int)y][(int)x]) {
                 Vector pixpos = { x, y, depth };
-                Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
-                Vector pixcolor = phong(pixpos, xn, light, camera, obj_color);
+                // Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
+                Vector pixcolor = phong(pixpos, t.normal, light, camera, obj_color);
 
                 pixels[(int)y][(int)x].Blue = pixcolor.x;
                 pixels[(int)y][(int)x].Green = pixcolor.y;
@@ -167,13 +155,13 @@ const void fillsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
 
         for (float x = x_start; x < x_end; x += 1.0) {
 
-            float barycentric = (float)(x - x_start) / (float)(x_end - x_start);
+            float barycentric = (x - x_start) / (x_end - x_start);
             depth = (z2 * (1 - barycentric)) + (z1 * barycentric);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
                 Vector pixpos = { x, y, depth };
-                Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
-                Vector pixcolor = phong(pixpos, xn, light, camera, obj_color);
+                // Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
+                Vector pixcolor = phong(pixpos, t.normal, light, camera, obj_color);
 
                 pixels[(int)y][(int)x].Blue = pixcolor.x;
                 pixels[(int)y][(int)x].Green = pixcolor.y;
@@ -183,78 +171,18 @@ const void fillsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
         }
     }
 }
-const Vector phong(Vector pixpos, const Vector normal, const Global light, const Global camera, const Vector obj_color) {
-    float AmbientStrength = 0.1;
-    /* We multiply AmbientStrength with light color. */
-    Vector ambient;
-    ambient.x = light.C.x * AmbientStrength;
-    ambient.y = light.C.y * AmbientStrength;
-    ambient.z = light.C.z * AmbientStrength;
-    /* We multiply then the above result with the object color.  */
-
-    pixpos.x = (pixpos.x - (800 / 2.00)) / (800 / 2.00);
-    pixpos.y = (pixpos.y - (800 / 2.00)) / (800 / 2.00);
-    pixpos.z = 1 / pixpos.z;
-    // printf("pixpos.x: %f\n", (pixpos.x - (800 / 2.00)) / (800 / 2.00));
-    // printf("pixpos.y: %f\n", (pixpos.y - (800 / 2.00)) / (800 / 2.00));
-    // printf("pixpos.z: %f\n", 1 / pixpos.z);
-
-    Vector lightdir = norm_vec(sub_vecs(pixpos, light.Pos));
-    float diff = dot_product(normal, lightdir);
-    if ( diff < 0 )
-        diff = 0;
-
-    Vector diffuse;
-    diffuse.x = light.C.x * diff;
-    diffuse.y = light.C.y * diff;
-    diffuse.z = light.C.z * diff;
-
-    float SpecularStrength = 0.5;
-    Vector viewdir = norm_vec(sub_vecs(camera.Pos, pixpos));
-    /* R = 2 * (N * L) * (N - L)  */
-    Vector reflectdir = multiply_vec(cross_product(cross_product(normal, multiply_vec(lightdir, -1.0)), sub_vecs(normal, lightdir)), 2.00);
-    float spec = powf(dot_product(viewdir, norm_vec(reflectdir)), 32.00);
-
-    Vector specular;
-    specular.x = light.C.x * SpecularStrength * spec;
-    specular.y = light.C.y * SpecularStrength * spec;
-    specular.z = light.C.z * SpecularStrength * spec;
-
-    Vector result;
-    result.x = ceil((((specular.x + diffuse.x + ambient.x) * obj_color.x) * 255.0) + 0.5);
-    result.y = ceil((((specular.y + diffuse.y + ambient.y) * obj_color.y) * 255.0) + 0.5);
-    result.z = ceil((((specular.z + diffuse.z + ambient.z) * obj_color.z) * 255.0) + 0.5);
-
-    return result;
-}
 const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, const Global light, const Global camera, const float winding, const Vector obj_color) {
     float ma, mb, mc, za, zb, zc, depth;
     ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
     mc = (t.v[2].x - t.v[1].x) / (t.v[2].y - t.v[1].y);
 
-    if ( (t.v[1].x < t.v[0].x) && (t.v[1].x < t.v[2].x) ) {
+    if (winding < 0) {
         za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
         zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-    } else if ( (t.v[1].x >= t.v[0].x) && (t.v[1].x >= t.v[2].x) ) {
+    } else {
         za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
         zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-    } else if ( (t.v[1].x < t.v[0].x) && (t.v[1].x >= t.v[2].x) ) {
-        if (winding < 0) {
-            za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-            zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-        } else {
-            za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-            zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-        }
-    } else if ( (t.v[1].x >= t.v[0].x) && (t.v[1].x < t.v[2].x) ) {
-        if (winding < 0) {
-            za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-            zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-        } else {
-            za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-            zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-        }
     }
     zc = (t.v[2].z - t.v[1].z) / (t.v[2].y - t.v[1].y);
 
@@ -272,9 +200,6 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, c
         float z0 = (za * (y - y_start)) + t.v[0].z;
         float z1 = (zb * (y - y_start)) + t.v[0].z;
 
-        // float barycentric = (float)(y - y_start) / (float)(y_end1 - y_start);
-        // Vector yn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
-
         for (float x = x_start; x < x_end; x += 1.0) {
 
             float barycentric = (x - x_start) / (x_end - x_start);
@@ -282,8 +207,8 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, c
 
             if (depth > depth_buffer[(int)y][(int)x]) {
                 Vector pixpos = { x, y, depth };
-                Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
-                Vector pixcolor = phong(pixpos, xn, light, camera, obj_color);
+                // Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
+                Vector pixcolor = phong(pixpos, t.normal, light, camera, obj_color);
 
                 pixels[(int)y][(int)x].Blue = pixcolor.x;
                 pixels[(int)y][(int)x].Green = pixcolor.y;
@@ -309,9 +234,6 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, c
             z1 = (zc * (y - y_end1)) + t.v[1].z;
         }
 
-        // float barycentric = (float)(y - y_start) / (float)(y_end1 - y_start);
-        // Vector yn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
-
         for (float x = x_start; x < x_end; x += 1.0) {
 
             float barycentric = (x - x_start) / (x_end - x_start);
@@ -319,8 +241,8 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, c
 
             if (depth > depth_buffer[(int)y][(int)x]) {
                 Vector pixpos = { x, y, depth };
-                Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
-                Vector pixcolor = phong(pixpos, xn, light, camera, obj_color);
+                // Vector xn = add_vecs(t.normal, multiply_vec(sub_vecs(t.normal, t.normal), barycentric));
+                Vector pixcolor = phong(pixpos, t.normal, light, camera, obj_color);
 
                 pixels[(int)y][(int)x].Blue = pixcolor.x;
                 pixels[(int)y][(int)x].Green = pixcolor.y;
