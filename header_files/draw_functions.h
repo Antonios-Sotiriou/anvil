@@ -17,6 +17,10 @@
     #include "general_functions.h"
 #endif
 
+#ifndef _EXEC_TIME_H
+    #include "exec_time.h"
+#endif
+
 #ifndef _MATH_H
     #include <math.h>
 #endif
@@ -30,10 +34,12 @@
 #endif
 
 const void drawline(Pixel **buffer, float x1, float y1, float x2, float y2, const int red, const int green, const int blue);
-const void filltriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const float light, const int red, const int green, const int blue);
-const void fillnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, const int red, const int green, const int blue);
-const void fillsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, const int red, const int green, const int blue);
-const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, const int red, const int green, const int blue);
+
+const void filltriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const Global light, const Global camera, const float red, const float green, const float blue);
+const void fillnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, const Global light, const Global camera, const float winding, const Vector obj_color);
+const void fillsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, const Global light, const Global camera, const float winding, const Vector obj_color);
+const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, const Global light, const Global camera, const float winding, const Vector color);
+
 const void textriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const float light, Pixel **texels, const BMP_Info texture);
 const void texnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width);
 const void texsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width);

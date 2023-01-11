@@ -36,6 +36,11 @@ typedef struct {
     float m[4][4];
 } Mat4x4;
 
+typedef struct {
+    /* structure for global objets that need their own coordinate system. C here can be used for normalized Color. */
+    Vector Pos, U, V, N, C;
+} Global;
+
 /* Pixels Struct for rgb values 0 - 65535 */
 typedef struct {
     unsigned char Red;

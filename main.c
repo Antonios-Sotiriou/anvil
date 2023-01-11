@@ -21,6 +21,7 @@
 
 /* Testing */
 #include "header_files/test_shapes.h"
+#include "header_files/exec_time.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
@@ -50,12 +51,20 @@ Pixel **pixels;
 float **depth_buffer;
 float **shadow_buffer;
 
-Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
-        U        =   { 1.0, 0.0, 0.0, 1.0 },
-        V        =   { 0.0, 1.0, 0.0, 1.0 },
-        N        =   { 0.0, 0.0, 1.0, 1.0 };
+Global camera = {
+    .Pos = { 0.0, 0.0, 498.0, 0.0 },
+    .U   = { 1.0, 0.0, 0.0, 0.0 },
+    .V   = { 0.0, 1.0, 0.0, 0.0 },
+    .N   = { 0.0, 0.0, 1.0, 0.0 }
+};
 
-Vector LightSC   =   { 0.0, 0.0, 1.0, 1.0 };
+Global light = {
+    .Pos = { 0.0, 0.0, 500.0, 1.0 },
+    .U   = { 1.0, 0.0, 0.0, 0.0 },
+    .V   = { 0.0, 1.0, 0.0, 0.0 },
+    .N   = { 0.0, 0.0, 1.0, 0.0 },
+    .C   = { 1.0, 1.0, 1.0}
+};
 
 Mesh shape = { 0 };
 Mat4x4 WorldMat = { 0 };
@@ -66,7 +75,7 @@ Mat4x4 PosMat = { 0 };
 /* Magnitude of a Vector with 2 points |v| =√((x2 - x1)2 + (y2 - y1)2) */
 /* float t = (Point0 - X0) / (X1 - X0) */
 /* depth = (Point0 * (1 - t)) + (Point1 * t); */
-/* depth = z1 + t * (z0 - z1) */
+/* depth = z1 + t * (z1 - z0) */
 
 /* Project Global Variables. */
 static int MAPCOUNT = 0;
@@ -94,14 +103,14 @@ const static void keypress(XEvent *event);
 const static void signal_handler(const int sig);
 
 /* Moving functions */
-static void look_left(float fyaw);
-static void move_backward(Vector *v);
-static void look_right(float fyaw);
-static void move_forward(Vector *v);
-static void move_left(Vector *v);
-static void move_right(Vector *v);
-static void move_up(Vector *v);
-static void move_down(Vector *v);
+static void look_left(Global *g, float fyaw);
+static void move_backward(Global *g);
+static void look_right(Global *g, float fyaw);
+static void move_forward(Global *g);
+static void move_left(Global *g);
+static void move_right(Global *g);
+static void move_up(Global *g);
+static void move_down(Global *g);
 static void rotate_x(Mesh *c, const float angle);
 static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
@@ -169,9 +178,9 @@ const static void mapnotify(XEvent *event) {
     } else {
         // load_obj(&shape, "objects/skybox.obj");
         // load_obj(&shape, "objects/spacedom.obj");
-        // load_obj(&shape, "objects/terrain.obj");
+        load_obj(&shape, "objects/terrain.obj");
         // cube_create(&shape);
-        triangle_create(&shape);
+        // triangle_create(&shape);
 
         Mat4x4 sm = scale_mat(1.0);
         Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
@@ -218,10 +227,10 @@ const static void configurenotify(XEvent *event) {
 const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
-    // printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
-    // printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
-    printf("X: %d\n", event->xbutton.x);
-    printf("Y: %d\n", event->xbutton.y);
+    printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
+    printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
+    // printf("X: %d\n", event->xbutton.x);
+    // printf("Y: %d\n", event->xbutton.y);
 }
 
 const static void keypress(XEvent *event) {
@@ -231,21 +240,21 @@ const static void keypress(XEvent *event) {
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
-        case 119 : move_forward(&Camera);         /* w */
+        case 119 : move_forward(&camera);         /* w */
             break;
-        case 97 : look_left(FYaw);                /* a */
+        case 97 : look_left(&camera, FYaw);                /* a */
             break;
-        case 115 : move_backward(&Camera);        /* s */
+        case 115 : move_backward(&camera);        /* s */
             break;
-        case 100 : look_right(FYaw);              /* d */
+        case 100 : look_right(&camera, FYaw);              /* d */
             break;
-        case 65361 : move_left(&Camera);          /* left arrow */
+        case 65361 : move_left(&camera);          /* left arrow */
             break;
-        case 65363 : move_right(&Camera);         /* right arrow */
+        case 65363 : move_right(&camera);         /* right arrow */
             break;
-        case 65362 : move_up(&Camera);            /* up arror */
+        case 65362 : move_up(&camera);            /* up arror */
             break;
-        case 65364 : move_down(&Camera);          /* down arrow */
+        case 65364 : move_down(&camera);          /* down arrow */
             break;
         case 120 : rotate_x(&shape, ANGLE);       /* x */
             break;
@@ -265,9 +274,17 @@ const static void keypress(XEvent *event) {
         case 65455 : dplus -= 0.01;             /* / */
             printf("NPlane.z: %f\n", dplus);
             break;
-        case 112 : LightSC.z += 10.0;                   /* Dot product increase */
+        case 65462 : light.Pos.x += 0.01;                   /* Adjust Light Source */
             break;
-        case 246 : LightSC.z -= 10.0;                   /* Dot product decrease */
+        case 65460 : light.Pos.x -= 0.01;                   /* Adjust Light Source */
+            break;
+        case 65458 : light.Pos.y += 0.01;                   /* Adjust Light Source */
+            break;
+        case 65464 : light.Pos.y -= 0.01;                   /* Adjust Light Source */
+            break;
+        case 112 : light.Pos.z += 1.0;                     /* Adjust Light Source */
+            break;
+        case 246 : light.Pos.z -= 1.0;                     /* Adjust Light Source */
             break;
         default :
             return;
@@ -275,45 +292,45 @@ const static void keypress(XEvent *event) {
     project(shape);
 }
 /* Rotates the camera to look left. */
-static void look_left(float fyaw) {
+static void look_left(Global *g, float fyaw) {
     fyaw = -FYaw;
     fyaw += 0.05;
     Mat4x4 m = rotate_ymat(fyaw);
-    U = vecxm(U, m);
-    N = vecxm(N, m);
+    g->U = vecxm(g->U, m);
+    g->N = vecxm(g->N, m);
 }
-static void move_backward(Vector *v) {
-    Vector tempN = multiply_vec(N, 0.1);
-    Camera = sub_vecs(Camera, tempN);
+static void move_backward(Global *g) {
+    Vector tempN = multiply_vec(g->N, 0.1);
+    g->Pos = sub_vecs(g->Pos, tempN);
 }
 /* Rotates the camera to look right. */
-static void look_right(float fyaw) {
+static void look_right(Global *g, float fyaw) {
     fyaw -= 0.05;
     Mat4x4 m = rotate_ymat(fyaw);
-    U = vecxm(U, m);
-    N = vecxm(N, m);
+    g->U = vecxm(g->U, m);
+    g->N = vecxm(g->N, m);
 }
-static void move_forward(Vector *v) {
-    Vector tempN = multiply_vec(N, 0.1);
-    Camera = add_vecs(Camera, tempN);
+static void move_forward(Global *g) {
+    Vector tempN = multiply_vec(g->N, 0.1);
+    g->Pos = add_vecs(g->Pos, tempN);
 }
 /* Moves camera position left. */
-static void move_left(Vector *v) {
-    Vector tempU = multiply_vec(U, 0.1);
-    Camera = sub_vecs(Camera, tempU);
+static void move_left(Global *g) {
+    Vector tempU = multiply_vec(g->U, 0.1);
+    g->Pos = sub_vecs(g->Pos, tempU);
 }
 /* Moves camera position right. */
-static void move_right(Vector *v) {
-    Vector tempU = multiply_vec(U, 0.1);
-    Camera = add_vecs(Camera, tempU);
+static void move_right(Global *g) {
+    Vector tempU = multiply_vec(g->U, 0.1);
+    g->Pos = add_vecs(g->Pos, tempU);
 }
 /* Moves camera position Up. */
-static void move_up(Vector *v) {
-    v->y -= 0.1;
+static void move_up(Global *g) {
+    g->Pos.y -= 0.1;
 }
 /* Moves camera position Down. */
-static void move_down(Vector *v) {
-    v->y += 0.1;
+static void move_down(Global *g) {
+    g->Pos.y += 0.1;
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -333,8 +350,8 @@ static void rotate_z(Mesh *c, const float angle) {
 static void texture_loader(void) {
 
     // char texture_name[28] = "textures/skybox_texture.bmp";
-    char texture_name[31] = "textures/spacedom_texture.bmp";
-    // char texture_name[20] = "textures/stones.bmp";
+    // char texture_name[31] = "textures/spacedom_texture.bmp";
+    char texture_name[20] = "textures/stones.bmp";
     BMP_Header bmp_header;
 
     FILE *fp;
@@ -349,35 +366,19 @@ static void texture_loader(void) {
         fseek(fp, (14 + texture.Size), SEEK_SET);
 
         texels = create2darray((void*)texels, sizeof(Pixel), texture.Height, texture.Width);
-        
-        // char image[(texture.Height * texture.Width) * 4];
 
         for (int y = (texture.Height - 1); y >= 0; y--) {
             for (int x = 0; x < texture.Width; x++) {
                 fread(&texels[y][x], sizeof(Pixel), 1, fp);
             }
         }
-
-    //     int texels_inc = 0;
-    //     for (int y = 0; y < texture.Height; y++)
-    //         for (int x = 0; x < texture.Width; x++) {
-
-    //             image[texels_inc] = texels[y][x].Red;
-    //             image[texels_inc + 1] = texels[y][x].Green;
-    //             image[texels_inc + 2] = texels[y][x].Blue;
-    //             texels_inc += 4;
-    //         }
-
-    //     XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, texture.Width, texture.Height, 32, (texture.Width * 4));
-    //     XPutImage(displ, win, gc, im, 0, 0, 100, 100, texture.Width, texture.Height);
-    //     XFree(im);
     }
     fclose(fp);
 }
 /* Starts the Projection Pipeline. */
 static void project(Mesh c) {
 
-    Mat4x4 matCamera = camera_mat(Camera, U, V, N);
+    Mat4x4 matCamera = camera_mat(camera.Pos, camera.U, camera.V, camera.N);
 
     // Make view matrix from camera
     Mat4x4 reView = inverse_mat(matCamera);
@@ -430,7 +431,7 @@ const static Mesh bfculling(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
         cp = triangle_cp(c.t[i]);
-        dpc = dot_product(norm_vec(Camera), norm_vec(cp));
+        dpc = dot_product(norm_vec(camera.Pos), norm_vec(cp));
 
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -493,6 +494,31 @@ const static void viewtoscreen(const Mesh c) {
 const static void rasterize(const Mesh c) {
 
     char image_data[wa.width * wa.height * 4];
+    Global dirlight = light;
+    dirlight.Pos = vecxm(light.Pos, WorldMat);
+
+    // if (lightsc.x < -1.0)
+    //     lightsc.x = -1.0;
+    // else if (lightsc.x > 1.0)
+    //     lightsc.x = 1.0;
+
+    // if (lightsc.y < -1.0)
+    //     lightsc.y = -1.0;
+    // else if (lightsc.y > 1.0)
+    //     lightsc.y = 1.0;
+
+    if (dirlight.Pos.w <= 0.1)
+        dirlight.Pos.w = 0.1;
+
+    if (dirlight.Pos.z <= 0.1)
+        dirlight.Pos.z = 0.1;
+
+    if (dirlight.Pos.w > 0.00) {
+        dirlight.Pos.x /= dirlight.Pos.w;
+        dirlight.Pos.y /= dirlight.Pos.w;
+        dirlight.Pos.z /= dirlight.Pos.w;
+    }
+
     /* Initializing the frame buffer to depth of 0 and reseting the Pixels. */
     for (int y = 0; y < wa.height; y++)
         for (int x = 0; x < wa.width; x++) {
@@ -508,19 +534,16 @@ const static void rasterize(const Mesh c) {
                 depth_buffer[y][x] = 0.0;
         }
 
-    float dp;
     for (int i = 0; i < c.indexes; i++) {
-
-        dp = dot_product(LightSC, c.t[i].normal);
 
         if (DEBUG == 1) {
             drawline(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
             drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
-            filltriangle(pixels, depth_buffer, &c.t[i], dp, 33, 122, 157);
+            filltriangle(pixels, depth_buffer, &c.t[i], dirlight,  camera, 33, 122, 157);
         } else {
-            textriangle(pixels, depth_buffer, &c.t[i], dp, texels, texture);
+            textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, texels, texture);
         }
     }
 
@@ -545,6 +568,13 @@ const static void rasterize(const Mesh c) {
     XFree(image);
 
     pixmapdisplay();
+
+    dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
+    dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
+    printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
+
+    XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
+
 }
 static KeySym get_keysym(XEvent *event) {
 
