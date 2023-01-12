@@ -2,7 +2,7 @@
 
 Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
 
-    Mesh r;
+    Mesh r = c;
     r.t = malloc(sizeof(Triangle) * c.indexes);
     int index = 0;
     int dynamic_inc = 1;

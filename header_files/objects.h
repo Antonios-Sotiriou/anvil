@@ -7,6 +7,13 @@
 
 enum { AVector, BVector, CVector, LastVector};
 
+/* Pixels Struct for rgb values 0 - 65535 */
+typedef struct {
+    unsigned char Red;
+    unsigned char Green;
+    unsigned char Blue;
+} Pixel;
+
 /* World Vector */
 typedef struct {
     float x, y, z, w;
@@ -29,7 +36,17 @@ typedef struct {
 typedef struct {
     Triangle *t;
     int indexes;
+    char texture_file[50];
+    signed int texture_height;
+    signed int texture_width;
+    Pixel **texels;
 } Mesh;
+
+/* World scene */
+typedef struct {
+    Mesh *m;
+    int indexes;
+} Scene;
 
 /* Initialization matrix */
 typedef struct {
@@ -40,13 +57,6 @@ typedef struct {
     /* structure for global objets that need their own coordinate system. C here can be used for normalized Color. */
     Vector Pos, U, V, N, C;
 } Global;
-
-/* Pixels Struct for rgb values 0 - 65535 */
-typedef struct {
-    unsigned char Red;
-    unsigned char Green;
-    unsigned char Blue;
-} Pixel;
 
 #endif /* _OBJECTS_H */
 

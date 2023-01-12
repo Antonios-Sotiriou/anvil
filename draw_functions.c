@@ -72,6 +72,23 @@ const void drawline(Pixel **pixels, float x1, float y1, float x2, float y2, cons
 }
 const void filltriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const Global light, const Global camera, const float red, const float green, const float blue) {
     Vector obj_color = { red / 255.0, green / 255.0, blue / 255.0 };
+    // Vector temp_v;
+    // Textor temp_t;
+
+    // /* Sorting Vectors from smaller to larger y. */
+    // for (int i = 0; i < 3; i++)
+    //     for (int j = 0; j < 3; j++)
+    //         if (t->v[i].y <= t->v[j].y) {
+
+    //             temp_v = t->v[i];
+    //             temp_t = t->tex[i];
+
+    //             t->v[i] = t->v[j];
+    //             t->tex[i] = t->tex[j];
+
+    //             t->v[j] = temp_v;
+    //             t->tex[j] = temp_t;
+    //         }
     /* Sorting vertices from smaller to higher y Value. */
     if (t->v[0].y > t->v[1].y)
         swap(&t->v[0], &t->v[1], sizeof(Vector));
@@ -252,11 +269,9 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, c
         }
     }
 }
-const void textriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const float light, Pixel **texels, const BMP_Info texture) {
+const void textriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const float light, Pixel **texels, const int tex_height, const int tex_width) {
     Vector temp_v;
     Textor temp_t;
-    const int tex_height = texture.Height - 1;
-    const int tex_width = texture.Width - 1;
 
     /* Sorting Vectors from smaller to larger y. */
     for (int i = 0; i < 3; i++)

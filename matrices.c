@@ -68,7 +68,7 @@ const Mat4x4 projection_mat(const float fov, const float aspectratio) {
 /* Multiplies a Mesh c with the given Matrix and returns a new Mesh, leaving the original unmodified. */
 const Mesh meshxm(const Mesh c, const Mat4x4 m) {
 
-    Mesh r = { 0 };
+    Mesh r = c;
     
     r.t = malloc(sizeof(Triangle) * c.indexes);
     if (!r.t)

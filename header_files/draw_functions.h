@@ -40,7 +40,7 @@ const void fillnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
 const void fillsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, const Global light, const Global camera, const float winding, const Vector obj_color);
 const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, const Global light, const Global camera, const float winding, const Vector color);
 
-const void textriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const float light, Pixel **texels, const BMP_Info texture);
+const void textriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const float light, Pixel **texels, const int tex_height, const int tex_width);
 const void texnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width);
 const void texsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width);
 const void texgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width);

@@ -21,7 +21,7 @@
 
 /* Testing */
 #include "header_files/test_shapes.h"
-// #include "header_files/exec_time.h"
+#include "header_files/exec_time.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 
@@ -45,8 +45,6 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
 /* Project Global Structures. */
-BMP_Info texture;
-Pixel **texels;
 Pixel **pixels;
 float **depth_buffer;
 float **shadow_buffer;
@@ -66,7 +64,8 @@ Global light = {
     .C   = { 1.0, 1.0, 1.0}
 };
 
-Mesh scene = { 0 }, shape = { 0 }, test = { 0 };
+Scene scene = { 0 };
+Mesh shape = { 0 }, test = { 0 };
 Mat4x4 WorldMat = { 0 };
 Mat4x4 PosMat = { 0 };
 
@@ -119,12 +118,18 @@ static void rotate_y(Mesh *c, const float angle);
 static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
-static void texture_loader(void);
-static void project(Mesh c);
-static void ppdiv(Mesh *c);
+const static void init_meshes(void);
+static void load_texture(Mesh *c);
+const static void create_scene(Scene *s);
+const static void release_scene(Scene *s);
+const static void project(Mesh c);
+const static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
+const static Global adjust_light(const Global l);
 const static void rasterize(const Mesh sc);
+const static void display_scene(void);
+const static void clear_buffers(const int height, const int width);
 
 /* Xlib relative functions and event dispatcher. */
 static KeySym get_keysym(XEvent *event);
@@ -148,11 +153,8 @@ const static void clientmessage(XEvent *event) {
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW\n");
 
-        free(shape.t);
-        free(test.t);
-        free(scene.t);
-        if (texture.Height != 0)
-            free2darray((void*)texels, texture.Height);
+        release_scene(&scene);
+
         printf("Reached step 1\n");
         free2darray((void*)pixels, wa.height);
         printf("Reached step 2\n");
@@ -172,6 +174,9 @@ const static void reparentnotify(XEvent *event) {
     printf("reparentnotify event received\n");
     XGetWindowAttributes(displ, win, &wa);
     AspectRatio = ((float)wa.width / (float)wa.height);
+    /* The pixels and depth buffer creation. */
+    pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
 }
 const static void mapnotify(XEvent *event) {
 
@@ -180,42 +185,7 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&shape, "objects/skybox.obj");
-        // load_obj(&shape, "objects/spacedom.obj");
-        load_obj(&shape, "objects/terrain.obj");
-        // cube_create(&shape);
-        cube_create(&test);
-        // triangle_create(&shape);
-
-        Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.2, 500.0);
-        PosMat = mxm(sm, tm);
-        shape = meshxm(shape, PosMat);
-        test = meshxm(test, PosMat);
-
-        scene.t = malloc(sizeof(Triangle) * shape.indexes);
-        if (scene.t == NULL)
-            exit(EXIT_FAILURE);
-        for (int i = 0; i < shape.indexes; i++) {
-            scene.t[i] = shape.t[i];
-        }
-        scene.indexes = shape.indexes;
-
-        int counter = 0;
-        scene.t = realloc(scene.t, sizeof(Triangle) * (scene.indexes + test.indexes));
-        if (scene.t == NULL)
-            exit(EXIT_FAILURE);
-        for (int i = scene.indexes; i < (scene.indexes + test.indexes); i++) {
-            scene.t[i] = test.t[counter];
-            counter++;
-        }
-        scene.indexes += test.indexes;
-
-        /* The pixels and depth buffer creation. */
-        texture_loader();
-        pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-
+        init_meshes();
         MAPCOUNT = 1;
     }
 }
@@ -227,12 +197,12 @@ const static void expose(XEvent *event) {
     //     pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
     //     depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // } else {
-    //     texture_loader();
+    //     load_texture();
         // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
         // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // }
     pixmapcreate();
-    project(scene);
+    create_scene(&scene);
 }
 const static void resizerequest(XEvent *event) {
 
@@ -260,7 +230,7 @@ const static void buttonpress(XEvent *event) {
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
-    printf("Key Pressed: %ld\n", keysym);
+    // printf("Key Pressed: %ld\n", keysym);
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
@@ -317,7 +287,7 @@ const static void keypress(XEvent *event) {
         default :
             return;
     }
-    project(shape);
+    create_scene(&scene);
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, float fyaw) {
@@ -384,36 +354,92 @@ static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(shape, m);
 }
-static void texture_loader(void) {
+static void load_texture(Mesh *c) {
 
-    // char texture_name[28] = "textures/skybox_texture.bmp";
-    // char texture_name[31] = "textures/spacedom_texture.bmp";
-    char texture_name[20] = "textures/stones.bmp";
     BMP_Header bmp_header;
+    BMP_Info texture;
 
     FILE *fp;
-    fp = fopen(texture_name, "rb");
+    fp = fopen(c->texture_file, "rb");
     if (fp == NULL){
         fclose(fp);
-        fprintf(stderr, "Could not open file < %s >! texture_loader() -- fopen().\n", texture_name);
+        fprintf(stderr, "Could not open file < %s >! load_texture() -- fopen().\n", c->texture_file);
     } else {
         fread(&bmp_header, sizeof(BMP_Header), 1, fp);
         fseek(fp, 14, SEEK_SET);
         fread(&texture, sizeof(BMP_Info), 1, fp);
         fseek(fp, (14 + texture.Size), SEEK_SET);
 
-        texels = create2darray((void*)texels, sizeof(Pixel), texture.Height, texture.Width);
+        c->texture_height = texture.Height;
+        c->texture_width = texture.Width;
+        c->texels = create2darray((void*)c->texels, sizeof(Pixel), texture.Height, texture.Width);
 
         for (int y = (texture.Height - 1); y >= 0; y--) {
             for (int x = 0; x < texture.Width; x++) {
-                fread(&texels[y][x], sizeof(Pixel), 1, fp);
+                fread(&c->texels[y][x], sizeof(Pixel), 1, fp);
             }
         }
     }
     fclose(fp);
 }
+const static void init_meshes(void) {
+        // load_obj(&shape, "objects/skybox.obj");
+        // load_obj(&shape, "objects/spacedom.obj");
+        load_obj(&shape, "objects/terrain.obj");
+        // shape.texture_file = "textures/stones.bmp";
+        memcpy(shape.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+        load_texture(&shape);
+        // cube_create(&shape);
+        cube_create(&test);
+        // triangle_create(&shape);
+        // triangle_create(&test);
+        // test.texture_file = "textures/triangles.bmp";
+        memcpy(test.texture_file, "textures/triangles.bmp", sizeof(char) * 23);
+        load_texture(&test);
+
+        Mat4x4 sm = scale_mat(1.0);
+        Mat4x4 tm = translation_mat(0.0, 0.2, 500.0);
+        PosMat = mxm(sm, tm);
+        shape = meshxm(shape, PosMat);
+        test = meshxm(test, PosMat);
+}
+/* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
+const static void create_scene(Scene *s) {
+    s->m = malloc(sizeof(Mesh) * 2);
+    s->indexes = 2;
+    s->m[0] = shape;
+    s->m[1] = test;
+
+    for (int i = 0; i < s->indexes; i++)
+        project(s->m[i]);
+
+    display_scene();
+}
+const static void release_scene(Scene *s) {
+    for (int i = 0; i < s->indexes; i++) {
+        free(s->m[i].t);
+        free2darray((void*)s->m[i].texels, s->m[i].texture_height);
+    }
+    free(s->m);
+}
+const static void clear_buffers(const int height, const int width) {
+    /* Initializing the given buffer to depth of 0 and reseting the Pixels. */
+    for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++) {
+
+            if (pixels[y][x].Red != 0)
+                pixels[y][x].Red = 0;
+            if (pixels[y][x].Green != 0)
+                pixels[y][x].Green = 0;
+            if (pixels[y][x].Blue != 0)
+                pixels[y][x].Blue = 0;
+
+            if (depth_buffer[y][x] != 0.0)
+                depth_buffer[y][x] = 0.0;
+        }
+}
 /* Starts the Projection Pipeline. */
-static void project(Mesh c) {
+const static void project(Mesh c) {
 
     Mat4x4 matCamera = camera_mat(camera.Pos, camera.U, camera.V, camera.N);
 
@@ -443,7 +469,7 @@ static void project(Mesh c) {
     viewtoscreen(bf);
 }
 /* Perspective division. */
-static void ppdiv(Mesh *c) {
+const static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
@@ -457,7 +483,7 @@ static void ppdiv(Mesh *c) {
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
-    Mesh r = { 0 };
+    Mesh r = c;
     Vector cp;
     float dpc;
     int counter = 1;
@@ -527,49 +553,26 @@ const static void viewtoscreen(const Mesh c) {
     rasterize(uf);
     free(uf.t);
 }
+const static Global adjust_light(const Global l) {
+    Global r = l;
+    r.Pos = vecxm(l.Pos, WorldMat);
+
+    if (r.Pos.w <= 0.1)
+        r.Pos.w = 0.1;
+
+    if (r.Pos.z <= 0.1)
+        r.Pos.z = 0.1;
+
+    r.Pos.x /= r.Pos.w;
+    r.Pos.y /= r.Pos.w;
+    r.Pos.z /= r.Pos.w;
+
+    return r;
+}
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
-
-    char image_data[wa.width * wa.height * 4];
-    Global dirlight = light;
-    dirlight.Pos = vecxm(light.Pos, WorldMat);
-
-    // if (dirlight.Pos.x < -1.0)
-    //     dirlight.Pos.x = -1.0;
-    // else if (dirlight.Pos.x > 1.0)
-    //     dirlight.Pos.x = 1.0;
-
-    // if (dirlight.Pos.y < -1.0)
-    //     dirlight.Pos.y = -1.0;
-    // else if (dirlight.Pos.y > 1.0)
-    //     dirlight.Pos.y = 1.0;
-
-    if (dirlight.Pos.w <= 0.1)
-        dirlight.Pos.w = 0.1;
-
-    if (dirlight.Pos.z <= 0.1)
-        dirlight.Pos.z = 0.1;
-
-    if (dirlight.Pos.w > 0.00) {
-        dirlight.Pos.x /= dirlight.Pos.w;
-        dirlight.Pos.y /= dirlight.Pos.w;
-        dirlight.Pos.z /= dirlight.Pos.w;
-    }
-
-    /* Initializing the frame buffer to depth of 0 and reseting the Pixels. */
-    for (int y = 0; y < wa.height; y++)
-        for (int x = 0; x < wa.width; x++) {
-
-            if (pixels[y][x].Red != 0)
-                pixels[y][x].Red = 0;
-            if (pixels[y][x].Green != 0)
-                pixels[y][x].Green = 0;
-            if (pixels[y][x].Blue != 0)
-                pixels[y][x].Blue = 0;
-
-            if (depth_buffer[y][x] != 0.0)
-                depth_buffer[y][x] = 0.0;
-        }
+    
+    Global dirlight = adjust_light(light);
 
     for (int i = 0; i < c.indexes; i++) {
 
@@ -578,11 +581,24 @@ const static void rasterize(const Mesh c) {
             drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
+            // clock_t start_time = start();
             filltriangle(pixels, depth_buffer, &c.t[i], dirlight,  camera, 33, 122, 157);
+            // end(start_time);
         } else {
-            textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, texels, texture);
+            textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
         }
     }
+
+    dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
+    dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
+    // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
+
+    XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
+}
+/* Writes the final Pixel values on screen. */
+const static void display_scene(void) {
+
+    char image_data[wa.width * wa.height * 4];
 
     int height_inc = 0;
     int width_inc = 0;
@@ -605,13 +621,7 @@ const static void rasterize(const Mesh c) {
     XFree(image);
 
     pixmapdisplay();
-
-    dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
-    dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
-    printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
-
-    XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
-
+    clear_buffers(wa.height, wa.width);
 }
 static KeySym get_keysym(XEvent *event) {
 
