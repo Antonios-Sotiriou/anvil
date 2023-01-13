@@ -50,10 +50,10 @@ float **depth_buffer;
 float **shadow_buffer;
 
 Global camera = {
-    .Pos = { 0.0, 0.0, 498.0, 0.0 },
-    .U   = { 1.0, 0.0, 0.0, 0.0 },
-    .V   = { 0.0, 1.0, 0.0, 0.0 },
-    .N   = { 0.0, 0.0, 1.0, 0.0 }
+    .Pos = { 0.0, 0.0, 498.0, 1.0 },
+    .U   = { 1.0, 0.0, 0.0, 1.0 },
+    .V   = { 0.0, 1.0, 0.0, 1.0 },
+    .N   = { 0.0, 0.0, 1.0, 1.0 }
 };
 
 Global light = {
@@ -82,14 +82,16 @@ static int RUNNING = 1;
 static int HALFW = 0; // Half width of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static int HALFH = 0; // Half height of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static float AspectRatio = 0;
-static float FOV = 75.0;
-static float ANGLE = 0.05;
-static float FYaw = 0.1;
-static float Pitch = 0.1;
+static float FOV = 45.0;
+static float Angle = 0.05;
+static float Yaw = 90.0;
+// static float Pitch = 90.0;
+// static float Roll = 90.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
 static float dplus = 0.0;
 static int DEBUG = 0;
+static float cvar = 0.01;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -230,21 +232,21 @@ const static void buttonpress(XEvent *event) {
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
-    // printf("Key Pressed: %ld\n", keysym);
+    printf("Key Pressed: %ld\n", keysym);
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
         case 119 : move_forward(&camera);         /* w */
             break;
-        case 97 : look_left(&camera, FYaw);       /* a */
+        case 97 : look_left(&camera, Angle);       /* a */
             break;
         case 115 : move_backward(&camera);        /* s */
             break;
-        case 100 : look_right(&camera, FYaw);     /* d */
+        case 100 : look_right(&camera, Angle);     /* d */
             break;
-        case 113 : look_up(&camera, Pitch);       /* q */
+        case 113 : look_up(&camera, Angle);       /* q */
             break;
-        case 101 : look_down(&camera, Pitch);     /* e */
+        case 101 : look_down(&camera, Angle);     /* e */
             break;
         case 65361 : move_left(&camera);          /* left arrow */
             break;
@@ -254,11 +256,27 @@ const static void keypress(XEvent *event) {
             break;
         case 65364 : move_down(&camera);          /* down arrow */
             break;
-        case 120 : rotate_x(&shape, ANGLE);       /* x */
+        case 120 : rotate_x(&shape, Angle);       /* x */
             break;
-        case 121 : rotate_y(&shape, ANGLE);       /* y */
+        case 121 : rotate_y(&shape, Angle);       /* y */
             break;
-        case 122 : rotate_z(&shape, ANGLE);       /* z */
+        case 122 : rotate_z(&shape, Angle);       /* z */
+            break;
+        case 112 : camera.Pos.x += cvar;         /* p */
+            camera.Pos.y += cvar;
+            camera.Pos.z += cvar;
+            break;
+        case 117 : camera.U.x += cvar;          /* u */
+            camera.U.y += cvar;
+            camera.U.z += cvar;
+            break;
+        case 118 : camera.V.x += cvar;          /* v */
+            camera.V.y += cvar;
+            camera.V.z += cvar;
+            break;
+        case 110 : camera.N.x += cvar;          /* n */
+            camera.N.y += cvar;
+            camera.N.z += cvar;
             break;
         case 65451 : FPlane += 0.0001;             /* + */
             printf("FPlane.z: %f\n", FPlane);
@@ -280,9 +298,9 @@ const static void keypress(XEvent *event) {
             break;
         case 65464 : light.Pos.y -= 0.01;                   /* Adjust Light Source */
             break;
-        case 112 : light.Pos.z += 1.0;                     /* Adjust Light Source */
+        case 43 : light.Pos.z += 1.0;                     /* Adjust Light Source */
             break;
-        case 246 : light.Pos.z -= 1.0;                     /* Adjust Light Source */
+        case 45 : light.Pos.z -= 1.0;                     /* Adjust Light Source */
             break;
         default :
             return;
@@ -290,54 +308,68 @@ const static void keypress(XEvent *event) {
     create_scene(&scene);
 }
 /* Rotates the camera to look left. */
-static void look_left(Global *g, float fyaw) {
-    Mat4x4 m = rotate_ymat(-fyaw);
+static void look_left(Global *g, float angle) {
+    Yaw -= 1.0;
+    printf("Yaw:%f\n", Yaw);
+    Mat4x4 m = rotate_ymat(-angle);
     g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
+    log_global(camera);
 }
 static void move_backward(Global *g) {
     Vector tempN = multiply_vec(g->N, 0.1);
     g->Pos = sub_vecs(g->Pos, tempN);
+    log_global(camera);
 }
 /* Rotates the camera to look right. */
-static void look_right(Global *g, float fyaw) {
-    Mat4x4 m = rotate_ymat(fyaw);
+static void look_right(Global *g, float angle) {
+    Yaw += 1.0;
+    printf("Yaw:%f\n", Yaw);
+    Mat4x4 m = rotate_ymat(angle);
     g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
+    log_global(camera);
 }
 static void move_forward(Global *g) {
     Vector tempN = multiply_vec(g->N, 0.1);
     g->Pos = add_vecs(g->Pos, tempN);
+    log_global(camera);
 }
 /* Rotates the camera to look Up. */
-static void look_up(Global *g, float pitch) {
-    Mat4x4 m = rotate_xmat(-pitch);
+static void look_up(Global *g, float angle) {
+    Mat4x4 m = rotate_xmat(angle);
     g->V = vecxm(g->V, m);
     g->N = vecxm(g->N, m);
+    log_global(camera);
 }
 /* Rotates the camera to look Down. */
-static void look_down(Global *g, float pitch) {
-    Mat4x4 m = rotate_xmat(pitch);
+static void look_down(Global *g, float angle) {
+    Mat4x4 m = rotate_xmat(-angle);
     g->V = vecxm(g->V, m);
     g->N = vecxm(g->N, m);
+    log_global(camera);
 }
 /* Moves camera position left. */
 static void move_left(Global *g) {
     Vector tempU = multiply_vec(g->U, 0.1);
     g->Pos = sub_vecs(g->Pos, tempU);
+    log_global(camera);
 }
 /* Moves camera position right. */
 static void move_right(Global *g) {
     Vector tempU = multiply_vec(g->U, 0.1);
     g->Pos = add_vecs(g->Pos, tempU);
+    log_global(camera);
 }
 /* Moves camera position Up. */
 static void move_up(Global *g) {
     g->Pos.y -= 0.1;
+    log_global(camera);
 }
 /* Moves camera position Down. */
 static void move_down(Global *g) {
     g->Pos.y += 0.1;
+    log_global(camera);
 }
 /* Rotates object according to World X axis. */
 static void rotate_x(Mesh *c, const float angle) {
@@ -383,25 +415,29 @@ static void load_texture(Mesh *c) {
     fclose(fp);
 }
 const static void init_meshes(void) {
-        // load_obj(&shape, "objects/skybox.obj");
-        // load_obj(&shape, "objects/spacedom.obj");
-        load_obj(&shape, "objects/terrain.obj");
-        // shape.texture_file = "textures/stones.bmp";
-        memcpy(shape.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-        load_texture(&shape);
-        // cube_create(&shape);
-        cube_create(&test);
-        // triangle_create(&shape);
-        // triangle_create(&test);
-        // test.texture_file = "textures/triangles.bmp";
-        memcpy(test.texture_file, "textures/triangles.bmp", sizeof(char) * 23);
-        load_texture(&test);
+    Mat4x4 ScaleMat, TransMat;
+    // load_obj(&shape, "objects/skybox.obj");
+    load_obj(&shape, "objects/terrain.obj");
+    // shape.texture_file = "textures/stones.bmp";
+    memcpy(shape.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    load_texture(&shape);
+    ScaleMat = scale_mat(1.0);
+    TransMat = translation_mat(0.0, 0.5, 500.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    shape = meshxm(shape, PosMat);
 
-        Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.2, 500.0);
-        PosMat = mxm(sm, tm);
-        shape = meshxm(shape, PosMat);
-        test = meshxm(test, PosMat);
+    // cube_create(&shape);
+    cube_create(&test);
+    // triangle_create(&shape);
+    // triangle_create(&test);
+    // load_obj(&test, "objects/terrain.obj");
+    memcpy(test.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    load_texture(&test);
+
+    ScaleMat = scale_mat(3.0);
+    TransMat = translation_mat(0.0, 0.5, 500.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    test = meshxm(test, PosMat);
 }
 /* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
 const static void create_scene(Scene *s) {
