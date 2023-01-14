@@ -24,6 +24,7 @@
 #include "header_files/exec_time.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
+enum { Pos, U, V, N, C};
 
 #define WIDTH                     800
 #define HEIGHT                    800
@@ -51,9 +52,9 @@ float **shadow_buffer;
 
 Global camera = {
     .Pos = { 0.0, 0.0, 498.0, 1.0 },
-    .U   = { 1.0, 0.0, 0.0, 1.0 },
-    .V   = { 0.0, 1.0, 0.0, 1.0 },
-    .N   = { 0.0, 0.0, 1.0, 1.0 }
+    .U   = { 1.0, 0.0, 0.0, 0.0 },
+    .V   = { 0.0, 1.0, 0.0, 0.0 },
+    .N   = { 0.0, 0.0, 1.0, 0.0 }
 };
 
 Global light = {
@@ -84,7 +85,7 @@ static int HALFH = 0; // Half height of the screen; This variable is initialized
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 0.05;
-static float Yaw = 90.0;
+// static float Yaw = 90.0;
 // static float Pitch = 90.0;
 // static float Roll = 90.0;
 static float NPlane = 1.0;
@@ -309,11 +310,10 @@ const static void keypress(XEvent *event) {
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, float angle) {
-    Yaw -= 1.0;
-    printf("Yaw:%f\n", Yaw);
     Mat4x4 m = rotate_ymat(-angle);
     g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
+    g->V = cross_product(g->N, g->U);
     log_global(camera);
 }
 static void move_backward(Global *g) {
@@ -323,11 +323,10 @@ static void move_backward(Global *g) {
 }
 /* Rotates the camera to look right. */
 static void look_right(Global *g, float angle) {
-    Yaw += 1.0;
-    printf("Yaw:%f\n", Yaw);
     Mat4x4 m = rotate_ymat(angle);
     g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
+    g->V = cross_product(g->N, g->U);
     log_global(camera);
 }
 static void move_forward(Global *g) {
@@ -338,15 +337,19 @@ static void move_forward(Global *g) {
 /* Rotates the camera to look Up. */
 static void look_up(Global *g, float angle) {
     Mat4x4 m = rotate_xmat(angle);
+
     g->V = vecxm(g->V, m);
     g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
     log_global(camera);
 }
 /* Rotates the camera to look Down. */
 static void look_down(Global *g, float angle) {
     Mat4x4 m = rotate_xmat(-angle);
+
     g->V = vecxm(g->V, m);
     g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
     log_global(camera);
 }
 /* Moves camera position left. */
@@ -628,8 +631,11 @@ const static void rasterize(const Mesh c) {
     dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
     dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
     // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
-
     XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
+
+    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
+    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
+    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
 }
 /* Writes the final Pixel values on screen. */
 const static void display_scene(void) {

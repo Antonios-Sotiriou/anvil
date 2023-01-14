@@ -437,28 +437,12 @@ const void texgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, co
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
     mc = (t.v[2].x - t.v[1].x) / (t.v[2].y - t.v[1].y);
 
-    if ( (t.v[1].x < t.v[0].x) && (t.v[1].x < t.v[2].x) ) {
+    if (winding < 0) {
         za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
         zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-    } else if ( (t.v[1].x >= t.v[0].x) && (t.v[1].x >= t.v[2].x) ) {
+    } else {
         za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
         zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-    } else if ( (t.v[1].x < t.v[0].x) && (t.v[1].x >= t.v[2].x) ) {
-        if (winding < 0) {
-            za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-            zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-        } else {
-            za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-            zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-        }
-    } else if ( (t.v[1].x >= t.v[0].x) && (t.v[1].x < t.v[2].x) ) {
-        if (winding < 0) {
-            za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-            zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-        } else {
-            za = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
-            zb = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
-        }
     }
     zc = (t.v[2].z - t.v[1].z) / (t.v[2].y - t.v[1].y);
 
