@@ -33,9 +33,9 @@ const Vector phong(Vector pixpos, const Vector normal, const Global light, const
     specular.z = light.C.z * SpecularStrength * spec;
 
     Vector result;
-    result.x = ceil((((specular.x + diffuse.x + ambient.x) * obj_color.x) * 255.0) + 0.5);
-    result.y = ceil((((specular.y + diffuse.y + ambient.y) * obj_color.y) * 255.0) + 0.5);
-    result.z = ceil((((specular.z + diffuse.z + ambient.z) * obj_color.z) * 255.0) + 0.5);
+    result.x = ceilf((((specular.x + diffuse.x + ambient.x) * obj_color.x) * 255.0) + 0.5);
+    result.y = ceilf((((specular.y + diffuse.y + ambient.y) * obj_color.y) * 255.0) + 0.5);
+    result.z = ceilf((((specular.z + diffuse.z + ambient.z) * obj_color.z) * 255.0) + 0.5);
 
     return result;
 }
