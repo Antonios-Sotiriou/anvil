@@ -21,8 +21,10 @@
 
 /* Testing */
 #include "header_files/test_shapes.h"
+#include "header_files/exec_time.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
+enum { Pos, U, V, N, C};
 
 #define WIDTH                     800
 #define HEIGHT                    800
@@ -44,20 +46,27 @@ XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
 /* Project Global Structures. */
-BMP_Info texture;
-Pixel **texels;
 Pixel **pixels;
 float **depth_buffer;
 float **shadow_buffer;
 
-Vector  Camera   =   { 0.0, 0.0, 498.0, 1.0 },
-        U        =   { 1.0, 0.0, 0.0, 1.0 },
-        V        =   { 0.0, 1.0, 0.0, 1.0 },
-        N        =   { 0.0, 0.0, 1.0, 1.0 };
+Global camera = {
+    .Pos = { 0.0, 0.0, 498.0, 1.0 },
+    .U   = { 1.0, 0.0, 0.0, 1.0 },
+    .V   = { 0.0, 1.0, 0.0, 1.0 },
+    .N   = { 0.0, 0.0, 1.0, 1.0 }
+};
 
-Vector LightSC   =   { 0.0, 0.0, 1.0, 1.0 };
+Global light = {
+    .Pos = { -1.0, -1.0, 500.0, 1.0 },
+    .U   = { 1.0, 0.0, 0.0, 0.0 },
+    .V   = { 0.0, 1.0, 0.0, 0.0 },
+    .N   = { 0.0, 0.0, 1.0, 0.0 },
+    .C   = { 1.0, 1.0, 1.0}
+};
 
-Mesh shape = { 0 };
+Scene scene = { 0 };
+Mesh shape = { 0 }, test = { 0 };
 Mat4x4 WorldMat = { 0 };
 Mat4x4 PosMat = { 0 };
 
@@ -66,7 +75,7 @@ Mat4x4 PosMat = { 0 };
 /* Magnitude of a Vector with 2 points |v| =√((x2 - x1)2 + (y2 - y1)2) */
 /* float t = (Point0 - X0) / (X1 - X0) */
 /* depth = (Point0 * (1 - t)) + (Point1 * t); */
-/* depth = z1 + t * (z0 - z1) */
+/* depth = z1 + t * (z1 - z0) */
 
 /* Project Global Variables. */
 static int MAPCOUNT = 0;
@@ -74,13 +83,16 @@ static int RUNNING = 1;
 static int HALFW = 0; // Half width of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static int HALFH = 0; // Half height of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static float AspectRatio = 0;
-static float FOV = 75.0;
-static float ANGLE = 0.05;
-static float FYaw = 0.1;
+static float FOV = 45.0;
+static float Angle = 0.05;
+// static float Yaw = 90.0;
+// static float Pitch = 90.0;
+// static float Roll = 90.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
 static float dplus = 0.0;
 static int DEBUG = 0;
+static float cvar = 0.01;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -94,28 +106,36 @@ const static void keypress(XEvent *event);
 const static void signal_handler(const int sig);
 
 /* Moving functions */
-static void look_left(float fyaw);
-static void move_backward(Vector *v);
-static void look_right(float fyaw);
-static void move_forward(Vector *v);
-static void move_left(Vector *v);
-static void move_right(Vector *v);
-static void move_up(Vector *v);
-static void move_down(Vector *v);
-static void rotate_x(Mesh *c, const float angle);
-static void rotate_y(Mesh *c, const float angle);
-static void rotate_z(Mesh *c, const float angle);
+const static void look_left(Global *g, const float Angle);
+const static void look_right(Global *g, const float Angle);
+const static void move_backward(Global *g);
+const static void move_forward(Global *g);
+const static void look_up(Global *g, const float Angle);
+const static void look_down(Global *g, const float Angle);
+const static void move_left(Global *g);
+const static void move_right(Global *g);
+const static void move_up(Global *g);
+const static void move_down(Global *g);
+const static void rotate_x(Mesh *c, const float angle);
+const static void rotate_y(Mesh *c, const float angle);
+const static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
-static void texture_loader(void);
-static void project(Mesh c);
-static void ppdiv(Mesh *c);
+const static void init_meshes(void);
+static void load_texture(Mesh *c);
+const static void create_scene(Scene *s);
+const static void release_scene(Scene *s);
+const static void project(Mesh c);
+const static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
+const static Global adjust_light(const Global l);
 const static void rasterize(const Mesh sc);
+const static void display_scene(void);
+const static void clear_buffers(const int height, const int width);
 
 /* Xlib relative functions and event dispatcher. */
-static KeySym get_keysym(XEvent *event);
+const static KeySym get_keysym(XEvent *event);
 const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
 const static void atomsinit(void);
@@ -136,10 +156,8 @@ const static void clientmessage(XEvent *event) {
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW\n");
 
-        free(shape.t);
-        
-        if (texture.Height != 0)
-            free2darray((void*)texels, texture.Height);
+        release_scene(&scene);
+
         printf("Reached step 1\n");
         free2darray((void*)pixels, wa.height);
         printf("Reached step 2\n");
@@ -159,6 +177,9 @@ const static void reparentnotify(XEvent *event) {
     printf("reparentnotify event received\n");
     XGetWindowAttributes(displ, win, &wa);
     AspectRatio = ((float)wa.width / (float)wa.height);
+    /* The pixels and depth buffer creation. */
+    pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
 }
 const static void mapnotify(XEvent *event) {
 
@@ -167,22 +188,7 @@ const static void mapnotify(XEvent *event) {
     if (MAPCOUNT) {
         pixmapdisplay();
     } else {
-        // load_obj(&shape, "objects/skybox.obj");
-        // load_obj(&shape, "objects/spacedom.obj");
-        // load_obj(&shape, "objects/terrain.obj");
-        // cube_create(&shape);
-        triangle_create(&shape);
-
-        Mat4x4 sm = scale_mat(1.0);
-        Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
-        PosMat = mxm(sm, tm);
-        shape = meshxm(shape, PosMat);
-
-        /* The pixels and depth buffer creation. */
-        texture_loader();
-        pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-
+        init_meshes();
         MAPCOUNT = 1;
     }
 }
@@ -194,12 +200,12 @@ const static void expose(XEvent *event) {
     //     pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
     //     depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // } else {
-    //     texture_loader();
+    //     load_texture();
         // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
         // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // }
     pixmapcreate();
-    project(shape);
+    create_scene(&scene);
 }
 const static void resizerequest(XEvent *event) {
 
@@ -218,40 +224,60 @@ const static void configurenotify(XEvent *event) {
 const static void buttonpress(XEvent *event) {
 
     printf("buttonpress event received\n");
-    // printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
-    // printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
-    printf("X: %d\n", event->xbutton.x);
-    printf("Y: %d\n", event->xbutton.y);
+    printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
+    printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
+    // printf("X: %d\n", event->xbutton.x);
+    // printf("Y: %d\n", event->xbutton.y);
 }
 
 const static void keypress(XEvent *event) {
     
     KeySym keysym = get_keysym(event);
-    // printf("Key Pressed: %ld\n", keysym);
+    printf("Key Pressed: %ld\n", keysym);
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
-        case 119 : move_forward(&Camera);         /* w */
+        case 119 : move_forward(&camera);         /* w */
             break;
-        case 97 : look_left(FYaw);                /* a */
+        case 97 : look_left(&camera, Angle);       /* a */
             break;
-        case 115 : move_backward(&Camera);        /* s */
+        case 115 : move_backward(&camera);        /* s */
             break;
-        case 100 : look_right(FYaw);              /* d */
+        case 100 : look_right(&camera, Angle);     /* d */
             break;
-        case 65361 : move_left(&Camera);          /* left arrow */
+        case 113 : look_up(&camera, Angle);       /* q */
             break;
-        case 65363 : move_right(&Camera);         /* right arrow */
+        case 101 : look_down(&camera, Angle);     /* e */
             break;
-        case 65362 : move_up(&Camera);            /* up arror */
+        case 65361 : move_left(&camera);          /* left arrow */
             break;
-        case 65364 : move_down(&Camera);          /* down arrow */
+        case 65363 : move_right(&camera);         /* right arrow */
             break;
-        case 120 : rotate_x(&shape, ANGLE);       /* x */
+        case 65362 : move_up(&camera);            /* up arror */
             break;
-        case 121 : rotate_y(&shape, ANGLE);       /* y */
+        case 65364 : move_down(&camera);          /* down arrow */
             break;
-        case 122 : rotate_z(&shape, ANGLE);       /* z */
+        case 120 : rotate_x(&shape, Angle);       /* x */
+            break;
+        case 121 : rotate_y(&shape, Angle);       /* y */
+            break;
+        case 122 : rotate_z(&shape, Angle);       /* z */
+            break;
+        case 112 : camera.Pos.x += cvar;         /* p */
+            camera.Pos.y += cvar;
+            camera.Pos.z += cvar;
+            break;
+        case 117 : camera.U.x += cvar;          /* u */
+            camera.U.y += cvar;
+            camera.U.z += cvar;
+            break;
+        case 118 : camera.V.x += cvar;          /* v */
+            // camera.V.y += cvar;
+            camera.V.z += cvar;
+            break;
+        case 110 : camera.N.x += cvar;          /* n */
+            camera.N.y += cvar;
+            camera.N.z += cvar;
             break;
         case 65451 : FPlane += 0.0001;             /* + */
             printf("FPlane.z: %f\n", FPlane);
@@ -265,119 +291,208 @@ const static void keypress(XEvent *event) {
         case 65455 : dplus -= 0.01;             /* / */
             printf("NPlane.z: %f\n", dplus);
             break;
-        case 112 : LightSC.z += 10.0;                   /* Dot product increase */
+        case 65462 : light.Pos.x += 0.01;                   /* Adjust Light Source */
             break;
-        case 246 : LightSC.z -= 10.0;                   /* Dot product decrease */
+        case 65460 : light.Pos.x -= 0.01;                   /* Adjust Light Source */
+            break;
+        case 65458 : light.Pos.y += 0.01;                   /* Adjust Light Source */
+            break;
+        case 65464 : light.Pos.y -= 0.01;                   /* Adjust Light Source */
+            break;
+        case 43 : light.Pos.z += 1.0;                     /* Adjust Light Source */
+            break;
+        case 45 : light.Pos.z -= 1.0;                     /* Adjust Light Source */
             break;
         default :
             return;
     }
-    project(shape);
+    create_scene(&scene);
 }
 /* Rotates the camera to look left. */
-static void look_left(float fyaw) {
-    fyaw = -FYaw;
-    fyaw += 0.05;
-    Mat4x4 m = rotate_ymat(fyaw);
-    U = vecxm(U, m);
-    N = vecxm(N, m);
-}
-static void move_backward(Vector *v) {
-    Vector tempN = multiply_vec(N, 0.1);
-    Camera = sub_vecs(Camera, tempN);
+static void look_left(Global *g, const float angle) {
+    Mat4x4 m = rotate_ymat(-angle);
+    // g->U = vecxm(g->U, m);
+    g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
+    g->V = cross_product(g->N, g->U);
+    log_global(camera);
 }
 /* Rotates the camera to look right. */
-static void look_right(float fyaw) {
-    fyaw -= 0.05;
-    Mat4x4 m = rotate_ymat(fyaw);
-    U = vecxm(U, m);
-    N = vecxm(N, m);
+const static void look_right(Global *g, const float angle) {
+    Mat4x4 m = rotate_ymat(angle);
+    // g->U = vecxm(g->U, m);
+    g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
+    g->V = cross_product(g->N, g->U);
+    log_global(camera);
 }
-static void move_forward(Vector *v) {
-    Vector tempN = multiply_vec(N, 0.1);
-    Camera = add_vecs(Camera, tempN);
+const static void move_backward(Global *g) {
+    Vector tempN = multiply_vec(g->N, 0.1);
+    g->Pos = sub_vecs(g->Pos, tempN);
+
+    // ######################################################################
+    // g->U = norm_vec(cross_product(g->V, g->N));
+    // g->N = norm_vec(cross_product(g->U, g->V));
+    // g->V = norm_vec(cross_product(g->N, g->U));
+    // ######################################################################
+    log_global(camera);
+}
+const static void move_forward(Global *g) {
+    Vector tempN = multiply_vec(g->N, 0.1);
+    g->Pos = add_vecs(g->Pos, tempN);
+
+    // ######################################################################
+    // g->U = norm_vec(cross_product(g->V, g->N));
+    // g->N = norm_vec(cross_product(g->U, g->V));
+    // g->V = norm_vec(cross_product(g->N, g->U));
+    // ######################################################################
+    log_global(camera);
+}
+/* Rotates the camera to look Up. */
+const static void look_up(Global *g, const float angle) {
+    Mat4x4 m = rotate_xmat(angle);
+    g->V = vecxm(g->V, m);
+    g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
+    log_global(camera);
+}
+/* Rotates the camera to look Down. */
+const static void look_down(Global *g, const float angle) {
+    Mat4x4 m = rotate_xmat(-angle);
+    g->V = vecxm(g->V, m);
+    g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
+    log_global(camera);
 }
 /* Moves camera position left. */
-static void move_left(Vector *v) {
-    Vector tempU = multiply_vec(U, 0.1);
-    Camera = sub_vecs(Camera, tempU);
+const static void move_left(Global *g) {
+    Vector tempU = multiply_vec(g->U, 0.1);
+    g->Pos = sub_vecs(g->Pos, tempU);
+    log_global(camera);
 }
 /* Moves camera position right. */
-static void move_right(Vector *v) {
-    Vector tempU = multiply_vec(U, 0.1);
-    Camera = add_vecs(Camera, tempU);
+const static void move_right(Global *g) {
+    Vector tempU = multiply_vec(g->U, 0.1);
+    g->Pos = add_vecs(g->Pos, tempU);
+    log_global(camera);
 }
 /* Moves camera position Up. */
-static void move_up(Vector *v) {
-    v->y -= 0.1;
+const static void move_up(Global *g) {
+    g->Pos.y -= 0.1;
+    log_global(camera);
 }
 /* Moves camera position Down. */
-static void move_down(Vector *v) {
-    v->y += 0.1;
+const static void move_down(Global *g) {
+    g->Pos.y += 0.1;
+    log_global(camera);
 }
 /* Rotates object according to World X axis. */
-static void rotate_x(Mesh *c, const float angle) {
+const static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
     *c = meshxm(shape, m);
 }
 /* Rotates object according to World Y axis. */
-static void rotate_y(Mesh *c, const float angle) {
+const static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
     *c = meshxm(shape, m);
 }
 /* Rotates object according to World Z axis. */
-static void rotate_z(Mesh *c, const float angle) {
+const static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(shape, m);
 }
-static void texture_loader(void) {
+const static void load_texture(Mesh *c) {
 
-    // char texture_name[28] = "textures/skybox_texture.bmp";
-    char texture_name[31] = "textures/spacedom_texture.bmp";
-    // char texture_name[20] = "textures/stones.bmp";
     BMP_Header bmp_header;
+    BMP_Info texture;
 
     FILE *fp;
-    fp = fopen(texture_name, "rb");
+    fp = fopen(c->texture_file, "rb");
     if (fp == NULL){
         fclose(fp);
-        fprintf(stderr, "Could not open file < %s >! texture_loader() -- fopen().\n", texture_name);
+        fprintf(stderr, "Could not open file < %s >! load_texture() -- fopen().\n", c->texture_file);
     } else {
         fread(&bmp_header, sizeof(BMP_Header), 1, fp);
         fseek(fp, 14, SEEK_SET);
         fread(&texture, sizeof(BMP_Info), 1, fp);
         fseek(fp, (14 + texture.Size), SEEK_SET);
 
-        texels = create2darray((void*)texels, sizeof(Pixel), texture.Height, texture.Width);
-        
-        // char image[(texture.Height * texture.Width) * 4];
+        c->texture_height = texture.Height;
+        c->texture_width = texture.Width;
+        c->texels = create2darray((void*)c->texels, sizeof(Pixel), texture.Height, texture.Width);
 
         for (int y = (texture.Height - 1); y >= 0; y--) {
             for (int x = 0; x < texture.Width; x++) {
-                fread(&texels[y][x], sizeof(Pixel), 1, fp);
+                fread(&c->texels[y][x], sizeof(Pixel), 1, fp);
             }
         }
-
-    //     int texels_inc = 0;
-    //     for (int y = 0; y < texture.Height; y++)
-    //         for (int x = 0; x < texture.Width; x++) {
-
-    //             image[texels_inc] = texels[y][x].Red;
-    //             image[texels_inc + 1] = texels[y][x].Green;
-    //             image[texels_inc + 2] = texels[y][x].Blue;
-    //             texels_inc += 4;
-    //         }
-
-    //     XImage *im = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image, texture.Width, texture.Height, 32, (texture.Width * 4));
-    //     XPutImage(displ, win, gc, im, 0, 0, 100, 100, texture.Width, texture.Height);
-    //     XFree(im);
     }
     fclose(fp);
 }
-/* Starts the Projection Pipeline. */
-static void project(Mesh c) {
+const static void init_meshes(void) {
+    Mat4x4 ScaleMat, TransMat;
+    // load_obj(&shape, "objects/skybox.obj");
+    load_obj(&shape, "objects/terrain.obj");
+    // shape.texture_file = "textures/stones.bmp";
+    memcpy(shape.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    load_texture(&shape);
+    ScaleMat = scale_mat(1.0);
+    TransMat = translation_mat(0.0, 0.5, 500.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    shape = meshxm(shape, PosMat);
 
-    Mat4x4 matCamera = camera_mat(Camera, U, V, N);
+    // cube_create(&shape);
+    cube_create(&test);
+    // triangle_create(&shape);
+    // triangle_create(&test);
+    // load_obj(&test, "objects/terrain.obj");
+    memcpy(test.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    load_texture(&test);
+
+    ScaleMat = scale_mat(3.0);
+    TransMat = translation_mat(0.0, 0.5, 500.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    test = meshxm(test, PosMat);
+}
+/* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
+const static void create_scene(Scene *s) {
+    s->m = malloc(sizeof(Mesh) * 2);
+    s->indexes = 2;
+    s->m[0] = shape;
+    s->m[1] = test;
+
+    for (int i = 0; i < s->indexes; i++)
+        project(s->m[i]);
+
+    display_scene();
+}
+const static void release_scene(Scene *s) {
+    for (int i = 0; i < s->indexes; i++) {
+        free(s->m[i].t);
+        free2darray((void*)s->m[i].texels, s->m[i].texture_height);
+    }
+    free(s->m);
+}
+const static void clear_buffers(const int height, const int width) {
+    /* Initializing the given buffer to depth of 0 and reseting the Pixels. */
+    for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++) {
+
+            if (pixels[y][x].Red != 0)
+                pixels[y][x].Red = 0;
+            if (pixels[y][x].Green != 0)
+                pixels[y][x].Green = 0;
+            if (pixels[y][x].Blue != 0)
+                pixels[y][x].Blue = 0;
+
+            if (depth_buffer[y][x] != 0.0)
+                depth_buffer[y][x] = 0.0;
+        }
+}
+/* Starts the Projection Pipeline. */
+const static void project(Mesh c) {
+
+    Mat4x4 matCamera = camera_mat(camera.Pos, camera.U, camera.V, camera.N);
 
     // Make view matrix from camera
     Mat4x4 reView = inverse_mat(matCamera);
@@ -405,7 +520,7 @@ static void project(Mesh c) {
     viewtoscreen(bf);
 }
 /* Perspective division. */
-static void ppdiv(Mesh *c) {
+const static void ppdiv(Mesh *c) {
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
@@ -419,7 +534,7 @@ static void ppdiv(Mesh *c) {
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh bfculling(const Mesh c) {
-    Mesh r = { 0 };
+    Mesh r = c;
     Vector cp;
     float dpc;
     int counter = 1;
@@ -430,7 +545,7 @@ const static Mesh bfculling(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
         cp = triangle_cp(c.t[i]);
-        dpc = dot_product(norm_vec(Camera), norm_vec(cp));
+        dpc = dot_product(norm_vec(camera.Pos), norm_vec(cp));
 
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -489,40 +604,55 @@ const static void viewtoscreen(const Mesh c) {
     rasterize(uf);
     free(uf.t);
 }
+const static Global adjust_light(const Global l) {
+    Global r = l;
+    r.Pos = vecxm(l.Pos, WorldMat);
+
+    if (r.Pos.w <= 0.1)
+        r.Pos.w = 0.1;
+
+    if (r.Pos.z <= 0.1)
+        r.Pos.z = 0.1;
+
+    r.Pos.x /= r.Pos.w;
+    r.Pos.y /= r.Pos.w;
+    r.Pos.z /= r.Pos.w;
+
+    return r;
+}
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
+    
+    Global dirlight = adjust_light(light);
 
-    char image_data[wa.width * wa.height * 4];
-    /* Initializing the frame buffer to depth of 0 and reseting the Pixels. */
-    for (int y = 0; y < wa.height; y++)
-        for (int x = 0; x < wa.width; x++) {
-
-            if (pixels[y][x].Red != 0)
-                pixels[y][x].Red = 0;
-            if (pixels[y][x].Green != 0)
-                pixels[y][x].Green = 0;
-            if (pixels[y][x].Blue != 0)
-                pixels[y][x].Blue = 0;
-
-            if (depth_buffer[y][x] != 0.0)
-                depth_buffer[y][x] = 0.0;
-        }
-
-    float dp;
     for (int i = 0; i < c.indexes; i++) {
-
-        dp = dot_product(LightSC, c.t[i].normal);
 
         if (DEBUG == 1) {
             drawline(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
             drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
-            filltriangle(pixels, depth_buffer, &c.t[i], dp, 33, 122, 157);
+            // clock_t start_time = start();
+            filltriangle(pixels, depth_buffer, &c.t[i], dirlight,  camera, 33, 122, 157);
+            // end(start_time);
         } else {
-            textriangle(pixels, depth_buffer, &c.t[i], dp, texels, texture);
+            textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
         }
     }
+
+    dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
+    dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
+    // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
+    XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
+
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
+}
+/* Writes the final Pixel values on screen. */
+const static void display_scene(void) {
+
+    char image_data[wa.width * wa.height * 4];
 
     int height_inc = 0;
     int width_inc = 0;
@@ -545,8 +675,9 @@ const static void rasterize(const Mesh c) {
     XFree(image);
 
     pixmapdisplay();
+    clear_buffers(wa.height, wa.width);
 }
-static KeySym get_keysym(XEvent *event) {
+const static KeySym get_keysym(XEvent *event) {
 
     /* Get user text input */
     XIM xim;
@@ -644,7 +775,7 @@ const static int board(void) {
     }
     return EXIT_SUCCESS;
 }
-int main(int argc, char *argv[]) {
+const int main(int argc, char *argv[]) {
 
     if (locale_init())
         fprintf(stderr, "Warning: main() -locale()\n");
