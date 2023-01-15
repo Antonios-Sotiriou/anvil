@@ -52,9 +52,9 @@ float **shadow_buffer;
 
 Global camera = {
     .Pos = { 0.0, 0.0, 498.0, 1.0 },
-    .U   = { 1.0, 0.0, 0.0, 0.0 },
-    .V   = { 0.0, 1.0, 0.0, 0.0 },
-    .N   = { 0.0, 0.0, 1.0, 0.0 }
+    .U   = { 1.0, 0.0, 0.0, 1.0 },
+    .V   = { 0.0, 1.0, 0.0, 1.0 },
+    .N   = { 0.0, 0.0, 1.0, 1.0 }
 };
 
 Global light = {
@@ -106,19 +106,19 @@ const static void keypress(XEvent *event);
 const static void signal_handler(const int sig);
 
 /* Moving functions */
-static void look_left(Global *g, float fyaw);
-static void move_backward(Global *g);
-static void look_right(Global *g, float fyaw);
-static void move_forward(Global *g);
-static void look_up(Global *g, float pitch);
-static void look_down(Global *g, float pitch);
-static void move_left(Global *g);
-static void move_right(Global *g);
-static void move_up(Global *g);
-static void move_down(Global *g);
-static void rotate_x(Mesh *c, const float angle);
-static void rotate_y(Mesh *c, const float angle);
-static void rotate_z(Mesh *c, const float angle);
+const static void look_left(Global *g, const float Angle);
+const static void look_right(Global *g, const float Angle);
+const static void move_backward(Global *g);
+const static void move_forward(Global *g);
+const static void look_up(Global *g, const float Angle);
+const static void look_down(Global *g, const float Angle);
+const static void move_left(Global *g);
+const static void move_right(Global *g);
+const static void move_up(Global *g);
+const static void move_down(Global *g);
+const static void rotate_x(Mesh *c, const float angle);
+const static void rotate_y(Mesh *c, const float angle);
+const static void rotate_z(Mesh *c, const float angle);
 
 /* Represantation functions */
 const static void init_meshes(void);
@@ -135,7 +135,7 @@ const static void display_scene(void);
 const static void clear_buffers(const int height, const int width);
 
 /* Xlib relative functions and event dispatcher. */
-static KeySym get_keysym(XEvent *event);
+const static KeySym get_keysym(XEvent *event);
 const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
 const static void atomsinit(void);
@@ -309,87 +309,99 @@ const static void keypress(XEvent *event) {
     create_scene(&scene);
 }
 /* Rotates the camera to look left. */
-static void look_left(Global *g, float angle) {
+static void look_left(Global *g, const float angle) {
     Mat4x4 m = rotate_ymat(-angle);
-    g->U = vecxm(g->U, m);
+    // g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
     g->V = cross_product(g->N, g->U);
-    log_global(camera);
-}
-static void move_backward(Global *g) {
-    Vector tempN = multiply_vec(g->N, 0.1);
-    g->Pos = sub_vecs(g->Pos, tempN);
     log_global(camera);
 }
 /* Rotates the camera to look right. */
-static void look_right(Global *g, float angle) {
+const static void look_right(Global *g, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
-    g->U = vecxm(g->U, m);
+    // g->U = vecxm(g->U, m);
     g->N = vecxm(g->N, m);
+    g->U = cross_product(g->V, g->N);
     g->V = cross_product(g->N, g->U);
     log_global(camera);
 }
-static void move_forward(Global *g) {
+const static void move_backward(Global *g) {
+    Vector tempN = multiply_vec(g->N, 0.1);
+    g->Pos = sub_vecs(g->Pos, tempN);
+
+    // ######################################################################
+    // g->U = norm_vec(cross_product(g->V, g->N));
+    // g->N = norm_vec(cross_product(g->U, g->V));
+    // g->V = norm_vec(cross_product(g->N, g->U));
+    // ######################################################################
+    log_global(camera);
+}
+const static void move_forward(Global *g) {
     Vector tempN = multiply_vec(g->N, 0.1);
     g->Pos = add_vecs(g->Pos, tempN);
+
+    // ######################################################################
+    // g->U = norm_vec(cross_product(g->V, g->N));
+    // g->N = norm_vec(cross_product(g->U, g->V));
+    // g->V = norm_vec(cross_product(g->N, g->U));
+    // ######################################################################
     log_global(camera);
 }
 /* Rotates the camera to look Up. */
-static void look_up(Global *g, float angle) {
+const static void look_up(Global *g, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
-
     g->V = vecxm(g->V, m);
     g->N = vecxm(g->N, m);
     g->U = cross_product(g->V, g->N);
     log_global(camera);
 }
 /* Rotates the camera to look Down. */
-static void look_down(Global *g, float angle) {
+const static void look_down(Global *g, const float angle) {
     Mat4x4 m = rotate_xmat(-angle);
-
     g->V = vecxm(g->V, m);
     g->N = vecxm(g->N, m);
     g->U = cross_product(g->V, g->N);
     log_global(camera);
 }
 /* Moves camera position left. */
-static void move_left(Global *g) {
+const static void move_left(Global *g) {
     Vector tempU = multiply_vec(g->U, 0.1);
     g->Pos = sub_vecs(g->Pos, tempU);
     log_global(camera);
 }
 /* Moves camera position right. */
-static void move_right(Global *g) {
+const static void move_right(Global *g) {
     Vector tempU = multiply_vec(g->U, 0.1);
     g->Pos = add_vecs(g->Pos, tempU);
     log_global(camera);
 }
 /* Moves camera position Up. */
-static void move_up(Global *g) {
+const static void move_up(Global *g) {
     g->Pos.y -= 0.1;
     log_global(camera);
 }
 /* Moves camera position Down. */
-static void move_down(Global *g) {
+const static void move_down(Global *g) {
     g->Pos.y += 0.1;
     log_global(camera);
 }
 /* Rotates object according to World X axis. */
-static void rotate_x(Mesh *c, const float angle) {
+const static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
     *c = meshxm(shape, m);
 }
 /* Rotates object according to World Y axis. */
-static void rotate_y(Mesh *c, const float angle) {
+const static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
     *c = meshxm(shape, m);
 }
 /* Rotates object according to World Z axis. */
-static void rotate_z(Mesh *c, const float angle) {
+const static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(shape, m);
 }
-static void load_texture(Mesh *c) {
+const static void load_texture(Mesh *c) {
 
     BMP_Header bmp_header;
     BMP_Info texture;
@@ -635,7 +647,7 @@ const static void rasterize(const Mesh c) {
 
     drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
     drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
+    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 255, 255, 255);
 }
 /* Writes the final Pixel values on screen. */
 const static void display_scene(void) {
@@ -665,7 +677,7 @@ const static void display_scene(void) {
     pixmapdisplay();
     clear_buffers(wa.height, wa.width);
 }
-static KeySym get_keysym(XEvent *event) {
+const static KeySym get_keysym(XEvent *event) {
 
     /* Get user text input */
     XIM xim;
@@ -763,7 +775,7 @@ const static int board(void) {
     }
     return EXIT_SUCCESS;
 }
-int main(int argc, char *argv[]) {
+const int main(int argc, char *argv[]) {
 
     if (locale_init())
         fprintf(stderr, "Warning: main() -locale()\n");
