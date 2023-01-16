@@ -52,13 +52,13 @@ float **shadow_buffer;
 
 Global camera = {
     .Pos = { 0.0, 0.0, 498.0, 1.0 },
-    .U   = { 1.0, 0.0, 0.0, 1.0 },
-    .V   = { 0.0, 1.0, 0.0, 1.0 },
-    .N   = { 0.0, 0.0, 1.0, 1.0 }
+    .U   = { 1.0, 0.0, 0.0, 0.0 },
+    .V   = { 0.0, 1.0, 0.0, 0.0 },
+    .N   = { 0.0, 0.0, 1.0, 0.0 }
 };
 
 Global light = {
-    .Pos = { -1.0, -1.0, 500.0, 1.0 },
+    .Pos = { -1.0, -1.0, 500.0, 0.0 },
     .U   = { 1.0, 0.0, 0.0, 0.0 },
     .V   = { 0.0, 1.0, 0.0, 0.0 },
     .N   = { 0.0, 0.0, 1.0, 0.0 },
@@ -85,8 +85,8 @@ static int HALFH = 0; // Half height of the screen; This variable is initialized
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 0.05;
-// static float Yaw = 90.0;
-// static float Pitch = 90.0;
+static float Yaw = 90.0;
+static float Pitch = 0.0;
 // static float Roll = 90.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
@@ -108,8 +108,8 @@ const static void signal_handler(const int sig);
 /* Moving functions */
 const static void look_left(Global *g, const float Angle);
 const static void look_right(Global *g, const float Angle);
-const static void move_backward(Global *g);
 const static void move_forward(Global *g);
+const static void move_backward(Global *g);
 const static void look_up(Global *g, const float Angle);
 const static void look_down(Global *g, const float Angle);
 const static void move_left(Global *g);
@@ -237,13 +237,13 @@ const static void keypress(XEvent *event) {
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
-        case 119 : move_forward(&camera);         /* w */
-            break;
         case 97 : look_left(&camera, Angle);       /* a */
             break;
-        case 115 : move_backward(&camera);        /* s */
-            break;
         case 100 : look_right(&camera, Angle);     /* d */
+            break;
+        case 119 : move_forward(&camera);         /* w */
+            break;
+        case 115 : move_backward(&camera);        /* s */
             break;
         case 113 : look_up(&camera, Angle);       /* q */
             break;
@@ -310,31 +310,26 @@ const static void keypress(XEvent *event) {
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, const float angle) {
-    Mat4x4 m = rotate_ymat(-angle);
-    // g->U = vecxm(g->U, m);
-    g->N = vecxm(g->N, m);
+    Yaw += 1.0;
+    if (Yaw == 180)
+        Yaw = 0;
+    printf("Yaw: %f\n", Yaw / 180);
+    PosMat = rotate_ymat(-angle);
+    g->N = vecxm(g->N, PosMat);
     g->U = cross_product(g->V, g->N);
     g->V = cross_product(g->N, g->U);
     log_global(camera);
 }
 /* Rotates the camera to look right. */
 const static void look_right(Global *g, const float angle) {
-    Mat4x4 m = rotate_ymat(angle);
-    // g->U = vecxm(g->U, m);
-    g->N = vecxm(g->N, m);
+    Yaw -= 1.0;
+    if (Yaw == -180)
+        Yaw = 0;
+    printf("Yaw: %f\n", Yaw / 180);
+    PosMat = rotate_ymat(angle);
+    g->N = vecxm(g->N, PosMat);
     g->U = cross_product(g->V, g->N);
     g->V = cross_product(g->N, g->U);
-    log_global(camera);
-}
-const static void move_backward(Global *g) {
-    Vector tempN = multiply_vec(g->N, 0.1);
-    g->Pos = sub_vecs(g->Pos, tempN);
-
-    // ######################################################################
-    // g->U = norm_vec(cross_product(g->V, g->N));
-    // g->N = norm_vec(cross_product(g->U, g->V));
-    // g->V = norm_vec(cross_product(g->N, g->U));
-    // ######################################################################
     log_global(camera);
 }
 const static void move_forward(Global *g) {
@@ -342,26 +337,63 @@ const static void move_forward(Global *g) {
     g->Pos = add_vecs(g->Pos, tempN);
 
     // ######################################################################
-    // g->U = norm_vec(cross_product(g->V, g->N));
-    // g->N = norm_vec(cross_product(g->U, g->V));
-    // g->V = norm_vec(cross_product(g->N, g->U));
+    // g->N = norm_vec(cross_product(tempN, g->V));
+    // g->U = cross_product(g->V, g->N);
+    // g->V = cross_product(g->N, g->U);
+    // ######################################################################
+    log_global(camera);
+}
+const static void move_backward(Global *g) {
+    Vector tempN = multiply_vec(g->N, 0.1);
+    g->Pos = sub_vecs(g->Pos, tempN);
+
+    // ######################################################################
+    // g->N = norm_vec(cross_product(tempN, g->V));
+    // g->U = cross_product(g->V, g->N);
+    // g->V = cross_product(g->N, g->U);
     // ######################################################################
     log_global(camera);
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
+    Pitch += 1.0;
+    if (Pitch == 180)
+        Pitch = 0;
+    
+    // Vector temp;
     Mat4x4 m = rotate_xmat(angle);
-    g->V = vecxm(g->V, m);
-    g->N = vecxm(g->N, m);
-    g->U = cross_product(g->V, g->N);
+    g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
+    g->N.y = sinf(radians(Pitch));
+    g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
+    g->U = norm_vec(cross_product(g->V, g->N));
+    // g->Pos = sub_vecs(g->Pos, temp);
+    Mat4x4 tm = mxm(m, PosMat);
+    g->N = norm_vec(vecxm(g->N, tm));
+    // g->V = vecxm(g->V, tm);
+    // g->U = norm_vec(cross_product(g->V, g->N));
+    g->V = norm_vec(cross_product(g->N, g->U));
+    // g->N = norm_vec(cross_product(g->U, g->V));
     log_global(camera);
 }
 /* Rotates the camera to look Down. */
 const static void look_down(Global *g, const float angle) {
-    Mat4x4 m = rotate_xmat(-angle);
-    g->V = vecxm(g->V, m);
-    g->N = vecxm(g->N, m);
-    g->U = cross_product(g->V, g->N);
+    Pitch -= 1.0;
+    if (Pitch == -180)
+        Pitch = 0;
+
+    // Vector temp;
+    Mat4x4 m = rotate_xmat(radians(Pitch) * 0.05);
+    g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
+    g->N.y = sinf(radians(Pitch));
+    g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
+    g->U = norm_vec(cross_product(g->V, g->N));
+    // g->Pos = add_vecs(g->Pos, temp);
+    Mat4x4 tm = mxm(m, PosMat);
+    g->N = norm_vec(vecxm(g->N, tm));
+    // g->V = vecxm(g->V, tm);
+    // g->U = norm_vec(cross_product(g->V, g->N));
+    g->V = norm_vec(cross_product(g->N, g->U));
+    // g->N = norm_vec(cross_product(g->U, g->V));
     log_global(camera);
 }
 /* Moves camera position left. */
@@ -645,9 +677,9 @@ const static void rasterize(const Mesh c) {
     // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
     XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
 
-    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
-    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
-    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
+    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
+    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
+    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
 }
 /* Writes the final Pixel values on screen. */
 const static void display_scene(void) {
