@@ -67,6 +67,7 @@ Global light = {
 
 Scene scene = { 0 };
 Mesh shape = { 0 }, test = { 0 };
+Mesh cam = { 0 };
 Mat4x4 WorldMat = { 0 };
 Mat4x4 PosMat = { 0 };
 
@@ -119,6 +120,8 @@ const static void move_down(Global *g);
 const static void rotate_x(Mesh *c, const float angle);
 const static void rotate_y(Mesh *c, const float angle);
 const static void rotate_z(Mesh *c, const float angle);
+const static void rotate_origin(Mesh *obj, const float angle);
+void submeshxm(const Mesh *c, const Mat4x4 m);
 
 /* Represantation functions */
 const static void init_meshes(void);
@@ -291,6 +294,8 @@ const static void keypress(XEvent *event) {
         case 65455 : dplus -= 0.01;             /* / */
             printf("NPlane.z: %f\n", dplus);
             break;
+        case 99 : rotate_origin(&test, Angle);             /* / */
+            break;
         case 65462 : light.Pos.x += 0.01;                   /* Adjust Light Source */
             break;
         case 65460 : light.Pos.x -= 0.01;                   /* Adjust Light Source */
@@ -311,35 +316,35 @@ const static void keypress(XEvent *event) {
 /* Rotates the camera to look left. */
 static void look_left(Global *g, const float angle) {
     Yaw += 1.0;
-    if (Yaw == 180)
-        Yaw = 0;
-    printf("Yaw: %f\n", Yaw / 180);
-    PosMat = rotate_ymat(-angle);
+    PosMat = rotate_ymat(radians(-1.0));
     g->N = vecxm(g->N, PosMat);
     g->U = cross_product(g->V, g->N);
     g->V = cross_product(g->N, g->U);
     log_global(camera);
+    // if (Yaw == 180)
+    //     Yaw = 0;
+    printf("Yaw: %f\n", Yaw);
 }
 /* Rotates the camera to look right. */
 const static void look_right(Global *g, const float angle) {
     Yaw -= 1.0;
-    if (Yaw == -180)
-        Yaw = 0;
-    printf("Yaw: %f\n", Yaw / 180);
-    PosMat = rotate_ymat(angle);
+    PosMat = rotate_ymat(radians(1));
     g->N = vecxm(g->N, PosMat);
     g->U = cross_product(g->V, g->N);
     g->V = cross_product(g->N, g->U);
     log_global(camera);
+    // if (Yaw == -180)
+    //     Yaw = 0;
+    printf("Yaw: %f\n", Yaw);
 }
 const static void move_forward(Global *g) {
     Vector tempN = multiply_vec(g->N, 0.1);
     g->Pos = add_vecs(g->Pos, tempN);
 
     // ######################################################################
-    // g->N = norm_vec(cross_product(tempN, g->V));
-    // g->U = cross_product(g->V, g->N);
-    // g->V = cross_product(g->N, g->U);
+    g->U = norm_vec(cross_product(g->V, g->N));
+    g->N = norm_vec(cross_product(g->U, g->V));
+    g->V = norm_vec(cross_product(g->N, g->U));
     // ######################################################################
     log_global(camera);
 }
@@ -348,53 +353,53 @@ const static void move_backward(Global *g) {
     g->Pos = sub_vecs(g->Pos, tempN);
 
     // ######################################################################
-    // g->N = norm_vec(cross_product(tempN, g->V));
-    // g->U = cross_product(g->V, g->N);
-    // g->V = cross_product(g->N, g->U);
+    g->U = norm_vec(cross_product(g->V, g->N));
+    g->N = norm_vec(cross_product(g->U, g->V));
+    g->V = norm_vec(cross_product(g->N, g->U));
     // ######################################################################
     log_global(camera);
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
-    Pitch += 1.0;
-    if (Pitch == 180)
-        Pitch = 0;
-    
     // Vector temp;
-    Mat4x4 m = rotate_xmat(angle);
+    Pitch -= 1.0;
+    Mat4x4 m = rotate_xmat(radians(-1));
     g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
     g->N.y = sinf(radians(Pitch));
     g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
-    g->U = norm_vec(cross_product(g->V, g->N));
-    // g->Pos = sub_vecs(g->Pos, temp);
-    Mat4x4 tm = mxm(m, PosMat);
-    g->N = norm_vec(vecxm(g->N, tm));
-    // g->V = vecxm(g->V, tm);
     // g->U = norm_vec(cross_product(g->V, g->N));
+    // g->Pos = sub_vecs(g->Pos, temp);
+    // Mat4x4 tm = mxm(m, PosMat);
+    g->N = norm_vec(vecxm(g->N, m));
+    // g->V = vecxm(g->V, tm);
+    g->U = norm_vec(cross_product(g->V, g->N));
     g->V = norm_vec(cross_product(g->N, g->U));
     // g->N = norm_vec(cross_product(g->U, g->V));
     log_global(camera);
+    if (Pitch == -89.0)
+        Pitch = -89.0;
+    printf("Pitch: %f\n", Pitch);
 }
 /* Rotates the camera to look Down. */
 const static void look_down(Global *g, const float angle) {
-    Pitch -= 1.0;
-    if (Pitch == -180)
-        Pitch = 0;
-
     // Vector temp;
-    Mat4x4 m = rotate_xmat(radians(Pitch) * 0.05);
+    Pitch += 1.0;
+    Mat4x4 m = rotate_xmat(radians(1));
     g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
     g->N.y = sinf(radians(Pitch));
     g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
-    g->U = norm_vec(cross_product(g->V, g->N));
-    // g->Pos = add_vecs(g->Pos, temp);
-    Mat4x4 tm = mxm(m, PosMat);
-    g->N = norm_vec(vecxm(g->N, tm));
-    // g->V = vecxm(g->V, tm);
     // g->U = norm_vec(cross_product(g->V, g->N));
+    // g->Pos = add_vecs(g->Pos, temp);
+    // Mat4x4 tm = mxm(m, PosMat);
+    g->N = norm_vec(vecxm(g->N, m));
+    // g->V = vecxm(g->V, tm);
+    g->U = norm_vec(cross_product(g->V, g->N));
     g->V = norm_vec(cross_product(g->N, g->U));
     // g->N = norm_vec(cross_product(g->U, g->V));
     log_global(camera);
+    if (Pitch == 89.0)
+        Pitch = 89.0;
+    printf("Pitch: %f\n", Pitch);
 }
 /* Moves camera position left. */
 const static void move_left(Global *g) {
@@ -432,6 +437,29 @@ const static void rotate_y(Mesh *c, const float angle) {
 const static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(shape, m);
+}
+/* Rotates object according to own axis. */
+const static void rotate_origin(Mesh *obj, const float angle) {
+    Mat4x4 origin = translation_mat(0.0, 0.0, 500.0);
+    submeshxm(obj, origin);
+    Mat4x4 m = rotate_xmat(angle);
+    Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
+    Mat4x4 nm = mxm(m, tm);
+    // *obj = meshxm(*obj, m);
+    *obj = meshxm(*obj, nm);
+
+}
+/* Substracts the Translation from the given mesh. */
+void submeshxm(const Mesh *c, const Mat4x4 m) {
+
+    for (int i = 0; i < c->indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+            
+            c->t[i].v[j].x -= m.m[3][0];
+            c->t[i].v[j].y -= m.m[3][1];
+            c->t[i].v[j].z -= m.m[3][2];
+        }
+    }
 }
 const static void load_texture(Mesh *c) {
 
@@ -481,17 +509,27 @@ const static void init_meshes(void) {
     memcpy(test.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     load_texture(&test);
 
-    ScaleMat = scale_mat(3.0);
-    TransMat = translation_mat(0.0, 0.5, 500.0);
+    ScaleMat = scale_mat(8.0);
+    TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     test = meshxm(test, PosMat);
+
+    triangle_create(&cam);
+    memcpy(cam.texture_file, "textures/triangles.bmp", sizeof(char) * 23);
+    load_texture(&cam);
+
+    ScaleMat = scale_mat(0.2);
+    TransMat = translation_mat(0.0, 0.0, 510.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    cam = meshxm(cam, PosMat);
 }
 /* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
 const static void create_scene(Scene *s) {
-    s->m = malloc(sizeof(Mesh) * 2);
-    s->indexes = 2;
+    s->m = malloc(sizeof(Mesh) * 3);
+    s->indexes = 3;
     s->m[0] = shape;
     s->m[1] = test;
+    s->m[2] = cam;
 
     for (int i = 0; i < s->indexes; i++)
         project(s->m[i]);
@@ -526,7 +564,7 @@ const static void project(Mesh c) {
 
     Mat4x4 matCamera = camera_mat(camera.Pos, camera.U, camera.V, camera.N);
 
-    // Make view matrix from camera
+    // // Make view matrix from camera
     Mat4x4 reView = inverse_mat(matCamera);
     
     Mat4x4 m = projection_mat(FOV, AspectRatio);
@@ -677,9 +715,9 @@ const static void rasterize(const Mesh c) {
     // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
     XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
 
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
 }
 /* Writes the final Pixel values on screen. */
 const static void display_scene(void) {
