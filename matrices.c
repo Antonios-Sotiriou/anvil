@@ -99,9 +99,22 @@ const Vector vecxm(const Vector v, const Mat4x4 m) {
     r.w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + v.w * m.m[3][3];
     return r;
 }
-/* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix representing the camera. */
-const Mat4x4 camera_mat(const Vector P, const Vector U, const Vector V, const Vector N) {
+/* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix. */
+const Mat4x4 lookat(const Vector P, const Vector U, const Vector V, const Vector N) {
     Mat4x4 m = { 0 };
+    m.m[0][0] = U.x;    m.m[0][1] = U.y;    m.m[0][2] = U.z;    m.m[0][3] = 0.0;
+    m.m[1][0] = V.x;    m.m[1][1] = V.y;    m.m[1][2] = V.z;    m.m[1][3] = 0.0;
+    m.m[2][0] = N.x;    m.m[2][1] = N.y;    m.m[2][2] = N.z;    m.m[2][3] = 0.0;
+    m.m[3][0] = P.x;    m.m[3][1] = P.y;    m.m[3][2] = P.z;    m.m[3][3] = 1.0;
+    return m;
+}
+/* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix. */
+const Mat4x4 pointat(const Vector P, const Vector T, const Vector Up) {
+    Mat4x4 m = { 0 };
+    Vector N = norm_vec(sub_vecs(P, T));
+    Vector U = norm_vec(cross_product(Up, N));
+    Vector V = cross_product(N, U);
+
     m.m[0][0] = U.x;    m.m[0][1] = U.y;    m.m[0][2] = U.z;    m.m[0][3] = 0.0;
     m.m[1][0] = V.x;    m.m[1][1] = V.y;    m.m[1][2] = V.z;    m.m[1][3] = 0.0;
     m.m[2][0] = N.x;    m.m[2][1] = N.y;    m.m[2][2] = N.z;    m.m[2][3] = 0.0;
