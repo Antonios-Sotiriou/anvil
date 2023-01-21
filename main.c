@@ -18,6 +18,7 @@
 #include "header_files/clipping.h"
 #include "header_files/draw_functions.h"
 #include "header_files/general_functions.h"
+#include "header_files/quaternions.h"
 
 /* Testing */
 #include "header_files/test_shapes.h"
@@ -51,7 +52,7 @@ float **depth_buffer;
 float **shadow_buffer;
 
 Global camera = {
-    .Pos = { 0.0, 0.0, 498.0, 1.0 },
+    .Pos = { 0.0, 0.0, 0.0, 1.0 },
     .U   = { 1.0, 0.0, 0.0, 1.0 },
     .V   = { 0.0, 1.0, 0.0, 1.0 },
     .N   = { 0.0, 0.0, 1.0, 1.0 }
@@ -328,12 +329,25 @@ const static void keypress(XEvent *event) {
 /* Rotates the camera to look left. */
 static void look_left(Global *g, const float angle) {
 
-    PosMat = rotate_ymat(radians(-1.0));
-    g->N = vecxm(g->N, PosMat);
-    g->U = vecxm(g->U, PosMat);
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
+    // PosMat = rotate_ymat(radians(-1.0));
+    // g->N = vecxm(g->N, PosMat);
+    // g->U = vecxm(g->U, PosMat);
+    // LookAt = lookat(g->Pos, g->U, g->V, g->N);
 
-    log_global(*g);
+    // log_global(*g);
+
+    // Vector axis = { 0.0, 1.0, 0.0 };
+    Quat a = setQuat(0, g->N);
+    Quat q = rotationQuat(-0.01, g->V);
+    Quat rq = conjugateQuat(q);
+    Quat rot = multiplyQuats(q, a);
+    Quat res = multiplyQuats(rot, rq);
+
+    g->N = res.v;
+    g->U = norm_vec(cross_product(g->V, g->N));
+    g->V = norm_vec(cross_product(g->N, g->U));
+
+    LookAt = lookat(g->Pos, g->U, g->V, res.v);
 
     if (Yaw < 360)
         Yaw += 1.0;
@@ -374,18 +388,30 @@ const static void look_up(Global *g, const float angle) {
     else
         Pitch = -89.0;
 
-    Mat4x4 m = rotate_xmat(radians(-1));
-    g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
-    g->N.y = sinf(radians(Pitch));
-    g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
+    // Mat4x4 m = rotate_xmat(radians(-1));
+    // g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
+    // g->N.y = sinf(radians(Pitch));
+    // g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
 
-    g->N = norm_vec(vecxm(g->N, m));
+    // g->N = norm_vec(vecxm(g->N, m));
+    // g->U = norm_vec(cross_product(g->V, g->N));
+    // g->V = norm_vec(cross_product(g->N, g->U));
+    log_vector(g->N);
+    Vector axis = { 1.0, 0.0, 0.0 };
+    Quat a = setQuat(0, g->N);
+    Quat q = rotationQuat(0.01, axis);
+    Quat rq = conjugateQuat(q);
+    Quat rot = multiplyQuats(q, a);
+    Quat res = multiplyQuats(rot, rq);
+
+    g->N = res.v;
     g->U = norm_vec(cross_product(g->V, g->N));
     g->V = norm_vec(cross_product(g->N, g->U));
 
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
+    LookAt = lookat(g->Pos, g->U, g->V, res.v);
+    
     log_global(*g);
+    log_vector(g->N);
     printf("Pitch: %f\n", Pitch);
 }
 /* Rotates the camera to look Down. */
@@ -511,7 +537,7 @@ const static void init_meshes(void) {
     memcpy(shape.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     load_texture(&shape);
     ScaleMat = scale_mat(1.0);
-    TransMat = translation_mat(0.0, 0.5, 500.0);
+    TransMat = translation_mat(0.0, 0.5, 0.0);
     PosMat = mxm(ScaleMat, TransMat);
     shape = meshxm(shape, PosMat);
 
@@ -524,7 +550,7 @@ const static void init_meshes(void) {
     load_texture(&test);
 
     ScaleMat = scale_mat(8.0);
-    TransMat = translation_mat(0.0, 0.0, 500.0);
+    TransMat = translation_mat(0.0, 0.0, 0.0);
     PosMat = mxm(ScaleMat, TransMat);
     test = meshxm(test, PosMat);
 }
