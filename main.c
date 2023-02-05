@@ -60,9 +60,9 @@ Global camera = {
 
 Global light = {
     .Pos = { -17.003309, -17.200029, 530.918640, 1.0 },
-    .U   = { -0.883297, -0.006683, -0.468767, 0.0 },
-    .V   = { -0.182024, 0.926344, 0.329780, 0.0 },
-    .N   = { 0.432035, 0.376621, -0.819453, 0.0 },
+    .U   = { -0.883297, -0.006683, -0.468767, 1.0 },
+    .V   = { -0.182024, 0.926344, 0.329780, 1.0 },
+    .N   = { 0.432035, 0.376621, -0.819453, 1.0 },
     .C   = { 1.0, 1.0, 1.0}
 };
 
@@ -330,16 +330,20 @@ const static void keypress(XEvent *event) {
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, const float angle) {
-    if (Yaw < 360)
-        Yaw += 1.0;
-    else
-        Yaw = 0;
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
-    Mat4x4 ym = rotate_ymat(radians(-1));
-    g->N = vecxm(g->N, ym);
-    g->U = vecxm(g->U, ym);
+    Quat xrot = rotationQuat(-1, g->V);
 
-    LookAt = mxm(ym, LookAt);
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), conjugateQuat(xrot));
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), conjugateQuat(xrot));
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), conjugateQuat(xrot));
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 
     log_global(*g);
     log_matrix(LookAt);
@@ -347,16 +351,20 @@ static void look_left(Global *g, const float angle) {
 }
 /* Rotates the camera to look right. */
 const static void look_right(Global *g, const float angle) {
-    if (Yaw > -360)
-        Yaw -= 1.0;
-    else
-        Yaw = 0;
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
-    Mat4x4 ym = rotate_ymat(radians(1));
-    g->N = vecxm(g->N, ym);
-    g->U = vecxm(g->U, ym);
+    Quat xrot = rotationQuat(1, g->V);
 
-    LookAt = mxm(ym, LookAt);
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), conjugateQuat(xrot));
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), conjugateQuat(xrot));
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), conjugateQuat(xrot));
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 
     log_global(*g);
     log_matrix(LookAt);
@@ -378,37 +386,52 @@ const static void move_backward(Global *g) {
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
-    if (Pitch > -89.0)
-        Pitch -= 1.0;
-    else
-        Pitch = -89.0;
 
+    /* A working example with Quaternion rotation. */
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
-    Mat4x4 xm = rotate_xmat(radians(-1));
-    LookAt = mxm(xm, LookAt);
+    Quat xrot = rotationQuat(-1, g->U);
+
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), conjugateQuat(xrot));
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), conjugateQuat(xrot));
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), conjugateQuat(xrot));
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+
+    // g->U = cross_product(g->V, g->N);
+    // g->V = cross_product(g->N, g->U);
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
     
+    // printQuat(res);
     log_global(*g);
     log_matrix(LookAt);
     printf("Pitch: %f\n", Pitch);
 }
 /* Rotates the camera to look Down. */
 const static void look_down(Global *g, const float angle) {
-    if (Pitch < 89.0)
-        Pitch += 1.0;
-    else
-        Pitch = 89.0;
 
-    Mat4x4 xm = rotate_xmat(radians(1));
-    LookAt = mxm(xm, LookAt);
-
+    
     /* A working example with Quaternion rotation. */
-    // Quat v = setQuat(0, g->N);
-    // Quat xrot = rotationQuat(1, g->U);
-    // Quat res = multiplyQuats(multiplyQuats(xrot, v), conjugateQuat(xrot));
-    // g->N = res.v;
-    // printQuat(res);
-    // LookAt = lookat(g->Pos, g->U, g->V, res.v);
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
+    Quat xrot = rotationQuat(1, g->U);
+
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), conjugateQuat(xrot));
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), conjugateQuat(xrot));
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), conjugateQuat(xrot));
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
+
+    // printQuat(res);
     log_global(*g);
     log_matrix(LookAt);
     printf("Pitch: %f\n", Pitch);
@@ -528,8 +551,8 @@ const static void init_meshes(void) {
     load_obj(&earth, "objects/earth.obj");
     memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
     load_texture(&earth);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, -10.0, 550.0);
+    ScaleMat = scale_mat(1.0);
+    TransMat = translation_mat(1.0, 1.0, 510.0);
     PosMat = mxm(ScaleMat, TransMat);
     earth = meshxm(earth, PosMat);
 
@@ -739,9 +762,9 @@ const static void rasterize(const Mesh c) {
     // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
     XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
 
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
 }
 /* Writes the final Pixel values on screen. */
 const static void display_scene(void) {
