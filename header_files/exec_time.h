@@ -18,6 +18,7 @@ const void end(const clock_t start_time);
 
 const void log_global(const Global g);
 const void log_vector(const Vector v);
+const void log_matrix(const Mat4x4 m);
 
 #endif /* _EXEC_TIME_H */
 

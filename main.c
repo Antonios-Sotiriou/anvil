@@ -52,7 +52,7 @@ float **depth_buffer;
 float **shadow_buffer;
 
 Global camera = {
-    .Pos = { 0.0, 0.0, 0.0, 1.0 },
+    .Pos = { 0.0, 0.0, 498.0, 1.0 },
     .U   = { 1.0, 0.0, 0.0, 1.0 },
     .V   = { 0.0, 1.0, 0.0, 1.0 },
     .N   = { 0.0, 0.0, 1.0, 1.0 }
@@ -67,9 +67,8 @@ Global light = {
 };
 
 Scene scene = { 0 };
-Mesh shape = { 0 }, test = { 0 };
-Mat4x4 WorldMat = { 0 };
-Mat4x4 PosMat = { 0 }, LookAt = { 0 };
+Mesh shape = { 0 }, earth = { 0 }, test = { 0 };
+Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 };
 
 /* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
 /* Magnitude of a Vector with one point at origin (0, 0)  |v| =√(x2 + y2) */
@@ -87,9 +86,9 @@ static int EYEPOINT = 0;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 0.05;
-static float Yaw = 90.0;
+static float Yaw = 0.0;
 static float Pitch = 0.0;
-// static float Roll = 90.0;
+// static float Roll = 0.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
 static float dplus = 0.0;
@@ -139,6 +138,7 @@ const static void display_scene(void);
 const static void clear_buffers(const int height, const int width);
 
 /* Xlib relative functions and event dispatcher. */
+const void export_scene(void);
 const static KeySym get_keysym(XEvent *event);
 const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
@@ -321,6 +321,8 @@ const static void keypress(XEvent *event) {
             break;
         case 45 : light.Pos.z -= 1.0;                     /* - */
             break;
+        case 98 : export_scene();                     /* - */
+            break;
         default :
             return;
     }
@@ -328,58 +330,51 @@ const static void keypress(XEvent *event) {
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, const float angle) {
-
-    // PosMat = rotate_ymat(radians(-1.0));
-    // g->N = vecxm(g->N, PosMat);
-    // g->U = vecxm(g->U, PosMat);
-    // LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    // log_global(*g);
-
-    // Vector axis = { 0.0, 1.0, 0.0 };
-    Quat a = setQuat(0, g->N);
-    Quat q = rotationQuat(-0.01, g->V);
-    Quat rq = conjugateQuat(q);
-    Quat rot = multiplyQuats(q, a);
-    Quat res = multiplyQuats(rot, rq);
-
-    g->N = res.v;
-    g->U = norm_vec(cross_product(g->V, g->N));
-    g->V = norm_vec(cross_product(g->N, g->U));
-
-    LookAt = lookat(g->Pos, g->U, g->V, res.v);
-
     if (Yaw < 360)
         Yaw += 1.0;
     else
         Yaw = 0;
+
+    Mat4x4 ym = rotate_ymat(radians(-1));
+    g->N = vecxm(g->N, ym);
+    g->U = vecxm(g->U, ym);
+
+    LookAt = mxm(ym, LookAt);
+
+    log_global(*g);
+    log_matrix(LookAt);
     printf("Yaw: %f\n", Yaw);
 }
 /* Rotates the camera to look right. */
 const static void look_right(Global *g, const float angle) {
-
-    PosMat = rotate_ymat(radians(1));
-    g->N = vecxm(g->N, PosMat);
-    g->U = vecxm(g->U, PosMat);
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-
     if (Yaw > -360)
         Yaw -= 1.0;
     else
         Yaw = 0;
+
+    Mat4x4 ym = rotate_ymat(radians(1));
+    g->N = vecxm(g->N, ym);
+    g->U = vecxm(g->U, ym);
+
+    LookAt = mxm(ym, LookAt);
+
+    log_global(*g);
+    log_matrix(LookAt);
     printf("Yaw: %f\n", Yaw);
 }
 const static void move_forward(Global *g) {
     g->Pos = add_vecs(g->Pos, multiply_vec(g->N, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
+
     log_global(*g);
+    log_matrix(LookAt);
 }
 const static void move_backward(Global *g) {
     g->Pos = sub_vecs(g->Pos, multiply_vec(g->N, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
+
     log_global(*g);
+    log_matrix(LookAt);
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
@@ -388,30 +383,12 @@ const static void look_up(Global *g, const float angle) {
     else
         Pitch = -89.0;
 
-    // Mat4x4 m = rotate_xmat(radians(-1));
-    // g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
-    // g->N.y = sinf(radians(Pitch));
-    // g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
 
-    // g->N = norm_vec(vecxm(g->N, m));
-    // g->U = norm_vec(cross_product(g->V, g->N));
-    // g->V = norm_vec(cross_product(g->N, g->U));
-    log_vector(g->N);
-    Vector axis = { 1.0, 0.0, 0.0 };
-    Quat a = setQuat(0, g->N);
-    Quat q = rotationQuat(0.01, axis);
-    Quat rq = conjugateQuat(q);
-    Quat rot = multiplyQuats(q, a);
-    Quat res = multiplyQuats(rot, rq);
-
-    g->N = res.v;
-    g->U = norm_vec(cross_product(g->V, g->N));
-    g->V = norm_vec(cross_product(g->N, g->U));
-
-    LookAt = lookat(g->Pos, g->U, g->V, res.v);
+    Mat4x4 xm = rotate_xmat(radians(-1));
+    LookAt = mxm(xm, LookAt);
     
     log_global(*g);
-    log_vector(g->N);
+    log_matrix(LookAt);
     printf("Pitch: %f\n", Pitch);
 }
 /* Rotates the camera to look Down. */
@@ -421,31 +398,36 @@ const static void look_down(Global *g, const float angle) {
     else
         Pitch = 89.0;
 
-    Mat4x4 m = rotate_xmat(radians(1));
-    g->N.x = cosf(radians(Yaw)) * cosf(radians(Pitch));
-    g->N.y = sinf(radians(Pitch));
-    g->N.z = sinf(radians(Yaw)) * cosf(radians(Pitch));
+    Mat4x4 xm = rotate_xmat(radians(1));
+    LookAt = mxm(xm, LookAt);
 
-    g->N = norm_vec(vecxm(g->N, m));
-    g->U = norm_vec(cross_product(g->V, g->N));
-    g->V = norm_vec(cross_product(g->N, g->U));
-
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
+    /* A working example with Quaternion rotation. */
+    // Quat v = setQuat(0, g->N);
+    // Quat xrot = rotationQuat(1, g->U);
+    // Quat res = multiplyQuats(multiplyQuats(xrot, v), conjugateQuat(xrot));
+    // g->N = res.v;
+    // printQuat(res);
+    // LookAt = lookat(g->Pos, g->U, g->V, res.v);
 
     log_global(*g);
+    log_matrix(LookAt);
     printf("Pitch: %f\n", Pitch);
 }
 /* Moves camera position left. */
 const static void move_left(Global *g) {
     g->Pos = sub_vecs(g->Pos, multiply_vec(g->U, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
+
     log_global(*g);
+    log_matrix(LookAt);
 }
 /* Moves camera position right. */
 const static void move_right(Global *g) {
     g->Pos = add_vecs(g->Pos, multiply_vec(g->U, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
+
     log_global(*g);
+    log_matrix(LookAt);
 }
 /* Moves camera position Up. */
 const static void move_up(Global *g) {
@@ -454,6 +436,7 @@ const static void move_up(Global *g) {
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
 
     log_global(*g);
+    log_matrix(LookAt);
 }
 /* Moves camera position Down. */
 const static void move_down(Global *g) {
@@ -462,6 +445,7 @@ const static void move_down(Global *g) {
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
 
     log_global(*g);
+    log_matrix(LookAt);
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
@@ -537,9 +521,17 @@ const static void init_meshes(void) {
     memcpy(shape.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     load_texture(&shape);
     ScaleMat = scale_mat(1.0);
-    TransMat = translation_mat(0.0, 0.5, 0.0);
+    TransMat = translation_mat(0.0, 0.5, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     shape = meshxm(shape, PosMat);
+
+    load_obj(&earth, "objects/earth.obj");
+    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    load_texture(&earth);
+    ScaleMat = scale_mat(10.0);
+    TransMat = translation_mat(-10.0, -10.0, 550.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    earth = meshxm(earth, PosMat);
 
     // cube_create(&shape);
     cube_create(&test);
@@ -550,16 +542,19 @@ const static void init_meshes(void) {
     load_texture(&test);
 
     ScaleMat = scale_mat(8.0);
-    TransMat = translation_mat(0.0, 0.0, 0.0);
+    TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     test = meshxm(test, PosMat);
+
+    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
 /* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
 const static void create_scene(Scene *s) {
-    s->m = malloc(sizeof(Mesh) * 2);
-    s->indexes = 2;
+    s->m = malloc(sizeof(Mesh) * 3);
+    s->indexes = 3;
     s->m[0] = shape;
-    s->m[1] = test;
+    s->m[1] = earth;
+    s->m[2] = test;
 
     for (int i = 0; i < s->indexes; i++)
         project(s->m[i]);
@@ -775,6 +770,31 @@ const static void display_scene(void) {
 
     pixmapdisplay();
     clear_buffers(wa.height, wa.width);
+}
+const void export_scene(void) {
+    BMP_Header header = {
+        .Type = 0x4d42,
+        .Size = (wa.width * wa.height * 32 ) / 8,
+        .OffSet = 54,
+    };
+    BMP_Info info = {
+        .Size = 40,
+        .Width = wa.width,
+        .Height = wa.height,
+        .Planes = 1,
+        .BitsPerPixel = 32,
+    };
+    FILE *fp = fopen("textures/export.bmp", "wb");
+    fwrite(&header, sizeof(BMP_Header), 1, fp);
+    fseek(fp, 14, SEEK_SET);
+    fwrite(&info, sizeof(BMP_Info), 1, fp);
+    fseek(fp, (14 + info.Size), SEEK_SET);
+
+    for (int y = wa.height - 1; y >= 0; y--)
+        for (int x = 0; x < wa.width; x++)
+            fwrite(&pixels[y][x], sizeof(int), 1, fp);
+
+    fclose(fp);
 }
 const static KeySym get_keysym(XEvent *event) {
 

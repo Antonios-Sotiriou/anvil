@@ -20,3 +20,12 @@ const void log_global(const Global g) {
 const void log_vector(const Vector v) {
     printf("v.x: %f    v.y: %f    v.z: %f    v.w: %f\n", v.x, v.y, v.z, v.w);
 }
+
+const void log_matrix(const Mat4x4 m) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            printf("m.m[%d][%d]: %.6f    ", i, j, m.m[i][j]);
+        }
+        printf("\n");
+    }
+}

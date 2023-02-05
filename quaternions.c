@@ -47,7 +47,7 @@ float magnitudeQuat(const Quat q) {
 }
 
 Quat rotationQuat(const float angle, const Vector axis) {
-    float radius = angle * (3.14159 / 2.00);
+    float radius = angle * (3.14159 / 180.0);
     float c = sinf(radius / 2.00);
     Quat res = {
         .w = cosf(radius / 2.00),
