@@ -20,7 +20,7 @@
 #include "header_files/general_functions.h"
 #include "header_files/quaternions.h"
 
-/* Testing */
+/* cubeing */
 #include "header_files/test_shapes.h"
 #include "header_files/exec_time.h"
 
@@ -60,14 +60,14 @@ Global camera = {
 
 Global light = {
     .Pos = { -17.003309, -17.200029, 530.918640, 1.0 },
-    .U   = { -0.883297, -0.006683, -0.468767, 0.0 },
-    .V   = { -0.182024, 0.926344, 0.329780, 0.0 },
-    .N   = { 0.432035, 0.376621, -0.819453, 0.0 },
+    .U   = { -0.883297, -0.006683, -0.468767, 1.0 },
+    .V   = { -0.182024, 0.926344, 0.329780, 1.0 },
+    .N   = { 0.432035, 0.376621, -0.819453, 1.0 },
     .C   = { 1.0, 1.0, 1.0}
 };
 
 Scene scene = { 0 };
-Mesh shape = { 0 }, earth = { 0 }, test = { 0 };
+Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
 Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 };
 
 /* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
@@ -128,7 +128,7 @@ const static void init_meshes(void);
 static void load_texture(Mesh *c);
 const static void create_scene(Scene *s);
 const static void release_scene(Scene *s);
-const static void project(Mesh c);
+const static void project(Scene s);
 const static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
@@ -179,11 +179,12 @@ const static void clientmessage(XEvent *event) {
 const static void reparentnotify(XEvent *event) {
 
     printf("reparentnotify event received\n");
-    XGetWindowAttributes(displ, win, &wa);
-    AspectRatio = ((float)wa.width / (float)wa.height);
+    // XGetWindowAttributes(displ, win, &wa);
+    // AspectRatio = ((float)wa.width / (float)wa.height);
+    // pixmapcreate();
     /* The pixels and depth buffer creation. */
-    pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-    depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
 }
 const static void mapnotify(XEvent *event) {
 
@@ -193,6 +194,7 @@ const static void mapnotify(XEvent *event) {
         pixmapdisplay();
     } else {
         init_meshes();
+        create_scene(&scene);
         MAPCOUNT = 1;
     }
 }
@@ -208,8 +210,8 @@ const static void expose(XEvent *event) {
         // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
         // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
     // }
-    pixmapcreate();
-    create_scene(&scene);
+    // pixmapcreate();
+    // project(scene);
 }
 const static void resizerequest(XEvent *event) {
 
@@ -267,11 +269,11 @@ const static void keypress(XEvent *event) {
             break;
         case 65364 : move_down(eye);          /* down arrow */
             break;
-        case 120 : rotate_x(&shape, Angle);       /* x */
+        case 120 : rotate_x(&scene.m[0], Angle);       /* x */
             break;
-        case 121 : rotate_y(&shape, Angle);       /* y */
+        case 121 : rotate_y(&scene.m[0], Angle);       /* y */
             break;
-        case 122 : rotate_z(&shape, Angle);       /* z */
+        case 122 : rotate_z(&scene.m[0], Angle);       /* z */
             break;
         case 112 : camera.Pos.x += cvar;         /* p */
             camera.Pos.y += cvar;
@@ -301,7 +303,7 @@ const static void keypress(XEvent *event) {
         case 65455 : dplus -= 0.01;             /* / */
             printf("NPlane.z: %f\n", dplus);
             break;
-        case 99 : rotate_origin(&test, Angle);        /* c */
+        case 99 : rotate_origin(&scene.m[2], Angle);        /* c */
             break;
         case 108 :                                    /* l */
             if (EYEPOINT == 0)
@@ -326,20 +328,25 @@ const static void keypress(XEvent *event) {
         default :
             return;
     }
-    create_scene(&scene);
+    // project(scene);
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, const float angle) {
-    if (Yaw < 360)
-        Yaw += 1.0;
-    else
-        Yaw = 0;
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
-    Mat4x4 ym = rotate_ymat(radians(-1));
-    g->N = vecxm(g->N, ym);
-    g->U = vecxm(g->U, ym);
+    Quat xrot = rotationQuat(-1, g->V);
+    Quat rerot = conjugateQuat(xrot);
 
-    LookAt = mxm(ym, LookAt);
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 
     log_global(*g);
     log_matrix(LookAt);
@@ -347,16 +354,21 @@ static void look_left(Global *g, const float angle) {
 }
 /* Rotates the camera to look right. */
 const static void look_right(Global *g, const float angle) {
-    if (Yaw > -360)
-        Yaw -= 1.0;
-    else
-        Yaw = 0;
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
-    Mat4x4 ym = rotate_ymat(radians(1));
-    g->N = vecxm(g->N, ym);
-    g->U = vecxm(g->U, ym);
+    Quat xrot = rotationQuat(1, g->V);
+    Quat rerot = conjugateQuat(xrot);
 
-    LookAt = mxm(ym, LookAt);
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 
     log_global(*g);
     log_matrix(LookAt);
@@ -378,37 +390,50 @@ const static void move_backward(Global *g) {
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
-    if (Pitch > -89.0)
-        Pitch -= 1.0;
-    else
-        Pitch = -89.0;
 
+    /* A working example with Quaternion rotation. */
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
-    Mat4x4 xm = rotate_xmat(radians(-1));
-    LookAt = mxm(xm, LookAt);
+    Quat xrot = rotationQuat(-1, g->U);
+    Quat rerot = conjugateQuat(xrot);
+
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
     
+    // printQuat(res);
     log_global(*g);
     log_matrix(LookAt);
     printf("Pitch: %f\n", Pitch);
 }
 /* Rotates the camera to look Down. */
 const static void look_down(Global *g, const float angle) {
-    if (Pitch < 89.0)
-        Pitch += 1.0;
-    else
-        Pitch = 89.0;
-
-    Mat4x4 xm = rotate_xmat(radians(1));
-    LookAt = mxm(xm, LookAt);
 
     /* A working example with Quaternion rotation. */
-    // Quat v = setQuat(0, g->N);
-    // Quat xrot = rotationQuat(1, g->U);
-    // Quat res = multiplyQuats(multiplyQuats(xrot, v), conjugateQuat(xrot));
-    // g->N = res.v;
-    // printQuat(res);
-    // LookAt = lookat(g->Pos, g->U, g->V, res.v);
+    Quat u = setQuat(0, g->U);
+    Quat v = setQuat(0, g->V);
+    Quat n = setQuat(0, g->N);
 
+    Quat xrot = rotationQuat(1, g->U);
+    Quat rerot = conjugateQuat(xrot);
+
+    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
+    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
+    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
+
+    g->U = resu.v;
+    g->V = resv.v;
+    g->N = resn.v;
+    LookAt = lookat(g->Pos, g->U, g->V, g->N);
+
+    // printQuat(res);
     log_global(*g);
     log_matrix(LookAt);
     printf("Pitch: %f\n", Pitch);
@@ -450,17 +475,17 @@ const static void move_down(Global *g) {
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
-    *c = meshxm(shape, m);
+    *c = meshxm(*c, m);
 }
 /* Rotates object according to World Y axis. */
 const static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
-    *c = meshxm(shape, m);
+    *c = meshxm(*c, m);
 }
 /* Rotates object according to World Z axis. */
 const static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
-    *c = meshxm(shape, m);
+    *c = meshxm(*c, m);
 }
 /* Rotates object according to own axis. */
 const static void rotate_origin(Mesh *obj, const float angle) {
@@ -484,6 +509,36 @@ const static void submeshxm(const Mesh *c, const Mat4x4 m) {
             c->t[i].v[j].z -= m.m[3][2];
         }
     }
+}
+const static void init_meshes(void) {
+    Mat4x4 ScaleMat, TransMat;
+
+    load_obj(&terrain, "objects/terrain.obj");
+    memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    load_texture(&terrain);
+    ScaleMat = scale_mat(1.0);
+    TransMat = translation_mat(0.0, 0.5, 500.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    terrain = meshxm(terrain, PosMat);
+
+    load_obj(&earth, "objects/earth.obj");
+    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    load_texture(&earth);
+    ScaleMat = scale_mat(1.0);
+    TransMat = translation_mat(1.0, 1.0, 510.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    earth = meshxm(earth, PosMat);
+
+    cube_create(&cube);
+    memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    load_texture(&cube);
+
+    ScaleMat = scale_mat(8.0);
+    TransMat = translation_mat(0.0, 0.0, 500.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    cube = meshxm(cube, PosMat);
+
+    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
 const static void load_texture(Mesh *c) {
 
@@ -513,53 +568,13 @@ const static void load_texture(Mesh *c) {
     }
     fclose(fp);
 }
-const static void init_meshes(void) {
-    Mat4x4 ScaleMat, TransMat;
-    // load_obj(&shape, "objects/skybox.obj");
-    load_obj(&shape, "objects/terrain.obj");
-    // shape.texture_file = "textures/stones.bmp";
-    memcpy(shape.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    load_texture(&shape);
-    ScaleMat = scale_mat(1.0);
-    TransMat = translation_mat(0.0, 0.5, 500.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    shape = meshxm(shape, PosMat);
-
-    load_obj(&earth, "objects/earth.obj");
-    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    load_texture(&earth);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, -10.0, 550.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    earth = meshxm(earth, PosMat);
-
-    // cube_create(&shape);
-    cube_create(&test);
-    // triangle_create(&shape);
-    // triangle_create(&test);
-    // load_obj(&test, "objects/terrain.obj");
-    memcpy(test.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    load_texture(&test);
-
-    ScaleMat = scale_mat(8.0);
-    TransMat = translation_mat(0.0, 0.0, 500.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    test = meshxm(test, PosMat);
-
-    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
-}
 /* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
 const static void create_scene(Scene *s) {
     s->m = malloc(sizeof(Mesh) * 3);
     s->indexes = 3;
-    s->m[0] = shape;
+    s->m[0] = terrain;
     s->m[1] = earth;
-    s->m[2] = test;
-
-    for (int i = 0; i < s->indexes; i++)
-        project(s->m[i]);
-
-    display_scene();
+    s->m[2] = cube;
 }
 const static void release_scene(Scene *s) {
     for (int i = 0; i < s->indexes; i++) {
@@ -585,7 +600,7 @@ const static void clear_buffers(const int height, const int width) {
         }
 }
 /* Starts the Projection Pipeline. */
-const static void project(Mesh c) {
+const static void project(Scene s) {
 
     // LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
     // // Make view matrix from LookAt.
@@ -595,23 +610,26 @@ const static void project(Mesh c) {
 
     WorldMat = mxm(View, Proj);
 
-    Mesh cache = meshxm(c, WorldMat);
+    for (int i = 0; i < s.indexes; i++) {
+        Mesh cache = meshxm(s.m[i], WorldMat);
 
-    /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = { 0.0, 0.0, NPlane },
-           plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+        /* At this Point triangles must be clipped against near plane. */
+        Vector plane_near_p = { 0.0, 0.0, NPlane },
+            plane_near_n = { 0.0, 0.0, 1.0 };
+        Mesh nf = clipp(cache, plane_near_p, plane_near_n);
 
-    /* Applying perspective division. */
-    if (nf.indexes) {
-        ppdiv(&nf);
+        /* Applying perspective division. */
+        if (nf.indexes) {
+            ppdiv(&nf);
+        }
+
+        /* Applying Backface culling before we proceed to full frustum clipping. */
+        Mesh bf = bfculling(nf);
+
+        /* Sending to translation from NDC to Screen Coordinates. */
+        viewtoscreen(bf);
     }
-
-    /* Applying Backface culling before we proceed to full frustum clipping. */
-    Mesh bf = bfculling(nf);
-
-    /* Sending to translation from NDC to Screen Coordinates. */
-    viewtoscreen(bf);
+    display_scene();
 }
 /* Perspective division. */
 const static void ppdiv(Mesh *c) {
@@ -739,9 +757,9 @@ const static void rasterize(const Mesh c) {
     // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
     XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
 
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
-    drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
+    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
 }
 /* Writes the final Pixel values on screen. */
 const static void display_scene(void) {
@@ -874,6 +892,12 @@ const static int board(void) {
     gcvalues.graphics_exposures = False;
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 
+    XGetWindowAttributes(displ, win, &wa);
+    AspectRatio = ((float)wa.width / (float)wa.height);
+    pixmapcreate();
+    pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+
     atomsinit();
 
     /* Signal handling for effectivelly releasing the resources. */
@@ -887,10 +911,16 @@ const static int board(void) {
 
     while (RUNNING) {
 
-        XNextEvent(displ, &event);
+        project(scene);
+        printf("LOOP RUNNING\n");
 
-        if (handler[event.type])
-            handler[event.type](&event);
+        while(XPending(displ)) {
+            XNextEvent(displ, &event);
+
+            if (handler[event.type])
+                handler[event.type](&event);
+            printf("INNER LOOP\n");
+        }
     }
     return EXIT_SUCCESS;
 }
