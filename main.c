@@ -34,7 +34,7 @@ enum { Pos, U, V, N, C};
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
-#define EXPOSEMASKS               ( StructureNotifyMask | ExposureMask )
+#define EXPOSEMASKS               ( StructureNotifyMask | ResizeRedirectMask )
 
 /* X Global Structures. */
 Display *displ;
@@ -99,7 +99,6 @@ static float cvar = 0.01;
 const static void clientmessage(XEvent *event);
 const static void reparentnotify(XEvent *event);
 const static void mapnotify(XEvent *event);
-const static void expose(XEvent *event);
 const static void resizerequest(XEvent *event);
 const static void configurenotify(XEvent *event);
 const static void buttonpress(XEvent *event);
@@ -148,7 +147,6 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
     [ClientMessage] = clientmessage,
     [ReparentNotify] = reparentnotify,
     [MapNotify] = mapnotify,
-    [Expose] = expose,
     [ResizeRequest] = resizerequest,
     [ConfigureNotify] = configurenotify,
     [ButtonPress] = buttonpress,
@@ -172,7 +170,7 @@ const static void clientmessage(XEvent *event) {
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         XCloseDisplay(displ);
-        
+
         RUNNING = 0;
     }
 }
@@ -198,21 +196,6 @@ const static void mapnotify(XEvent *event) {
         MAPCOUNT = 1;
     }
 }
-const static void expose(XEvent *event) {
-
-    printf("expose event received\n");
-    /* Resize pixels and depth buffer to match the screen size. */
-    // if (MAPCOUNT) {
-    //     pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-    //     depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-    // } else {
-    //     load_texture();
-        // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-    // }
-    // pixmapcreate();
-    // project(scene);
-}
 const static void resizerequest(XEvent *event) {
 
     printf("resizerequest event received\n");
@@ -225,6 +208,16 @@ const static void configurenotify(XEvent *event) {
         AspectRatio = ((float)wa.width / (float)wa.height);
         HALFW = wa.width / 2.00;
         HALFH = wa.height / 2.00;
+
+        /* Resize pixels and depth buffer to match the screen size. */
+        // if (MAPCOUNT) {
+        //     pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+        //     depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+        // } else {
+        //     load_texture();
+            // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+            // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+        // }
     }
 }
 const static void buttonpress(XEvent *event) {
@@ -232,8 +225,6 @@ const static void buttonpress(XEvent *event) {
     printf("buttonpress event received\n");
     printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
     printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
-    // printf("X: %d\n", event->xbutton.x);
-    // printf("Y: %d\n", event->xbutton.y);
 }
 
 const static void keypress(XEvent *event) {
@@ -328,7 +319,6 @@ const static void keypress(XEvent *event) {
         default :
             return;
     }
-    // project(scene);
 }
 /* Rotates the camera to look left. */
 static void look_left(Global *g, const float angle) {
@@ -347,10 +337,6 @@ static void look_left(Global *g, const float angle) {
     g->V = resv.v;
     g->N = resn.v;
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
-    printf("Yaw: %f\n", Yaw);
 }
 /* Rotates the camera to look right. */
 const static void look_right(Global *g, const float angle) {
@@ -369,24 +355,14 @@ const static void look_right(Global *g, const float angle) {
     g->V = resv.v;
     g->N = resn.v;
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
-    printf("Yaw: %f\n", Yaw);
 }
 const static void move_forward(Global *g) {
     g->Pos = add_vecs(g->Pos, multiply_vec(g->N, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
 }
 const static void move_backward(Global *g) {
     g->Pos = sub_vecs(g->Pos, multiply_vec(g->N, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
@@ -407,11 +383,6 @@ const static void look_up(Global *g, const float angle) {
     g->V = resv.v;
     g->N = resn.v;
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-    
-    // printQuat(res);
-    log_global(*g);
-    log_matrix(LookAt);
-    printf("Pitch: %f\n", Pitch);
 }
 /* Rotates the camera to look Down. */
 const static void look_down(Global *g, const float angle) {
@@ -432,45 +403,28 @@ const static void look_down(Global *g, const float angle) {
     g->V = resv.v;
     g->N = resn.v;
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    // printQuat(res);
-    log_global(*g);
-    log_matrix(LookAt);
-    printf("Pitch: %f\n", Pitch);
 }
 /* Moves camera position left. */
 const static void move_left(Global *g) {
     g->Pos = sub_vecs(g->Pos, multiply_vec(g->U, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
 }
 /* Moves camera position right. */
 const static void move_right(Global *g) {
     g->Pos = add_vecs(g->Pos, multiply_vec(g->U, 0.1));
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
 }
 /* Moves camera position Up. */
 const static void move_up(Global *g) {
     // g->Pos = sub_vecs(g->Pos, multiply_vec(g->V, 0.1));
     g->Pos.y -= 0.1;
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
 }
 /* Moves camera position Down. */
 const static void move_down(Global *g) {
     // g->Pos = add_vecs(g->Pos, multiply_vec(g->V, 0.1));
     g->Pos.y += 0.1;
     LookAt = lookat(g->Pos, g->U, g->V, g->N);
-
-    log_global(*g);
-    log_matrix(LookAt);
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
@@ -911,16 +865,18 @@ const static int board(void) {
 
     while (RUNNING) {
 
+        // clock_t start_time = start();
         project(scene);
-        printf("LOOP RUNNING\n");
+        // end(start_time);
 
         while(XPending(displ)) {
+
             XNextEvent(displ, &event);
 
             if (handler[event.type])
                 handler[event.type](&event);
-            printf("INNER LOOP\n");
         }
+        usleep(16661);
     }
     return EXIT_SUCCESS;
 }

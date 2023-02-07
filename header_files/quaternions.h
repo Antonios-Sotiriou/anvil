@@ -28,6 +28,5 @@ Quat eulertoQuat(const float roll, const float yaw, const float pitch);
 Quat multiplyQuats(const Quat q1, const Quat q2);
 Quat addQuats(const Quat q1, const Quat q2);
 Mat4x4 MatfromQuat(const Quat q, const Vector v);
-void printQuat(const Quat q);
 
 #endif /* _QUATERNIONS_H */

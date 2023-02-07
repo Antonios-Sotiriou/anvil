@@ -149,7 +149,3 @@ Mat4x4 MatfromQuat(const Quat q, const Vector v) {
     return m;
 }
 
-void printQuat(const Quat q) {
-    fprintf(stdout, "w: %f  v[x: %f, y: %f, z: %f]\n", q.w, q.v.x, q.v.y, q.v.z);
-}
-

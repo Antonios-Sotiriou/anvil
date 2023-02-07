@@ -1,4 +1,6 @@
 anvil
 header_files/code_cache.h
 header_files/bmp.h
+header_files/logging.h
+logging.c
 
