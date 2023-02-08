@@ -20,9 +20,10 @@
 #include "header_files/general_functions.h"
 #include "header_files/quaternions.h"
 
-/* cubeing */
+/* testing */
 #include "header_files/test_shapes.h"
 #include "header_files/exec_time.h"
+#include "header_files/logging.h"
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 enum { Pos, U, V, N, C};
@@ -34,7 +35,7 @@ enum { Pos, U, V, N, C};
 
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
-#define EXPOSEMASKS               ( StructureNotifyMask | ResizeRedirectMask )
+#define EXPOSEMASKS               ( StructureNotifyMask )
 
 /* X Global Structures. */
 Display *displ;
@@ -78,7 +79,7 @@ Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 };
 /* depth = z1 + t * (z1 - z0) */
 
 /* Project Global Variables. */
-static int MAPCOUNT = 0;
+static int INIT = 0;
 static int RUNNING = 1;
 static int HALFW = 0; // Half width of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static int HALFH = 0; // Half height of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
@@ -86,8 +87,8 @@ static int EYEPOINT = 0;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 0.05;
-static float Yaw = 0.0;
-static float Pitch = 0.0;
+// static float Yaw = 0.0;
+// static float Pitch = 0.0;
 // static float Roll = 0.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
@@ -169,32 +170,19 @@ const static void clientmessage(XEvent *event) {
         XFree(gc);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
-        XCloseDisplay(displ);
-
+        // XCloseDisplay(displ);
+        printf("Reached step 4\n");
+        logEvent(*event);
         RUNNING = 0;
     }
 }
 const static void reparentnotify(XEvent *event) {
 
     printf("reparentnotify event received\n");
-    // XGetWindowAttributes(displ, win, &wa);
-    // AspectRatio = ((float)wa.width / (float)wa.height);
-    // pixmapcreate();
-    /* The pixels and depth buffer creation. */
-    // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-    // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
 }
 const static void mapnotify(XEvent *event) {
 
     printf("mapnotify event received\n");
-
-    if (MAPCOUNT) {
-        pixmapdisplay();
-    } else {
-        init_meshes();
-        create_scene(&scene);
-        MAPCOUNT = 1;
-    }
 }
 const static void resizerequest(XEvent *event) {
 
@@ -205,19 +193,18 @@ const static void configurenotify(XEvent *event) {
     if (!event->xconfigure.send_event) {
         printf("configurenotify event received\n");
         XGetWindowAttributes(displ, win, &wa);
+        pixmapcreate();
+
+        if (INIT) {
+            /* Resize pixels and depth buffer to match the screen size. */
+            pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+            depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+        }
+
         AspectRatio = ((float)wa.width / (float)wa.height);
         HALFW = wa.width / 2.00;
         HALFH = wa.height / 2.00;
-
-        /* Resize pixels and depth buffer to match the screen size. */
-        // if (MAPCOUNT) {
-        //     pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-        //     depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-        // } else {
-        //     load_texture();
-            // pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-            // depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-        // }
+        INIT = 1;
     }
 }
 const static void buttonpress(XEvent *event) {
@@ -847,10 +834,15 @@ const static int board(void) {
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 
     XGetWindowAttributes(displ, win, &wa);
+    printf("height: %d    width: %d\n", wa.height, wa.width);
     AspectRatio = ((float)wa.width / (float)wa.height);
+    HALFW = wa.width / 2.00;
+    HALFH = wa.height / 2.00;
     pixmapcreate();
     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
     depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    init_meshes();
+    create_scene(&scene);
 
     atomsinit();
 
@@ -862,12 +854,12 @@ const static int board(void) {
         fprintf(stderr, "Warning: board() -- sigaction()\n");
         return EXIT_FAILURE;
     }
-
+    float end_time = 0.0;
     while (RUNNING) {
 
-        // clock_t start_time = start();
+        clock_t start_time = start();
         project(scene);
-        // end(start_time);
+        end_time = end(start_time);
 
         while(XPending(displ)) {
 
@@ -876,7 +868,7 @@ const static int board(void) {
             if (handler[event.type])
                 handler[event.type](&event);
         }
-        usleep(16661);
+        usleep(16667 - (end_time * 1000));
     }
     return EXIT_SUCCESS;
 }
@@ -900,6 +892,8 @@ const int main(int argc, char *argv[]) {
 
     if (board())
         return EXIT_FAILURE;
+
+    XCloseDisplay(displ);
     
     return EXIT_SUCCESS;
 }

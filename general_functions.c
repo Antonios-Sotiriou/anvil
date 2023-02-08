@@ -4,12 +4,12 @@
 void *create2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
     obj = malloc(sizeof(obj) * height);
     if (obj == NULL)
-        fprintf(stderr, "Could not allocate texels height memory! create2darray() -- malloc().\n");
+        fprintf(stderr, "Could not allocate 2D array height memory! create2darray() -- malloc().\n");
 
     for (int y = 0; y < height; y++) {
         obj[y] = malloc(obj_size * width);
         if (obj[y] == NULL)
-            fprintf(stderr, "Could not allocate texels width memory! create2darray() -- malloc().\n");
+            fprintf(stderr, "Could not allocate 2D array width memory! create2darray() -- malloc().\n");
     }
     return obj;
 }
@@ -17,12 +17,12 @@ void *create2darray(void **obj, const unsigned long obj_size, const int height, 
 void *resize2darray(void **obj, const unsigned long obj_size, const int height, const int width) {
     obj = realloc(obj, sizeof(obj) * height);
     if (obj == NULL)
-        fprintf(stderr, "Could not reallocate texels height memory! resize2darray() -- malloc().\n");
+        fprintf(stderr, "Could not reallocate texels 2D array memory! resize2darray() -- malloc().\n");
 
     for (int y = 0; y < height; y++) {
         obj[y] = realloc(obj[y], obj_size * width);
         if (obj[y] == NULL)
-            fprintf(stderr, "Could not reallocate texels width memory! resize2darray() -- malloc().\n");
+            fprintf(stderr, "Could not reallocate 2D array width memory! resize2darray() -- malloc().\n");
     }
     return obj;
 }
