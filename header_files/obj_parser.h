@@ -20,7 +20,7 @@ typedef struct {
     int na, nb, nc;
 } Face;
 
-void load_obj(Mesh *c, const char path[]);
+Mesh load_obj(const char path[]);
 
 #endif /* _OBJ_PARSER_H */
 

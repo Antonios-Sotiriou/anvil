@@ -40,6 +40,7 @@ enum { Pos, U, V, N, C};
 /* X Global Structures. */
 Display *displ;
 Window win;
+XImage *image;
 Pixmap pixmap;
 GC gc;
 XGCValues gcvalues;
@@ -49,6 +50,7 @@ Atom wmatom[Atom_Last];
 
 /* Project Global Structures. */
 Pixel **pixels;
+char *frame_buffer;
 float **depth_buffer;
 float **shadow_buffer;
 
@@ -104,7 +106,6 @@ const static void resizerequest(XEvent *event);
 const static void configurenotify(XEvent *event);
 const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
-const static void signal_handler(const int sig);
 
 /* Moving functions */
 const static void look_left(Global *g, const float Angle);
@@ -143,6 +144,8 @@ const static KeySym get_keysym(XEvent *event);
 const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
 const static void atomsinit(void);
+const static void sigsegv_handler(const int sig);
+const static int registerSig(const int signal);
 const static int board(void);
 static void (*handler[LASTEvent]) (XEvent *event) = {
     [ClientMessage] = clientmessage,
@@ -166,8 +169,10 @@ const static void clientmessage(XEvent *event) {
         printf("Reached step 2\n");
         free2darray((void*)depth_buffer, wa.height);
         printf("Reached step 3\n");
+        free(frame_buffer);
 
         XFree(gc);
+        XFree(image);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
         // XCloseDisplay(displ);
@@ -192,19 +197,27 @@ const static void configurenotify(XEvent *event) {
 
     if (!event->xconfigure.send_event) {
         printf("configurenotify event received\n");
+        int old_height = wa.height;
+        // int old_width = wa.width;
         XGetWindowAttributes(displ, win, &wa);
-        pixmapcreate();
 
         if (INIT) {
-            /* Resize pixels and depth buffer to match the screen size. */
-            pixels = resize2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-            depth_buffer = resize2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+            free2darray((void*)pixels, old_height);
+            free2darray((void*)depth_buffer, old_height);
+            free(frame_buffer);
+
+            pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+            depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+            frame_buffer = calloc(wa.width * wa.height * 4, 1);
+            pixmapcreate();
         }
 
         AspectRatio = ((float)wa.width / (float)wa.height);
         HALFW = wa.width / 2.00;
         HALFH = wa.height / 2.00;
-        INIT = 1;
+
+        if (!INIT)
+            INIT = 1;
     }
 }
 const static void buttonpress(XEvent *event) {
@@ -454,7 +467,7 @@ const static void submeshxm(const Mesh *c, const Mat4x4 m) {
 const static void init_meshes(void) {
     Mat4x4 ScaleMat, TransMat;
 
-    load_obj(&terrain, "objects/terrain.obj");
+    terrain = load_obj("objects/terrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     load_texture(&terrain);
     ScaleMat = scale_mat(1.0);
@@ -462,7 +475,7 @@ const static void init_meshes(void) {
     PosMat = mxm(ScaleMat, TransMat);
     terrain = meshxm(terrain, PosMat);
 
-    load_obj(&earth, "objects/earth.obj");
+    earth = load_obj("objects/earth.obj");
     memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
     load_texture(&earth);
     ScaleMat = scale_mat(1.0);
@@ -524,27 +537,9 @@ const static void release_scene(Scene *s) {
     }
     free(s->m);
 }
-const static void clear_buffers(const int height, const int width) {
-    /* Initializing the given buffer to depth of 0 and reseting the Pixels. */
-    for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++) {
-
-            if (pixels[y][x].Red != 0)
-                pixels[y][x].Red = 0;
-            if (pixels[y][x].Green != 0)
-                pixels[y][x].Green = 0;
-            if (pixels[y][x].Blue != 0)
-                pixels[y][x].Blue = 0;
-
-            if (depth_buffer[y][x] != 0.0)
-                depth_buffer[y][x] = 0.0;
-        }
-}
 /* Starts the Projection Pipeline. */
 const static void project(Scene s) {
 
-    // LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
-    // // Make view matrix from LookAt.
     Mat4x4 View = inverse_mat(LookAt);
     
     Mat4x4 Proj = projection_mat(FOV, AspectRatio);
@@ -685,9 +680,7 @@ const static void rasterize(const Mesh c) {
             drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
-            // clock_t start_time = start();
             filltriangle(pixels, depth_buffer, &c.t[i], dirlight,  camera, 33, 122, 157);
-            // end(start_time);
         } else {
             textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
         }
@@ -705,15 +698,15 @@ const static void rasterize(const Mesh c) {
 /* Writes the final Pixel values on screen. */
 const static void display_scene(void) {
 
-    char image_data[wa.width * wa.height * 4];
+    int size = wa.width * wa.height * 4;
 
     int height_inc = 0;
     int width_inc = 0;
-    for (int i = 0; i < sizeof(image_data) / sizeof(char); i++) {
+    for (int i = 0; i < size; i++) {
 
-        image_data[i] = pixels[height_inc][width_inc].Red;
-        image_data[i + 1] = pixels[height_inc][width_inc].Green;
-        image_data[i + 2] = pixels[height_inc][width_inc].Blue;
+        frame_buffer[i] = pixels[height_inc][width_inc].Red;
+        frame_buffer[i + 1] = pixels[height_inc][width_inc].Green;
+        frame_buffer[i + 2] = pixels[height_inc][width_inc].Blue;
 
         i += 3;
         width_inc++;
@@ -723,12 +716,27 @@ const static void display_scene(void) {
         }
     }
 
-    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, image_data, wa.width, wa.height, 32, (wa.width * 4));
+    image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
     XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
-    XFree(image);
 
     pixmapdisplay();
     clear_buffers(wa.height, wa.width);
+}
+const static void clear_buffers(const int height, const int width) {
+    /* Initializing the given buffer to depth of 0 and reseting the Pixels. */
+    for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++) {
+
+            if (pixels[y][x].Red != 0)
+                pixels[y][x].Red = 0;
+            if (pixels[y][x].Green != 0)
+                pixels[y][x].Green = 0;
+            if (pixels[y][x].Blue != 0)
+                pixels[y][x].Blue = 0;
+
+            if (depth_buffer[y][x] != 0.0)
+                depth_buffer[y][x] = 0.0;
+        }
 }
 const void export_scene(void) {
     BMP_Header header = {
@@ -757,20 +765,14 @@ const void export_scene(void) {
 }
 const static KeySym get_keysym(XEvent *event) {
 
-    /* Get user text input */
-    XIM xim;
-    XIC xic;
-    char *failed_arg;
-    XIMStyles *styles;
-
+    /* Get Keyboard UTF-8 input */
+    XIM xim = { 0 };
     xim = XOpenIM(displ, NULL, NULL, NULL);
     if (xim == NULL) {
         perror("keypress() - XOpenIM()");
     }
-    failed_arg = XGetIMValues(xim, XNQueryInputStyle, &styles, NULL);
-    if (failed_arg != NULL) {
-        perror("keypress() - XGetIMValues()");
-    }
+
+    XIC xic = { 0 };
     xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, XNClientWindow, win, NULL);
     if (xic == NULL) {
         perror("keypress() - XreateIC()");
@@ -784,16 +786,7 @@ const static KeySym get_keysym(XEvent *event) {
     if (status == XBufferOverflow) {
         perror("Buffer Overflow...\n");
     }
-    XFree(xim);
     return keysym;
-}
-const static void signal_handler(const int sig) {
-    printf("Received Signal from OS with ID: %d\n", sig);
-    XEvent event = { 0 };
-    event.type = ClientMessage;
-    event.xclient.data.l[0] = wmatom[Win_Close];
-    /* Send the signal to our event dispatcher for further processing. */
-    handler[event.type](&event);
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -810,11 +803,31 @@ const static void atomsinit(void) {
     wmatom[Atom_Type] =  XInternAtom(displ, "STRING", False);
     XChangeProperty(displ, win, wmatom[Win_Name], wmatom[Atom_Type], 8, PropModeReplace, (unsigned char*)"Anvil", 5);
 }
+const static void sigsegv_handler(const int sig) {
+    printf("Received Signal from OS with ID: %d\n", sig);
+    XEvent event = { 0 };
+    event.type = ClientMessage;
+    event.xclient.data.l[0] = wmatom[Win_Close];
+    /* Send the signal to our event dispatcher for further processing. */
+    handler[event.type](&event);
+}
+const static int registerSig(const int signal) {
+    /* Signal handling for effectivelly releasing the resources. */
+    struct sigaction sig = { 0 };
+    sig.sa_handler = &sigsegv_handler;
+    int sig_val = sigaction(signal, &sig, NULL);
+    if (sig_val == -1) {
+        fprintf(stderr, "Warning: board() -- sigaction()\n");
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
 /* General initialization and event handling. */
 const static int board(void) {
 
     XEvent event;
 
+    /* IMPROVMENTS NEEDED ###################################################################################### */
     displ = XOpenDisplay(NULL);
     if (displ == NULL) {
         fprintf(stderr, "Warning: board() -- XOpenDisplay()\n");
@@ -828,32 +841,38 @@ const static int board(void) {
     win = XCreateWindow(displ, XRootWindow(displ, screen), 0, 0, WIDTH, HEIGHT, 0, CopyFromParent, InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &sa);
     XMapWindow(displ, win);
 
+    /* IMPROVMENTS NEEDED ###################################################################################### */
     gcvalues.foreground = 0xffffff;
     gcvalues.background = 0x000000;
     gcvalues.graphics_exposures = False;
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 
     XGetWindowAttributes(displ, win, &wa);
-    printf("height: %d    width: %d\n", wa.height, wa.width);
     AspectRatio = ((float)wa.width / (float)wa.height);
     HALFW = wa.width / 2.00;
     HALFH = wa.height / 2.00;
     pixmapcreate();
     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
     depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    frame_buffer = calloc(wa.width * wa.height * 4, 1);
+
+    for (int y = 0; y < wa.height; y++)
+        for (int x = 0; x < wa.width; x++) {
+            memset(&pixels[y][x], 0, sizeof(pixels[y][x]));
+        }
+    for (int y = 0; y < wa.height; y++)
+        for (int x = 0; x < wa.width; x++) {
+            memset(&depth_buffer[y][x], 0, sizeof(depth_buffer[y][x]));
+        }
+
     init_meshes();
     create_scene(&scene);
 
-    atomsinit();
+    /* IMPROVMENTS NEEDED ######################################################################################## */
 
-    /* Signal handling for effectivelly releasing the resources. */
-    struct sigaction sig = { 0 };
-    sig.sa_handler = &signal_handler;
-    int sig_val = sigaction(SIGSEGV, &sig, NULL);
-    if (sig_val == -1) {
-        fprintf(stderr, "Warning: board() -- sigaction()\n");
-        return EXIT_FAILURE;
-    }
+    atomsinit();
+    registerSig(SIGSEGV);
+
     float end_time = 0.0;
     while (RUNNING) {
 
