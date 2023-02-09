@@ -8,8 +8,9 @@ static Vector *get_normals(const char path[]);
 /* Face array indexes */
 static int f_indexes = 0;
 
-void load_obj(Mesh *c, const char path[]) {
+Mesh load_obj(const char path[]) {
 
+    Mesh r = { 0 };
     Face *f = get_faces(path);
     if (!f)
         fprintf(stderr, "Could not create Faces array. load_obj() - get_faces()\n");
@@ -26,25 +27,25 @@ void load_obj(Mesh *c, const char path[]) {
     if (!n)
         fprintf(stderr, "Could not create Vectors array. load_obj() - get_normals()\n");
 
-    c->indexes = f_indexes;
-    c->t = malloc(sizeof(Triangle) * f_indexes);
-    if (!c->t)
+    r.indexes = f_indexes;
+    r.t = malloc(sizeof(Triangle) * f_indexes);
+    if (!r.t)
         fprintf(stderr, "Could not allocate memory for Triangles array. load_obj()\n");
 
     /* Assign the Faces of the Vectors to the Mesh triangle array creating the final object. */
-    for (int i = 0; i < c->indexes; i++) {
-        c->t[i].v[0] = v[f[i].va - 1];
-        c->t[i].v[1] = v[f[i].vb - 1];
-        c->t[i].v[2] = v[f[i].vc - 1];
+    for (int i = 0; i < r.indexes; i++) {
+        r.t[i].v[0] = v[f[i].va - 1];
+        r.t[i].v[1] = v[f[i].vb - 1];
+        r.t[i].v[2] = v[f[i].vc - 1];
 
         if (tex != NULL) {
-            c->t[i].tex[0] = tex[f[i].ta - 1];
-            c->t[i].tex[1] = tex[f[i].tb - 1];
-            c->t[i].tex[2] = tex[f[i].tc - 1];
+            r.t[i].tex[0] = tex[f[i].ta - 1];
+            r.t[i].tex[1] = tex[f[i].tb - 1];
+            r.t[i].tex[2] = tex[f[i].tc - 1];
         }
 
         if (n != NULL)
-            c->t[i].normal = n[f[i].na - 1];            
+            r.t[i].normal = n[f[i].na - 1];
     }
     
     /* Free The Vectors and Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */
@@ -52,6 +53,8 @@ void load_obj(Mesh *c, const char path[]) {
     free(tex);
     free(n);
     free(f);
+
+    return r;
 }
 static Face *get_faces(const char path[]) {
 
