@@ -122,25 +122,29 @@ const static void rotate_x(Mesh *c, const float angle);
 const static void rotate_y(Mesh *c, const float angle);
 const static void rotate_z(Mesh *c, const float angle);
 const static void rotate_origin(Mesh *obj, const float angle);
-const static void submeshxm(const Mesh *c, const Mat4x4 m);
+// const static void submeshxm(const Mesh *c, const Mat4x4 m);
 
 /* Represantation functions */
-const static void init_meshes(void);
-static void load_texture(Mesh *c);
-const static void create_scene(Scene *s);
-const static void release_scene(Scene *s);
+const static void initBuffers(void);
+const static void initMeshes(void);
+const static void loadTexture(Mesh *c);
+const static void createScene(Scene *s);
+const static void releaseScene(Scene *s);
 const static void project(Scene s);
 const static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
-const static Global adjust_light(const Global l);
 const static void rasterize(const Mesh sc);
-const static void display_scene(void);
-const static void clear_buffers(const int height, const int width);
+const static Global adjustLight(const Global l);
+const static void displayScene(void);
+const static void clearBuffers(const int height, const int width);
 
 /* Xlib relative functions and event dispatcher. */
-const void export_scene(void);
-const static KeySym get_keysym(XEvent *event);
+const void exportScene(void);
+const static KeySym getKeysym(XEvent *event);
+const static void initMainWindow();
+const static void initGlobalGC();
+const static void initDependedVariables(void);
 const static void pixmapcreate(void);
 const static void pixmapdisplay(void);
 const static void atomsinit(void);
@@ -162,7 +166,7 @@ const static void clientmessage(XEvent *event) {
     if (event->xclient.data.l[0] == wmatom[Win_Close]) {
         printf("WM_DELETE_WINDOW\n");
 
-        release_scene(&scene);
+        releaseScene(&scene);
 
         printf("Reached step 1\n");
         free2darray((void*)pixels, wa.height);
@@ -175,9 +179,9 @@ const static void clientmessage(XEvent *event) {
         XFree(image);
         XFreePixmap(displ, pixmap);
         XDestroyWindow(displ, win);
-        // XCloseDisplay(displ);
+
         printf("Reached step 4\n");
-        logEvent(*event);
+
         RUNNING = 0;
     }
 }
@@ -198,7 +202,6 @@ const static void configurenotify(XEvent *event) {
     if (!event->xconfigure.send_event) {
         printf("configurenotify event received\n");
         int old_height = wa.height;
-        // int old_width = wa.width;
         XGetWindowAttributes(displ, win, &wa);
 
         if (INIT) {
@@ -206,16 +209,10 @@ const static void configurenotify(XEvent *event) {
             free2darray((void*)depth_buffer, old_height);
             free(frame_buffer);
 
-            pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-            depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-            frame_buffer = calloc(wa.width * wa.height * 4, 1);
             pixmapcreate();
+            initBuffers();
         }
-
-        AspectRatio = ((float)wa.width / (float)wa.height);
-        HALFW = wa.width / 2.00;
-        HALFH = wa.height / 2.00;
-
+        initDependedVariables();
         if (!INIT)
             INIT = 1;
     }
@@ -229,7 +226,7 @@ const static void buttonpress(XEvent *event) {
 
 const static void keypress(XEvent *event) {
     
-    KeySym keysym = get_keysym(event);
+    KeySym keysym = getKeysym(event);
     Global *eye;
     if (EYEPOINT)
         eye = &light;
@@ -314,14 +311,14 @@ const static void keypress(XEvent *event) {
             break;
         case 45 : light.Pos.z -= 1.0;                     /* - */
             break;
-        case 98 : export_scene();                     /* - */
+        case 98 : exportScene();                     /* - */
             break;
         default :
             return;
     }
 }
 /* Rotates the camera to look left. */
-static void look_left(Global *g, const float angle) {
+const static void look_left(Global *g, const float angle) {
     Quat u = setQuat(0, g->U);
     Quat v = setQuat(0, g->V);
     Quat n = setQuat(0, g->N);
@@ -440,36 +437,59 @@ const static void rotate_y(Mesh *c, const float angle) {
 const static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
     *c = meshxm(*c, m);
+    logMatrix(m);
 }
 /* Rotates object according to own axis. */
 const static void rotate_origin(Mesh *obj, const float angle) {
-    Mat4x4 origin = translation_mat(0.0, 0.0, 500.0);
-    submeshxm(obj, origin);
-    Mat4x4 m = rotate_xmat(angle);
-    Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
-    Mat4x4 nm = mxm(m, tm);
-    // *obj = meshxm(*obj, m);
-    *obj = meshxm(*obj, nm);
+    // Mat4x4 origin = translation_mat(0.0, 0.0, 500.0);
+    // submeshxm(obj, origin);
+    // Mat4x4 m = rotate_xmat(angle);
+    // Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
+    // Mat4x4 nm = mxm(m, tm);
+    // // *obj = meshxm(*obj, m);
+    // *obj = meshxm(*obj, nm);
+    Vector pos = { 0.0, 0.0, 500.0 };
+    Vector axis = { 0.0, 0.0, 1.0 };
+    Quat n = setQuat(0, pos);
 
+    Quat xrot = rotationQuat(1, axis);
+    // Quat rerot = conjugateQuat(xrot);
+
+    // Quat resu = multiplyQuats(multiplyQuats(xrot, n), rerot);
+    // camera.Pos = resu.v;
+    Mat4x4 rm = MatfromQuat(xrot, n.v);
+
+    *obj = meshxm(*obj, rm);
+    logMatrix(rm);
 }
-/* Substracts the Translation from the given mesh. */
-const static void submeshxm(const Mesh *c, const Mat4x4 m) {
+// /* Substracts the Translation from the given mesh. */
+// const static void submeshxm(const Mesh *c, const Mat4x4 m) {
 
-    for (int i = 0; i < c->indexes; i++) {
-        for (int j = 0; j < 3; j++) {
+//     for (int i = 0; i < c->indexes; i++) {
+//         for (int j = 0; j < 3; j++) {
             
-            c->t[i].v[j].x -= m.m[3][0];
-            c->t[i].v[j].y -= m.m[3][1];
-            c->t[i].v[j].z -= m.m[3][2];
-        }
+//             c->t[i].v[j].x -= m.m[3][0];
+//             c->t[i].v[j].y -= m.m[3][1];
+//             c->t[i].v[j].z -= m.m[3][2];
+//         }
+//     }
+// }
+const static void initBuffers(void) {
+    pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
+    depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    frame_buffer = calloc(wa.width * wa.height * 4, 1);
+
+    for (int y = 0; y < wa.height; y++){
+        memset(pixels[y], 0, sizeof(Pixel) * wa.width);
+        memset(depth_buffer[y], 0, sizeof(float) * wa.width);
     }
 }
-const static void init_meshes(void) {
+const static void initMeshes(void) {
     Mat4x4 ScaleMat, TransMat;
 
     terrain = load_obj("objects/terrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    load_texture(&terrain);
+    loadTexture(&terrain);
     ScaleMat = scale_mat(1.0);
     TransMat = translation_mat(0.0, 0.5, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
@@ -477,7 +497,7 @@ const static void init_meshes(void) {
 
     earth = load_obj("objects/earth.obj");
     memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    load_texture(&earth);
+    loadTexture(&earth);
     ScaleMat = scale_mat(1.0);
     TransMat = translation_mat(1.0, 1.0, 510.0);
     PosMat = mxm(ScaleMat, TransMat);
@@ -485,7 +505,7 @@ const static void init_meshes(void) {
 
     cube_create(&cube);
     memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    load_texture(&cube);
+    loadTexture(&cube);
 
     ScaleMat = scale_mat(8.0);
     TransMat = translation_mat(0.0, 0.0, 500.0);
@@ -494,7 +514,7 @@ const static void init_meshes(void) {
 
     LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
-const static void load_texture(Mesh *c) {
+const static void loadTexture(Mesh *c) {
 
     BMP_Header bmp_header;
     BMP_Info texture;
@@ -503,7 +523,7 @@ const static void load_texture(Mesh *c) {
     fp = fopen(c->texture_file, "rb");
     if (fp == NULL){
         fclose(fp);
-        fprintf(stderr, "Could not open file < %s >! load_texture() -- fopen().\n", c->texture_file);
+        fprintf(stderr, "Could not open file < %s >! loadTexture() -- fopen().\n", c->texture_file);
     } else {
         fread(&bmp_header, sizeof(BMP_Header), 1, fp);
         fseek(fp, 14, SEEK_SET);
@@ -523,14 +543,14 @@ const static void load_texture(Mesh *c) {
     fclose(fp);
 }
 /* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
-const static void create_scene(Scene *s) {
+const static void createScene(Scene *s) {
     s->m = malloc(sizeof(Mesh) * 3);
     s->indexes = 3;
     s->m[0] = terrain;
     s->m[1] = earth;
     s->m[2] = cube;
 }
-const static void release_scene(Scene *s) {
+const static void releaseScene(Scene *s) {
     for (int i = 0; i < s->indexes; i++) {
         free(s->m[i].t);
         free2darray((void*)s->m[i].texels, s->m[i].texture_height);
@@ -565,7 +585,7 @@ const static void project(Scene s) {
         /* Sending to translation from NDC to Screen Coordinates. */
         viewtoscreen(bf);
     }
-    display_scene();
+    displayScene();
 }
 /* Perspective division. */
 const static void ppdiv(Mesh *c) {
@@ -592,8 +612,8 @@ const static Mesh bfculling(const Mesh c) {
         fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
     for (int i = 0; i < c.indexes; i++) {
-        cp = triangle_cp(c.t[i]);
-        dpc = dot_product(norm_vec(camera.Pos), norm_vec(cp));
+        cp = norm_vec(triangle_cp(c.t[i]));
+        dpc = dot_product(norm_vec(camera.Pos), cp);
 
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -602,7 +622,7 @@ const static Mesh bfculling(const Mesh c) {
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
             r.t[index] = c.t[i];
-            r.t[index].normal = norm_vec(cp);
+            r.t[index].normal = cp;
 
             counter++;
             index++;
@@ -652,26 +672,10 @@ const static void viewtoscreen(const Mesh c) {
     rasterize(uf);
     free(uf.t);
 }
-const static Global adjust_light(const Global l) {
-    Global r = l;
-    r.Pos = vecxm(l.Pos, WorldMat);
-
-    if (r.Pos.w <= 0.1)
-        r.Pos.w = 0.1;
-
-    if (r.Pos.z <= 0.1)
-        r.Pos.z = 0.1;
-
-    r.Pos.x /= r.Pos.w;
-    r.Pos.y /= r.Pos.w;
-    r.Pos.z /= r.Pos.w;
-
-    return r;
-}
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
     
-    Global dirlight = adjust_light(light);
+    Global dirlight = adjustLight(light);
 
     for (int i = 0; i < c.indexes; i++) {
 
@@ -695,19 +699,32 @@ const static void rasterize(const Mesh c) {
     // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
     // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
 }
+const static Global adjustLight(const Global l) {
+    Global r = l;
+    r.Pos = vecxm(l.Pos, WorldMat);
+
+    if (r.Pos.w <= 0.1)
+        r.Pos.w = 0.1;
+
+    if (r.Pos.z <= 0.1)
+        r.Pos.z = 0.1;
+
+    r.Pos.x /= r.Pos.w;
+    r.Pos.y /= r.Pos.w;
+    r.Pos.z /= r.Pos.w;
+
+    return r;
+}
 /* Writes the final Pixel values on screen. */
-const static void display_scene(void) {
+const static void displayScene(void) {
 
     int size = wa.width * wa.height * 4;
 
     int height_inc = 0;
     int width_inc = 0;
     for (int i = 0; i < size; i++) {
-
-        frame_buffer[i] = pixels[height_inc][width_inc].Red;
-        frame_buffer[i + 1] = pixels[height_inc][width_inc].Green;
-        frame_buffer[i + 2] = pixels[height_inc][width_inc].Blue;
-
+        memcpy(&frame_buffer[i], &pixels[height_inc][width_inc], sizeof(Pixel));
+        
         i += 3;
         width_inc++;
         if (width_inc == wa.width) {
@@ -715,30 +732,20 @@ const static void display_scene(void) {
             width_inc = 0;
         }
     }
-
     image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
     XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
 
     pixmapdisplay();
-    clear_buffers(wa.height, wa.width);
+    clearBuffers(wa.height, wa.width);
 }
-const static void clear_buffers(const int height, const int width) {
-    /* Initializing the given buffer to depth of 0 and reseting the Pixels. */
-    for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++) {
+const static void clearBuffers(const int height, const int width) {
 
-            if (pixels[y][x].Red != 0)
-                pixels[y][x].Red = 0;
-            if (pixels[y][x].Green != 0)
-                pixels[y][x].Green = 0;
-            if (pixels[y][x].Blue != 0)
-                pixels[y][x].Blue = 0;
-
-            if (depth_buffer[y][x] != 0.0)
-                depth_buffer[y][x] = 0.0;
-        }
+    for (int y = 0; y < height; y++) {
+        memset(pixels[y], 0, sizeof(Pixel) * width);
+        memset(depth_buffer[y], 0, sizeof(float) * width);
+    }
 }
-const void export_scene(void) {
+const void exportScene(void) {
     BMP_Header header = {
         .Type = 0x4d42,
         .Size = (wa.width * wa.height * 32 ) / 8,
@@ -763,7 +770,7 @@ const void export_scene(void) {
 
     fclose(fp);
 }
-const static KeySym get_keysym(XEvent *event) {
+const static KeySym getKeysym(XEvent *event) {
 
     /* Get Keyboard UTF-8 input */
     XIM xim = { 0 };
@@ -787,6 +794,24 @@ const static KeySym get_keysym(XEvent *event) {
         perror("Buffer Overflow...\n");
     }
     return keysym;
+}
+const static void initMainWindow(void) {
+    sa.event_mask = EXPOSEMASKS | KEYBOARDMASKS | POINTERMASKS;
+    sa.background_pixel = 0x000000;
+    win = XCreateWindow(displ, XRootWindow(displ, XDefaultScreen(displ)), 0, 0, WIDTH, HEIGHT, 0, CopyFromParent, InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &sa);
+    XMapWindow(displ, win);
+    XGetWindowAttributes(displ, win, &wa);
+}
+const static void initGlobalGC(void) {
+    gcvalues.foreground = 0xffffff;
+    gcvalues.background = 0x000000;
+    gcvalues.graphics_exposures = False;
+    gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
+}
+const static void initDependedVariables(void) {
+    AspectRatio = ((float)wa.width / (float)wa.height);
+    HALFW = wa.width / 2.00;
+    HALFH = wa.height / 2.00;
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -827,51 +852,25 @@ const static int board(void) {
 
     XEvent event;
 
-    /* IMPROVMENTS NEEDED ###################################################################################### */
     displ = XOpenDisplay(NULL);
     if (displ == NULL) {
         fprintf(stderr, "Warning: board() -- XOpenDisplay()\n");
         return EXIT_FAILURE;
     }
-    int screen = XDefaultScreen(displ);
 
-    /*  Root main Window */
-    sa.event_mask = EXPOSEMASKS | KEYBOARDMASKS | POINTERMASKS;
-    sa.background_pixel = 0x000000;
-    win = XCreateWindow(displ, XRootWindow(displ, screen), 0, 0, WIDTH, HEIGHT, 0, CopyFromParent, InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &sa);
-    XMapWindow(displ, win);
+    initMainWindow();
+    initGlobalGC();
 
-    /* IMPROVMENTS NEEDED ###################################################################################### */
-    gcvalues.foreground = 0xffffff;
-    gcvalues.background = 0x000000;
-    gcvalues.graphics_exposures = False;
-    gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
-
-    XGetWindowAttributes(displ, win, &wa);
-    AspectRatio = ((float)wa.width / (float)wa.height);
-    HALFW = wa.width / 2.00;
-    HALFH = wa.height / 2.00;
     pixmapcreate();
-    pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
-    depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
-    frame_buffer = calloc(wa.width * wa.height * 4, 1);
 
-    for (int y = 0; y < wa.height; y++)
-        for (int x = 0; x < wa.width; x++) {
-            memset(&pixels[y][x], 0, sizeof(pixels[y][x]));
-        }
-    for (int y = 0; y < wa.height; y++)
-        for (int x = 0; x < wa.width; x++) {
-            memset(&depth_buffer[y][x], 0, sizeof(depth_buffer[y][x]));
-        }
-
-    init_meshes();
-    create_scene(&scene);
-
-    /* IMPROVMENTS NEEDED ######################################################################################## */
+    initBuffers();
+    initMeshes();
+    initDependedVariables();
 
     atomsinit();
     registerSig(SIGSEGV);
+
+    createScene(&scene);
 
     float end_time = 0.0;
     while (RUNNING) {
@@ -909,8 +908,10 @@ const int main(int argc, char *argv[]) {
         }
     }
 
-    if (board())
+    if (board()) {
+        fprintf(stderr, "ERROR: main() -- board()\n");
         return EXIT_FAILURE;
+    }
 
     XCloseDisplay(displ);
     

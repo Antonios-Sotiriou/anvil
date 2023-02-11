@@ -69,7 +69,7 @@ const Mat4x4 projection_mat(const float fov, const float aspectratio) {
 const Mesh meshxm(const Mesh c, const Mat4x4 m) {
 
     Mesh r = c;
-    
+
     r.t = malloc(sizeof(Triangle) * c.indexes);
     if (!r.t)
         fprintf(stderr, "Could not allocate memory for Cache Mesh. meshxm() -- malloc().\n");
