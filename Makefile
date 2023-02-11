@@ -16,7 +16,7 @@ all:
 	$(CC) $(CFLAGS) main.c locale.c matrices.c vectors_math.c clipping.c test_shapes.c obj_parser.c draw_functions.c general_functions.c exec_time.c lighting.c quaternions.c logging.c -o $(OBJ) $(LINKS);
 
 exec:
-	./anvil
+	./$(OBJ)
 
 clean:
 	sudo apt autoremove -y;
