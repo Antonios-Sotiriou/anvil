@@ -118,15 +118,16 @@ const static void move_left(Global *g);
 const static void move_right(Global *g);
 const static void move_up(Global *g);
 const static void move_down(Global *g);
+
+/* Objects Rotation functions */
 const static void rotate_x(Mesh *c, const float angle);
 const static void rotate_y(Mesh *c, const float angle);
 const static void rotate_z(Mesh *c, const float angle);
 const static void rotate_origin(Mesh *obj, const float angle);
-// const static void submeshxm(const Mesh *c, const Mat4x4 m);
 
 /* Represantation functions */
 const static void initBuffers(void);
-const static void initMeshes(void);
+const static void initMeshes(Scene *s);
 const static void loadTexture(Mesh *c);
 const static void createScene(Scene *s);
 const static void releaseScene(Scene *s);
@@ -426,28 +427,26 @@ const static void move_down(Global *g) {
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
     Mat4x4 m = rotate_xmat(angle);
-    *c = meshxm(*c, m);
+    Mesh cache = *c;
+    *c = meshxm(cache, m);
+    free(cache.t);
 }
 /* Rotates object according to World Y axis. */
 const static void rotate_y(Mesh *c, const float angle) {
     Mat4x4 m = rotate_ymat(angle);
-    *c = meshxm(*c, m);
+    Mesh cache = *c;
+    *c = meshxm(cache, m);
+    free(cache.t);
 }
 /* Rotates object according to World Z axis. */
 const static void rotate_z(Mesh *c, const float angle) {
     Mat4x4 m = rotate_zmat(angle);
-    *c = meshxm(*c, m);
-    logMatrix(m);
+    Mesh cache = *c;
+    *c = meshxm(cache, m);
+    free(cache.t);
 }
 /* Rotates object according to own axis. */
-const static void rotate_origin(Mesh *obj, const float angle) {
-    // Mat4x4 origin = translation_mat(0.0, 0.0, 500.0);
-    // submeshxm(obj, origin);
-    // Mat4x4 m = rotate_xmat(angle);
-    // Mat4x4 tm = translation_mat(0.0, 0.0, 500.0);
-    // Mat4x4 nm = mxm(m, tm);
-    // // *obj = meshxm(*obj, m);
-    // *obj = meshxm(*obj, nm);
+const static void rotate_origin(Mesh *c, const float angle) {
     Vector pos = { 0.0, 0.0, 500.0 };
     Vector axis = { 0.0, 0.0, 1.0 };
     Quat n = setQuat(0, pos);
@@ -459,21 +458,11 @@ const static void rotate_origin(Mesh *obj, const float angle) {
     // camera.Pos = resu.v;
     Mat4x4 rm = MatfromQuat(xrot, n.v);
 
-    *obj = meshxm(*obj, rm);
+    Mesh cache = *c;
+    *c = meshxm(cache, rm);
+    free(cache.t);
     logMatrix(rm);
 }
-// /* Substracts the Translation from the given mesh. */
-// const static void submeshxm(const Mesh *c, const Mat4x4 m) {
-
-//     for (int i = 0; i < c->indexes; i++) {
-//         for (int j = 0; j < 3; j++) {
-            
-//             c->t[i].v[j].x -= m.m[3][0];
-//             c->t[i].v[j].y -= m.m[3][1];
-//             c->t[i].v[j].z -= m.m[3][2];
-//         }
-//     }
-// }
 const static void initBuffers(void) {
     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
     depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
@@ -484,7 +473,7 @@ const static void initBuffers(void) {
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
     }
 }
-const static void initMeshes(void) {
+const static void initMeshes(Scene *s) {
     Mat4x4 ScaleMat, TransMat;
 
     terrain = load_obj("objects/terrain.obj");
@@ -493,7 +482,8 @@ const static void initMeshes(void) {
     ScaleMat = scale_mat(1.0);
     TransMat = translation_mat(0.0, 0.5, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
-    terrain = meshxm(terrain, PosMat);
+    s->m[0] = meshxm(terrain, PosMat);
+    free(terrain.t);
 
     earth = load_obj("objects/earth.obj");
     memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
@@ -501,7 +491,8 @@ const static void initMeshes(void) {
     ScaleMat = scale_mat(1.0);
     TransMat = translation_mat(1.0, 1.0, 510.0);
     PosMat = mxm(ScaleMat, TransMat);
-    earth = meshxm(earth, PosMat);
+    s->m[1] = meshxm(earth, PosMat);
+    free(earth.t);
 
     cube_create(&cube);
     memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
@@ -510,7 +501,8 @@ const static void initMeshes(void) {
     ScaleMat = scale_mat(8.0);
     TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
-    cube = meshxm(cube, PosMat);
+    s->m[2] = meshxm(cube, PosMat);
+    free(cube.t);
 
     LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
@@ -546,9 +538,6 @@ const static void loadTexture(Mesh *c) {
 const static void createScene(Scene *s) {
     s->m = malloc(sizeof(Mesh) * 3);
     s->indexes = 3;
-    s->m[0] = terrain;
-    s->m[1] = earth;
-    s->m[2] = cube;
 }
 const static void releaseScene(Scene *s) {
     for (int i = 0; i < s->indexes; i++) {
@@ -577,13 +566,14 @@ const static void project(Scene s) {
         /* Applying perspective division. */
         if (nf.indexes) {
             ppdiv(&nf);
-        }
 
-        /* Applying Backface culling before we proceed to full frustum clipping. */
-        Mesh bf = bfculling(nf);
+            /* Applying Backface culling before we proceed to full frustum clipping. */
+            Mesh bf = bfculling(nf);
 
-        /* Sending to translation from NDC to Screen Coordinates. */
-        viewtoscreen(bf);
+            /* Sending to translation from NDC to Screen Coordinates. */
+            viewtoscreen(bf);
+        } else
+            free(nf.t);
     }
     displayScene();
 }
@@ -689,15 +679,6 @@ const static void rasterize(const Mesh c) {
             textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
         }
     }
-
-    dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
-    dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
-    // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
-    XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
-
-    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.U.x) * 400, (1 + camera.U.y) * 400, 255, 0, 0);
-    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.V.x) * 400, (1 + camera.V.y) * 400, 0, 255, 0);
-    // drawline(pixels, (1 + camera.Pos.x) * 400, (1 + camera.Pos.y) * 400, (1 + camera.N.x) * 400, (1 + camera.N.y) * 400, 0, 0, 255);
 }
 const static Global adjustLight(const Global l) {
     Global r = l;
@@ -724,7 +705,7 @@ const static void displayScene(void) {
     int width_inc = 0;
     for (int i = 0; i < size; i++) {
         memcpy(&frame_buffer[i], &pixels[height_inc][width_inc], sizeof(Pixel));
-        
+
         i += 3;
         width_inc++;
         if (width_inc == wa.width) {
@@ -732,7 +713,7 @@ const static void displayScene(void) {
             width_inc = 0;
         }
     }
-    image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
+
     XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
 
     pixmapdisplay();
@@ -809,6 +790,7 @@ const static void initGlobalGC(void) {
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 }
 const static void initDependedVariables(void) {
+    image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
     AspectRatio = ((float)wa.width / (float)wa.height);
     HALFW = wa.width / 2.00;
     HALFH = wa.height / 2.00;
@@ -864,13 +846,12 @@ const static int board(void) {
     pixmapcreate();
 
     initBuffers();
-    initMeshes();
+    createScene(&scene);
+    initMeshes(&scene);
     initDependedVariables();
 
     atomsinit();
     registerSig(SIGSEGV);
-
-    createScene(&scene);
 
     float end_time = 0.0;
     while (RUNNING) {

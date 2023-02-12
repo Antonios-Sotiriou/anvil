@@ -57,7 +57,7 @@ const Mat4x4 translation_mat(const float x, const float y, const float z) {
 /* Projection Matrix. */
 const Mat4x4 projection_mat(const float fov, const float aspectratio) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = aspectratio * FovRadius;
+    m.m[0][0] = FovRadius;
     m.m[1][1] = aspectratio * FovRadius;
     m.m[2][2] = (ZFar / (ZFar - ZNear));
     m.m[2][3] = 1.0;

@@ -1,6 +1,6 @@
 #include "header_files/clipping.h"
 
-Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
+const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
 
     Mesh r = c;
     r.t = malloc(sizeof(Triangle) * c.indexes);
@@ -39,7 +39,7 @@ Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
     return r;
 }
 
-Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end, float *t) {
+const Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end, float *t) {
     float plane_d = -dot_product(plane_n, plane_p);
     float ad = dot_product(line_start, plane_n);
     float bd = dot_product(line_end, plane_n);

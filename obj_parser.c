@@ -8,7 +8,7 @@ static Vector *get_normals(const char path[]);
 /* Face array indexes */
 static int f_indexes = 0;
 
-Mesh load_obj(const char path[]) {
+const Mesh load_obj(const char path[]) {
 
     Mesh r = { 0 };
     Face *f = get_faces(path);
