@@ -1,13 +1,13 @@
 #include "header_files/test_shapes.h"
 
-void cube_create(Mesh *c) {
+const void cube_create(Mesh *c) {
 
-    c->t = malloc(sizeof(Triangle) * 12);
+    int indexes = 12;
+    c->t = malloc(sizeof(Triangle) * indexes);
     if (!c->t)
         fprintf(stderr, "Could not allocate memory for test Shape struct. cube_create() -- malloc().\n");
 
-    Shape shape = {
-        { 
+    Triangle t[12] = {
             { {{ 0.00, 0.00, shape_front, 1.0 }, { 0.00, -shape_size, shape_front, 1.0 }, { shape_size, -shape_size, shape_front, 1.0 }}, /* Front Up */
               {{0.0, 1.0, 1.0} , {0.0, 0.0, 1.0}, {1.0, 0.0, 1.0}}
             },
@@ -44,24 +44,19 @@ void cube_create(Mesh *c) {
             { {{ 0.00, 0.00, shape_back, 1.0 }, { shape_size, 0.00, shape_front, 1.0 }, { shape_size, 0.00, shape_back, 1.0 }}, /* South Down */
               {{0.0, 1.0, 1.0} , {1.0, 0.0, 1.0}, {1.0, 1.0, 1.0}}
             },
-        },
-        .indexes = 12
     };
-
-    for (int i = 0; i < shape.indexes; i++) {
-        c->t[i] = shape.t[i];
-    }
-    c->indexes = shape.indexes;
+    memcpy(c->t, t, sizeof(Triangle) * indexes);
+    c->indexes = indexes;
 }
 
 void triangle_create(Mesh *c) {
 
-    c->t = malloc(sizeof(Triangle) * 2);
+    int indexes = 2;
+    c->t = malloc(sizeof(Triangle) * indexes);
     if (!c->t)
         fprintf(stderr, "Could not allocate memory for test Shape struct. cube_create() -- malloc().\n");
 
-    Shape shape = {
-        {    
+    Triangle t[2] = {
             // { {{ -1.00, 1.00, 0.00, 1.0 }, { -1.00, -1.00, 0.00, 1.0 }, { 1.00, -1.00, 0.00, 1.0 }}, {{ 0.0, 1.0, 1.0 }, {0.0, 0.0, 1.0}, {1.0, 0.0, 1.0}} },  // Textures test
             // { {{ -1.00, 1.00, 0.00, 1.0 }, { 1.00, -1.00, 0.00, 1.0 }, { 1.00, 1.00, 0.00, 1.0 }}, {{ 0.0, 1.0, 1.0 }, {1.0, 0.0, 1.0}, {1.0, 1.0, 1.0}} },  // Textures test
             // { {{ -1.00, 0.00, 0.00, 1.0 }, { 0.00, -1.00, 0.00, 1.0 }, { 0.00, 1.00, 0.00, 1.0 }}, {{ 0.0, 0.5, 1.0 }, {1.0, 0.0, 1.0}, {1.0, 1.0, 1.0}} }, // general
@@ -71,13 +66,8 @@ void triangle_create(Mesh *c) {
             // { {{ -10.00, 0.00, 0.00, 1.0 }, { 10.00, -10.00, 0.00, 1.0 }, { 10.00, 10.00, 0.00, 1.0 }} },
             { {{ 0.00, 0.00, 1.00, 1.0 }, { 0.00, 0.00, 0.00, 1.0 }, { 0.00, 1.00, 0.00, 1.0 }}, {{ 0.0, 1.0, 1.0 }, {0.0, 0.0, 1.0}, {1.0, 0.0, 1.0}} },  // Camera test
             { {{ 0.00, 0.00, 1.00, 1.0 }, { 1.00, 0.00, 0.00, 1.0 }, { 0.00, 0.00, 0.00, 1.0 }}, {{ 0.0, 1.0, 1.0 }, {1.0, 0.0, 1.0}, {1.0, 1.0, 1.0}} },  // Camera test
-        },
-        .indexes = 2
     };
-
-    for (int i = 0; i < shape.indexes; i++) {
-        c->t[i] = shape.t[i];
-    }
-    c->indexes = shape.indexes;
+    memcpy(c->t, t, sizeof(Triangle) * indexes);
+    c->indexes = indexes;
 }
 
