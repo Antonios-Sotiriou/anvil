@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <math.h>
 #include <unistd.h>
 
@@ -40,7 +41,6 @@ enum { Pos, U, V, N, C};
 /* X Global Structures. */
 Display *displ;
 Window win;
-XImage *image;
 Pixmap pixmap;
 GC gc;
 XGCValues gcvalues;
@@ -123,7 +123,7 @@ const static void move_down(Global *g);
 const static void rotate_x(Mesh *c, const float angle);
 const static void rotate_y(Mesh *c, const float angle);
 const static void rotate_z(Mesh *c, const float angle);
-const static void rotate_origin(Mesh *obj, const float angle);
+const static void rotate_origin(Mesh *obj, const float angle, float x, float y, float z);
 
 /* Represantation functions */
 const static void initBuffers(void);
@@ -175,13 +175,13 @@ const static void clientmessage(XEvent *event) {
         free2darray((void*)depth_buffer, wa.height);
         printf("Reached step 3\n");
         free(frame_buffer);
-
-        XFree(gc);
-        XFree(image);
-        XFreePixmap(displ, pixmap);
-        XDestroyWindow(displ, win);
-
         printf("Reached step 4\n");
+        XFreeGC(displ, gc);
+        printf("Reached step 5\n");
+        XFreePixmap(displ, pixmap);
+        printf("Reached step 5\n");
+        XDestroyWindow(displ, win);
+        printf("Reached step 7\n");
 
         RUNNING = 0;
     }
@@ -292,7 +292,7 @@ const static void keypress(XEvent *event) {
         case 65455 : dplus -= 0.01;             /* / */
             printf("NPlane.z: %f\n", dplus);
             break;
-        case 99 : rotate_origin(&scene.m[2], Angle);        /* c */
+        case 99 : rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
         case 108 :                                    /* l */
             if (EYEPOINT == 0)
@@ -446,22 +446,17 @@ const static void rotate_z(Mesh *c, const float angle) {
     free(cache.t);
 }
 /* Rotates object according to own axis. */
-const static void rotate_origin(Mesh *c, const float angle) {
+const static void rotate_origin(Mesh *c, const float angle, float x, float y, float z) {
     Vector pos = { 0.0, 0.0, 500.0 };
-    Vector axis = { 0.0, 0.0, 1.0 };
+    Vector axis = { x, y, z };
     Quat n = setQuat(0, pos);
 
-    Quat xrot = rotationQuat(1, axis);
-    // Quat rerot = conjugateQuat(xrot);
-
-    // Quat resu = multiplyQuats(multiplyQuats(xrot, n), rerot);
-    // camera.Pos = resu.v;
+    Quat xrot = rotationQuat(angle, axis);
     Mat4x4 rm = MatfromQuat(xrot, n.v);
 
     Mesh cache = *c;
     *c = meshxm(cache, rm);
     free(cache.t);
-    logMatrix(rm);
 }
 const static void initBuffers(void) {
     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
@@ -498,7 +493,7 @@ const static void initMeshes(Scene *s) {
     memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&cube);
 
-    ScaleMat = scale_mat(8.0);
+    ScaleMat = scale_mat(1.0);
     TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[2] = meshxm(cube, PosMat);
@@ -674,7 +669,9 @@ const static void rasterize(const Mesh c) {
             drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
+            // clock_t start_time = start();
             filltriangle(pixels, depth_buffer, &c.t[i], dirlight,  camera, 33, 122, 157);
+            // end(start_time);
         } else {
             textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
         }
@@ -714,7 +711,9 @@ const static void displayScene(void) {
         }
     }
 
+    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
     XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
+    free(image);
 
     pixmapdisplay();
     clearBuffers(wa.height, wa.width);
@@ -790,7 +789,6 @@ const static void initGlobalGC(void) {
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 }
 const static void initDependedVariables(void) {
-    image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
     AspectRatio = ((float)wa.width / (float)wa.height);
     HALFW = wa.width / 2.00;
     HALFH = wa.height / 2.00;
@@ -858,6 +856,9 @@ const static int board(void) {
 
         clock_t start_time = start();
         project(scene);
+        rotate_origin(&scene.m[2], 3.0, 0.0, 0.0, 1.0);
+        rotate_origin(&scene.m[2], 3.0, 0.0, 1.0, 0.0);
+        rotate_origin(&scene.m[2], 3.0, 1.0, 0.0, 0.0);
         end_time = end(start_time);
 
         while(XPending(displ)) {

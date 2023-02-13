@@ -107,35 +107,26 @@ Quat addQuats(const Quat q1, const Quat q2) {
 }
 
 Mat4x4 MatfromQuat(const Quat q, const Vector v) {
-    float sqw = q.w * q.w;
-    float sqx = q.v.x * q.v.x;
-    float sqy = q.v.y * q.v.y;
-    float sqz = q.v.z * q.v.z;
     Mat4x4 m = { 0 };
 
-    m.m[0][0] = sqx - sqy - sqz + sqw;
-    m.m[1][1] = -sqx + sqy - sqz + sqw;
-    m.m[2][2] = -sqx - sqy + sqz + sqw;
+    m.m[0][0] = 2.0 * ( (q.w * q.w) + (q.v.x * q.v.x) ) - 1.0;
+    m.m[0][1] = 2.0 * ( (q.v.x * q.v.y) - (q.w * q.v.z) );
+    m.m[0][2] = 2.0 * ( (q.v.x * q.v.z) + (q.w * q.v.y) );
+    m.m[0][3] = 0.0;
 
-    float tmp1 = q.v.x * q.v.y;
-    float tmp2 = q.v.z * q.w;
-    m.m[1][0] = 2.0 * (tmp1 + tmp2);
-    m.m[0][1] = 2.0 * (tmp1 - tmp2);
+    m.m[1][0] = 2.0 * ( (q.v.x * q.v.y) + (q.w * q.v.z) );
+    m.m[1][1] = 2.0 * ( (q.w * q.w) + (q.v.y * q.v.y) ) - 1.0;
+    m.m[1][2] = 2.0 * ( (q.v.y * q.v.z) - (q.w * q.v.x) );
+    m.m[1][3] = 0.0;
 
-    tmp1 = q.v.x * q.v.z;
-    tmp2 = q.v.y * q.w;
-    m.m[2][0] = 2.0 * (tmp1 - tmp2);
-    m.m[0][2] = 2.0 * (tmp1 + tmp2);
-
-    tmp1 = q.v.y * q.v.z;
-    tmp2 = q.v.x * q.v.w;
-    m.m[2][1] = 2.0 * (tmp1 + tmp2);
-    m.m[1][2] = 2.0 * (tmp1 - tmp2);
+    m.m[2][0] = 2.0 * ( (q.v.x * q.v.z) - (q.w * q.v.y) );
+    m.m[2][1] = 2.0 * ( (q.v.y * q.v.z) + (q.w * q.v.x) );
+    m.m[2][2] = 2.0 * ( (q.w * q.w) + (q.v.z * q.v.z) ) - 1.0;
+    m.m[2][3] = 0.0;
 
     m.m[3][0] = v.x - v.x * m.m[0][0] - v.y * m.m[1][0] - v.z * m.m[2][0];
     m.m[3][1] = v.y - v.x * m.m[0][1] - v.y * m.m[1][1] - v.z * m.m[2][1];
     m.m[3][2] = v.z - v.x * m.m[0][2] - v.y * m.m[1][2] - v.z * m.m[2][2];
-    m.m[0][3] = m.m[1][3] = m.m[2][3] = 0.0;
     m.m[3][3] = 1.0;
 
     return m;

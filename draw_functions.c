@@ -230,7 +230,6 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, c
                 pixels[(int)y][(int)x].Blue = pixcolor.x;
                 pixels[(int)y][(int)x].Green = pixcolor.y;
                 pixels[(int)y][(int)x].Red = pixcolor.z;
-
                 depth_buffer[(int)y][(int)x] = depth;
             }
         }
@@ -355,9 +354,10 @@ const void texnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
             depth = (z0 * (1 - barycentric)) + (z1 * barycentric);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
-                pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
-                pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                // pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
+                // pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
+                // pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                memcpy(&pixels[(int)y][(int)x], &texels[(int)tex_y][(int)tex_x], sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
             q += q_step;
@@ -422,9 +422,10 @@ const void texsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
             depth = (z2 * (1 - barycentric)) + (z1 * barycentric);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
-                pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
-                pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                // pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
+                // pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
+                // pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                memcpy(&pixels[(int)y][(int)x], &texels[(int)tex_y][(int)tex_x], sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
             q += q_step;
@@ -499,9 +500,10 @@ const void texgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, co
             depth = ((z0 * (1 - barycentric)) + (z1 * barycentric));// - (z0 - z1);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
-                pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
-                pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                // pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
+                // pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
+                // pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                memcpy(&pixels[(int)y][(int)x], &texels[(int)tex_y][(int)tex_x], sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
             q += q_step;
@@ -549,9 +551,10 @@ const void texgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, co
             depth = ((z2 * (1 - barycentric)) + (z1 * barycentric));// - (z2 - z1);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
-                pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
-                pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                // pixels[(int)y][(int)x].Red = texels[(int)tex_y][(int)tex_x].Red;
+                // pixels[(int)y][(int)x].Green = texels[(int)tex_y][(int)tex_x].Green;
+                // pixels[(int)y][(int)x].Blue = texels[(int)tex_y][(int)tex_x].Blue;
+                memcpy(&pixels[(int)y][(int)x], &texels[(int)tex_y][(int)tex_x], sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
             q += q_step;
