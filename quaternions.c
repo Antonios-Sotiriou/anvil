@@ -124,9 +124,12 @@ Mat4x4 MatfromQuat(const Quat q, const Vector v) {
     m.m[2][2] = 2.0 * ( (q.w * q.w) + (q.v.z * q.v.z) ) - 1.0;
     m.m[2][3] = 0.0;
 
-    m.m[3][0] = v.x - v.x * m.m[0][0] - v.y * m.m[1][0] - v.z * m.m[2][0];
-    m.m[3][1] = v.y - v.x * m.m[0][1] - v.y * m.m[1][1] - v.z * m.m[2][1];
-    m.m[3][2] = v.z - v.x * m.m[0][2] - v.y * m.m[1][2] - v.z * m.m[2][2];
+    if (m.m[2][0] != 0.0)
+        m.m[3][0] = v.x - v.x * m.m[0][0] - v.y * m.m[1][0] - v.z * m.m[2][0];
+    if (m.m[2][1] != 0.0)
+        m.m[3][1] = v.y - v.x * m.m[0][1] - v.y * m.m[1][1] - v.z * m.m[2][1];
+    if (m.m[2][2] != 0.0)
+        m.m[3][2] = v.z - v.x * m.m[0][2] - v.y * m.m[1][2] - v.z * m.m[2][2];
     m.m[3][3] = 1.0;
 
     return m;

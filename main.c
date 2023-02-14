@@ -73,13 +73,6 @@ Scene scene = { 0 };
 Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
 Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 };
 
-/* Magnitude of a Vector in 3d space |V| = √(x2 + y2 + z2) */
-/* Magnitude of a Vector with one point at origin (0, 0)  |v| =√(x2 + y2) */
-/* Magnitude of a Vector with 2 points |v| =√((x2 - x1)2 + (y2 - y1)2) */
-/* float t = (Point0 - X0) / (X1 - X0) */
-/* depth = (Point0 * (1 - t)) + (Point1 * t); */
-/* depth = z1 + t * (z1 - z0) */
-
 /* Project Global Variables. */
 static int INIT = 0;
 static int RUNNING = 1;
@@ -493,7 +486,7 @@ const static void initMeshes(Scene *s) {
     memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&cube);
 
-    ScaleMat = scale_mat(1.0);
+    ScaleMat = scale_mat(8.0);
     TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[2] = meshxm(cube, PosMat);
@@ -673,23 +666,34 @@ const static void rasterize(const Mesh c) {
             filltriangle(pixels, depth_buffer, &c.t[i], dirlight,  camera, 33, 122, 157);
             // end(start_time);
         } else {
+            // clock_t start_time = start();
             textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
+            // end(start_time);
         }
     }
+
+    dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
+    dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
+    // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
+    XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
 }
 const static Global adjustLight(const Global l) {
     Global r = l;
     r.Pos = vecxm(l.Pos, WorldMat);
 
-    if (r.Pos.w <= 0.1)
+    if (r.Pos.w < 0.0)
         r.Pos.w = 0.1;
 
-    if (r.Pos.z <= 0.1)
+    if (r.Pos.z <= 0.0)
         r.Pos.z = 0.1;
 
     r.Pos.x /= r.Pos.w;
     r.Pos.y /= r.Pos.w;
     r.Pos.z /= r.Pos.w;
+
+    // r.Pos.x = (1 + r.Pos.x) * HALFW;
+    // r.Pos.y = (1 + r.Pos.y) * HALFH;
+    // r.Pos.z = r.Pos.z;
 
     return r;
 }
@@ -854,12 +858,12 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        clock_t start_time = start();
+        // clock_t start_time = start();
         project(scene);
-        rotate_origin(&scene.m[2], 3.0, 0.0, 0.0, 1.0);
-        rotate_origin(&scene.m[2], 3.0, 0.0, 1.0, 0.0);
-        rotate_origin(&scene.m[2], 3.0, 1.0, 0.0, 0.0);
-        end_time = end(start_time);
+        // rotate_origin(&scene.m[2], 3.0, 0.0, 0.0, 1.0);
+        // rotate_origin(&scene.m[2], 3.0, 0.0, 1.0, 0.0);
+        // rotate_origin(&scene.m[2], 3.0, 1.0, 0.0, 0.0);
+        // end_time = end(start_time);
 
         while(XPending(displ)) {
 
