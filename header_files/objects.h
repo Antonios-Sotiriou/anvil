@@ -53,10 +53,26 @@ typedef struct {
     float m[4][4];
 } Mat4x4;
 
+/* structure for global objets that need their own coordinate system. C here can be used for normalized Color. */
 typedef struct {
-    /* structure for global objets that need their own coordinate system. C here can be used for normalized Color. */
     Vector Pos, U, V, N, C;
 } Global;
+
+/* structure for lighting models. Helps to keep orginized the lighting values that we need to pass arround. */
+typedef struct {
+    Vector CameraPos;
+    Vector lightPos;
+    Vector PixelPos;
+    Vector LightColor;
+    Vector objColor;
+    Vector normal;
+    float AmbientStrength;
+    Vector Ambient;
+    float SpecularStrength;
+    Vector Specular;
+    int halfWidth;
+    int halfHeight;
+} Phong;
 
 #endif /* _OBJECTS_H */
 

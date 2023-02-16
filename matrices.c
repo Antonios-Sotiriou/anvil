@@ -54,15 +54,35 @@ const Mat4x4 translation_mat(const float x, const float y, const float z) {
     m.m[3][2] = z;
     return m;
 }
-/* Projection Matrix. */
-const Mat4x4 projection_mat(const float fov, const float aspectratio) {
+/* Perspective Projection Matrix. */
+const Mat4x4 perspective_mat(const float fov, const float aspectratio) {
     Mat4x4 m = { 0 };
     m.m[0][0] = FovRadius;
     m.m[1][1] = aspectratio * FovRadius;
     m.m[2][2] = (ZFar / (ZFar - ZNear));
     m.m[2][3] = 1.0;
     m.m[3][2] = ((ZFar * ZNear) / (ZFar - ZNear));
-    m.m[3][3] = 0.0;
+    return m;
+}
+/* Reverse Perspective Projection Matrix. */
+const Mat4x4 reperspective_mat(const float fov, const float aspectratio) {
+    Mat4x4 m = { 0 };
+    m.m[0][0] = aspectratio / FovRadius;
+    m.m[1][1] = aspectratio / FovRadius;
+    m.m[3][2] = 1.0;
+    m.m[3][3] = 1.0;
+    return m;
+}
+/* Orthographic Projection Matrix. */
+const Mat4x4 orthographic_mat(const float fov, const float aspectratio) {
+    Mat4x4 m = { 0 };
+    m.m[0][0] = 0.08;
+    m.m[1][1] = 0.08;
+    m.m[2][2] = 2.00 / (ZFar - ZNear);
+    m.m[3][0] = 0.0;    /* Translation area. */
+    m.m[3][1] = 0.0;    /* Translation area. */
+    m.m[3][2] = ((ZFar + ZNear) / (ZFar - ZNear));
+    m.m[3][3] = 1.0;
     return m;
 }
 /* Multiplies a Mesh c with the given Matrix and returns a new Mesh, leaving the original unmodified. */

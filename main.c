@@ -129,7 +129,7 @@ const static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
 const static void rasterize(const Mesh sc);
-const static Global adjustLight(const Global l);
+const static Phong initLightModel(void);
 const static void displayScene(void);
 const static void clearBuffers(const int height, const int width);
 
@@ -154,6 +154,7 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
     [ButtonPress] = buttonpress,
     [KeyPress] = keypress,
 };
+const static Global rerasterize(const Global l);
 
 const static void clientmessage(XEvent *event) {
     printf("Received client message event\n");
@@ -167,14 +168,16 @@ const static void clientmessage(XEvent *event) {
         printf("Reached step 2\n");
         free2darray((void*)depth_buffer, wa.height);
         printf("Reached step 3\n");
-        free(frame_buffer);
+        free2darray((void*)shadow_buffer, wa.height);
         printf("Reached step 4\n");
+        free(frame_buffer);
+        printf("Reached step 5\n");
         XFreeGC(displ, gc);
-        printf("Reached step 5\n");
+        printf("Reached step 6\n");
         XFreePixmap(displ, pixmap);
-        printf("Reached step 5\n");
-        XDestroyWindow(displ, win);
         printf("Reached step 7\n");
+        XDestroyWindow(displ, win);
+        printf("Reached step 8\n");
 
         RUNNING = 0;
     }
@@ -201,6 +204,7 @@ const static void configurenotify(XEvent *event) {
         if (INIT) {
             free2darray((void*)pixels, old_height);
             free2darray((void*)depth_buffer, old_height);
+            free2darray((void*)shadow_buffer, old_height);
             free(frame_buffer);
 
             pixmapcreate();
@@ -306,6 +310,8 @@ const static void keypress(XEvent *event) {
         case 45 : light.Pos.z -= 1.0;                     /* - */
             break;
         case 98 : exportScene();                     /* - */
+            break;
+        case 65289 : rerasterize(light);             /* Tab */
             break;
         default :
             return;
@@ -454,11 +460,13 @@ const static void rotate_origin(Mesh *c, const float angle, float x, float y, fl
 const static void initBuffers(void) {
     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
     depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
+    shadow_buffer = create2darray((void*)shadow_buffer, sizeof(float), wa.height, wa.width);
     frame_buffer = calloc(wa.width * wa.height * 4, 1);
 
     for (int y = 0; y < wa.height; y++){
         memset(pixels[y], 0, sizeof(Pixel) * wa.width);
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
+        memset(shadow_buffer[y], 0, sizeof(float) * wa.width);
     }
 }
 const static void initMeshes(Scene *s) {
@@ -539,7 +547,8 @@ const static void project(Scene s) {
 
     Mat4x4 View = inverse_mat(LookAt);
     
-    Mat4x4 Proj = projection_mat(FOV, AspectRatio);
+    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    // Mat4x4 Proj = orthographic_mat(FOV, AspectRatio);
 
     WorldMat = mxm(View, Proj);
 
@@ -622,7 +631,7 @@ const static void viewtoscreen(const Mesh c) {
 
             c.t[i].tex[j].u /= c.t[i].v[j].w;
             c.t[i].tex[j].v /= c.t[i].v[j].w;
-            c.t[i].tex[j].w = 1 / c.t[i].v[j].w;
+            c.t[i].tex[j].w = c.t[i].v[j].z;
         }
     }
 
@@ -653,7 +662,7 @@ const static void viewtoscreen(const Mesh c) {
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
     
-    Global dirlight = adjustLight(light);
+    Phong model = initLightModel();
 
     for (int i = 0; i < c.indexes; i++) {
 
@@ -663,37 +672,46 @@ const static void rasterize(const Mesh c) {
             drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
-            filltriangle(pixels, depth_buffer, &c.t[i], dirlight,  camera, 33, 122, 157);
+            filltriangle(pixels, depth_buffer, &c.t[i], model);
             // end(start_time);
         } else {
             // clock_t start_time = start();
-            textriangle(pixels, depth_buffer, &c.t[i], dirlight.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
+            textriangle(pixels, depth_buffer, &c.t[i], light.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
             // end(start_time);
         }
     }
-
-    dirlight.Pos.x = (1 + dirlight.Pos.x) * HALFW;
-    dirlight.Pos.y = (1 + dirlight.Pos.y) * HALFH;
-    // printf("lightsc.x: %f, lightsc.y: %f, lightsc.z: %f, lightsc.w: %f\n", dirlight.Pos.x, dirlight.Pos.y, dirlight.Pos.z, dirlight.Pos.w);
-    XDrawPoint(displ, win, gc, dirlight.Pos.x, dirlight.Pos.y);
 }
-const static Global adjustLight(const Global l) {
-    Global r = l;
-    r.Pos = vecxm(l.Pos, WorldMat);
+/* Initializing the structure which we pass arround for lighting calculations. This way we keep lighting vvariables more orginized. */
+const static Phong initLightModel(void) {
+    Phong r = { 0 };
+    Vector LightColor = { 1.0, 1.0, 1.0 };
+    Vector objColor = { 33 / 255.0, 122 / 255.0, 157 / 255.0 };
+    r.LightColor = LightColor;
+    r.objColor = objColor;
 
-    if (r.Pos.w < 0.0)
-        r.Pos.w = 0.1;
+    Mat4x4 ortho = orthographic_mat(FOV, AspectRatio);
+    // Mat4x4 ortho = perspective_mat(FOV, AspectRatio);
+    r.lightPos = vecxm(light.Pos, ortho);
+    // if (r.lightPos.w > 0.0) {
+        // r.lightPos.x /= r.lightPos.w;    r.lightPos.y /= r.lightPos.w;    r.lightPos.z /= r.lightPos.w;
+        // r.lightPos.x = (1.0 + r.lightPos.x) * HALFW;
+        // r.lightPos.y = (1.0 + r.lightPos.y) * HALFH;
+    // }
+    r.CameraPos = vecxm(camera.Pos, ortho);
+    // if (r.CameraPos.w > 0.0) {
+        // r.CameraPos.x /= r.CameraPos.w;    r.CameraPos.y /= r.CameraPos.w;    r.CameraPos.z /= r.CameraPos.w;
+        // r.CameraPos.x = (1.0 + r.CameraPos.x) * HALFW;
+        // r.CameraPos.y = (1.0 + r.CameraPos.y) * HALFH;
+    // }
 
-    if (r.Pos.z <= 0.0)
-        r.Pos.z = 0.1;
+    r.AmbientStrength = 0.3;
+    r.Ambient = multiply_vec(r.LightColor, r.AmbientStrength);
 
-    r.Pos.x /= r.Pos.w;
-    r.Pos.y /= r.Pos.w;
-    r.Pos.z /= r.Pos.w;
+    r.SpecularStrength = 0.5;
+    r.Specular = multiply_vec(r.LightColor, r.SpecularStrength);
 
-    // r.Pos.x = (1 + r.Pos.x) * HALFW;
-    // r.Pos.y = (1 + r.Pos.y) * HALFH;
-    // r.Pos.z = r.Pos.z;
+    r.halfWidth = HALFW;
+    r.halfHeight = HALFH;
 
     return r;
 }
@@ -722,11 +740,13 @@ const static void displayScene(void) {
     pixmapdisplay();
     clearBuffers(wa.height, wa.width);
 }
+/* Clearing Buffers but setting their value to 0. */
 const static void clearBuffers(const int height, const int width) {
 
     for (int y = 0; y < height; y++) {
         memset(pixels[y], 0, sizeof(Pixel) * width);
         memset(depth_buffer[y], 0, sizeof(float) * width);
+        memset(shadow_buffer[y], 0, sizeof(float) * width);
     }
 }
 const void exportScene(void) {
@@ -860,9 +880,9 @@ const static int board(void) {
 
         // clock_t start_time = start();
         project(scene);
-        // rotate_origin(&scene.m[2], 3.0, 0.0, 0.0, 1.0);
-        // rotate_origin(&scene.m[2], 3.0, 0.0, 1.0, 0.0);
-        // rotate_origin(&scene.m[2], 3.0, 1.0, 0.0, 0.0);
+        rotate_origin(&scene.m[2], 3.0, 0.0, 0.0, 1.0);
+        rotate_origin(&scene.m[2], 3.0, 0.0, 1.0, 0.0);
+        rotate_origin(&scene.m[2], 3.0, 1.0, 0.0, 0.0);
         // end_time = end(start_time);
 
         while(XPending(displ)) {
@@ -902,5 +922,52 @@ const int main(int argc, char *argv[]) {
     XCloseDisplay(displ);
     
     return EXIT_SUCCESS;
+}
+/* From World Coordinate System to Screen space and back again to World Coordinate System. Testing Purposes only. */
+const static Global rerasterize(const Global l) {
+    Global r = l;
+    printf("World Space:  r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    Mat4x4 View = inverse_mat(LookAt);
+    r.Pos = vecxm(r.Pos, View);
+    printf("Camera Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    // Mat4x4 Proj = orthographic_mat(FOV, AspectRatio);
+    r.Pos = vecxm(r.Pos, Proj);
+    printf("Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    if (r.Pos.w > 0.0) {
+        r.Pos.x /= r.Pos.w;
+        r.Pos.y /= r.Pos.w;
+        r.Pos.z /= r.Pos.w;
+    }
+    printf("NDC Space:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    r.Pos.x = (1.0 + r.Pos.x) * HALFW;
+    r.Pos.y = (1.0 + r.Pos.y) * HALFH;
+    printf("Screen Space: r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    r.Pos.x = (r.Pos.x / HALFW) - 1.0;
+    r.Pos.y = (r.Pos.y / HALFH) - 1.0;
+    printf("To NDC:       r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    if (r.Pos.w > 0.0) {
+        r.Pos.x *= r.Pos.w;
+        r.Pos.y *= r.Pos.w;
+        r.Pos.z *= r.Pos.w;
+    }
+    printf("To Homogin:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
+    // Mat4x4 reProj = reorthographic_mat(FOV, AspectRatio);
+    r.Pos = vecxm(r.Pos, reProj);
+    r.Pos.w = 1.0;
+    printf("To Camera:   r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    r.Pos = vecxm(r.Pos, LookAt);
+    printf("To World:   r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    return r;
 }
 
