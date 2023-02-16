@@ -5,6 +5,7 @@
 #include <X11/Xutil.h>
 #include <math.h>
 #include <unistd.h>
+#include <pthread.h>
 
 /* signal */
 #include <signal.h>
@@ -72,6 +73,7 @@ Global light = {
 Scene scene = { 0 };
 Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
 Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 };
+Phong model = { 0 };
 
 /* Project Global Variables. */
 static int INIT = 0;
@@ -90,6 +92,7 @@ static float FPlane = 0.0001;
 static float dplus = 0.0;
 static int DEBUG = 0;
 static float cvar = 0.01;
+pthread_mutex_t mutex;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -125,6 +128,7 @@ const static void loadTexture(Mesh *c);
 const static void createScene(Scene *s);
 const static void releaseScene(Scene *s);
 const static void project(Scene s);
+static void *pipeLine(void *c);
 const static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
 const static void viewtoscreen(const Mesh c);
@@ -546,33 +550,52 @@ const static void releaseScene(Scene *s) {
 const static void project(Scene s) {
 
     Mat4x4 View = inverse_mat(LookAt);
-    
     Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
     // Mat4x4 Proj = orthographic_mat(FOV, AspectRatio);
-
     WorldMat = mxm(View, Proj);
 
-    for (int i = 0; i < s.indexes; i++) {
-        Mesh cache = meshxm(s.m[i], WorldMat);
-
-        /* At this Point triangles must be clipped against near plane. */
-        Vector plane_near_p = { 0.0, 0.0, NPlane },
-            plane_near_n = { 0.0, 0.0, 1.0 };
-        Mesh nf = clipp(cache, plane_near_p, plane_near_n);
-
-        /* Applying perspective division. */
-        if (nf.indexes) {
-            ppdiv(&nf);
-
-            /* Applying Backface culling before we proceed to full frustum clipping. */
-            Mesh bf = bfculling(nf);
-
-            /* Sending to translation from NDC to Screen Coordinates. */
-            viewtoscreen(bf);
-        } else
-            free(nf.t);
+    int THREADS = s.indexes;
+    pthread_t threads[THREADS];
+    for (int i = 0; i < THREADS; i++) {
+        if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[i]))
+            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create()\n");
+        pthread_mutex_lock(&mutex);
     }
+    for (int i = 0; i < THREADS; i++) {
+        if (pthread_join(threads[i], NULL))
+            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
+    }
+
+    // pthread_mutex_unlock(&mutex);
+
     displayScene();
+    clearBuffers(wa.height, wa.width);
+}
+
+static void *pipeLine(void *c) {
+
+    Mesh *arg = (Mesh*)c;
+    Mesh cache = meshxm(*arg, WorldMat);
+
+    /* At this Point triangles must be clipped against near plane. */
+    Vector plane_near_p = { 0.0, 0.0, NPlane },
+        plane_near_n = { 0.0, 0.0, 1.0 };
+    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+
+    /* Applying perspective division. */
+    if (nf.indexes) {
+        ppdiv(&nf);
+
+        /* Applying Backface culling before we proceed to full frustum clipping. */
+        Mesh bf = bfculling(nf);
+
+        /* Sending to translation from NDC to Screen Coordinates. */
+        viewtoscreen(bf);
+    } else
+        free(nf.t);
+
+    pthread_mutex_unlock(&mutex);
+    return NULL;
 }
 /* Perspective division. */
 const static void ppdiv(Mesh *c) {
@@ -662,7 +685,7 @@ const static void viewtoscreen(const Mesh c) {
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
     
-    Phong model = initLightModel();
+    // Phong model = initLightModel();
 
     for (int i = 0; i < c.indexes; i++) {
 
@@ -692,17 +715,17 @@ const static Phong initLightModel(void) {
     Mat4x4 ortho = orthographic_mat(FOV, AspectRatio);
     // Mat4x4 ortho = perspective_mat(FOV, AspectRatio);
     r.lightPos = vecxm(light.Pos, ortho);
-    // if (r.lightPos.w > 0.0) {
-        // r.lightPos.x /= r.lightPos.w;    r.lightPos.y /= r.lightPos.w;    r.lightPos.z /= r.lightPos.w;
+    if (r.lightPos.w > 0.0) {
+        r.lightPos.x /= r.lightPos.w;    r.lightPos.y /= r.lightPos.w;    r.lightPos.z /= r.lightPos.w;
         // r.lightPos.x = (1.0 + r.lightPos.x) * HALFW;
         // r.lightPos.y = (1.0 + r.lightPos.y) * HALFH;
-    // }
+    }
     r.CameraPos = vecxm(camera.Pos, ortho);
-    // if (r.CameraPos.w > 0.0) {
-        // r.CameraPos.x /= r.CameraPos.w;    r.CameraPos.y /= r.CameraPos.w;    r.CameraPos.z /= r.CameraPos.w;
+    if (r.CameraPos.w > 0.0) {
+        r.CameraPos.x /= r.CameraPos.w;    r.CameraPos.y /= r.CameraPos.w;    r.CameraPos.z /= r.CameraPos.w;
         // r.CameraPos.x = (1.0 + r.CameraPos.x) * HALFW;
         // r.CameraPos.y = (1.0 + r.CameraPos.y) * HALFH;
-    // }
+    }
 
     r.AmbientStrength = 0.3;
     r.Ambient = multiply_vec(r.LightColor, r.AmbientStrength);
@@ -738,7 +761,6 @@ const static void displayScene(void) {
     free(image);
 
     pixmapdisplay();
-    clearBuffers(wa.height, wa.width);
 }
 /* Clearing Buffers but setting their value to 0. */
 const static void clearBuffers(const int height, const int width) {
@@ -854,6 +876,12 @@ const static int registerSig(const int signal) {
 /* General initialization and event handling. */
 const static int board(void) {
 
+    if (!XInitThreads()) {
+        fprintf(stderr, "Warning: board() -- XInitThreads()\n");
+        return EXIT_FAILURE;
+    }
+    pthread_mutex_init(&mutex, NULL);
+
     XEvent event;
 
     displ = XOpenDisplay(NULL);
@@ -864,7 +892,6 @@ const static int board(void) {
 
     initMainWindow();
     initGlobalGC();
-
     pixmapcreate();
 
     initBuffers();
@@ -874,7 +901,7 @@ const static int board(void) {
 
     atomsinit();
     registerSig(SIGSEGV);
-
+    model = initLightModel();
     float end_time = 0.0;
     while (RUNNING) {
 
@@ -894,6 +921,7 @@ const static int board(void) {
         }
         usleep(16667 - (end_time * 1000));
     }
+    pthread_mutex_destroy(&mutex);
     return EXIT_SUCCESS;
 }
 const int main(int argc, char *argv[]) {
