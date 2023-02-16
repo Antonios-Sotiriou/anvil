@@ -1,41 +1,32 @@
 #include "header_files/lighting.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-const Pixel phong(Vector pixpos, const Vector normal, const Global light, const Global camera, const Vector obj_color) {
-    float AmbientStrength = 0.1;
-    Vector ambient;
-    ambient.x = light.C.x * AmbientStrength;
-    ambient.y = light.C.y * AmbientStrength;
-    ambient.z = light.C.z * AmbientStrength;
+const Pixel phong(Phong model) {
+    model.PixelPos.z = 1 / model.PixelPos.z;
+    model.PixelPos.x = (model.PixelPos.x / model.halfWidth) - 1.0;
+    model.PixelPos.y = (model.PixelPos.y / model.halfHeight) - 1.0;
 
-    pixpos.x = (pixpos.x - (800 / 2.00)) / (800 / 2.00);
-    pixpos.y = (pixpos.y - (800 / 2.00)) / (800 / 2.00);
-    pixpos.z = 1 / pixpos.z;
-
-    Vector lightdir = norm_vec(sub_vecs(pixpos, light.Pos));
-    float diff = dot_product(normal, lightdir);
+    Vector lightdir = norm_vec(sub_vecs(model.lightPos, model.PixelPos));
+    float diff = dot_product(model.normal, lightdir);
     if ( diff < 0 )
         diff = 0;
 
     Vector diffuse;
-    diffuse.x = light.C.x * diff;
-    diffuse.y = light.C.y * diff;
-    diffuse.z = light.C.z * diff;
+    diffuse.x = model.LightColor.x * diff;
+    diffuse.y = model.LightColor.y * diff;
+    diffuse.z = model.LightColor.z * diff;
 
-    float SpecularStrength = 0.5;
-    Vector viewdir = norm_vec(sub_vecs(camera.Pos, pixpos));
+    Vector viewdir = norm_vec(sub_vecs(model.PixelPos, model.CameraPos));
     /* R = 2 * (N * L) * (N - L)  */
-    Vector reflectdir = multiply_vec(cross_product(cross_product(normal, lightdir), sub_vecs(normal, lightdir)), 2.00);
+    Vector reflectdir = multiply_vec(cross_product(cross_product(model.normal, lightdir), sub_vecs(model.normal, lightdir)), 2.00);
     float spec = powf(dot_product(viewdir, norm_vec(reflectdir)), 32.00);
-
-    Vector specular;
-    specular.x = light.C.x * SpecularStrength * spec;
-    specular.y = light.C.y * SpecularStrength * spec;
-    specular.z = light.C.z * SpecularStrength * spec;
+    model.Specular = multiply_vec(norm_vec(model.Specular), spec);
 
     Pixel result;
-    result.Blue = ceilf((((specular.x + diffuse.x + ambient.x) * obj_color.x) * 255.0) + 0.5);
-    result.Green = ceilf((((specular.y + diffuse.y + ambient.y) * obj_color.y) * 255.0) + 0.5);
-    result.Red = ceilf((((specular.z + diffuse.z + ambient.z) * obj_color.z) * 255.0) + 0.5);
+    result.Blue = ceilf((((model.Specular.x + diffuse.x + model.Ambient.x) * model.objColor.x) * 255.0) + 0.5);
+    result.Green = ceilf((((model.Specular.y + diffuse.y + model.Ambient.y) * model.objColor.y) * 255.0) + 0.5);
+    result.Red = ceilf((((model.Specular.z + diffuse.z + model.Ambient.z) * model.objColor.z) * 255.0) + 0.5);
 
     return result;
 }
