@@ -80,6 +80,7 @@ const void filltriangle(Pixel **pixels, float **depth_buffer, Triangle *t, Phong
     //     swap(&t->v[1], &t->v[2], sizeof(Vector));
 
     model.normal = t->normal;
+    model.dot = 33 * dot_product(model.lightPos, model.normal);
     float winding = winding3D(*t);
 
     if ( (t->v[1].y - t->v[2].y) == 0 )
@@ -118,12 +119,15 @@ const void fillnorthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
             depth = (z0 * (1 - barycentric)) + (z1 * barycentric);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                model.PixelPos.x = x;
-                model.PixelPos.y = y;
-                model.PixelPos.z = depth;
-                Pixel pix = phong(model);
+                // model.PixelPos.x = x;
+                // model.PixelPos.y = y;
+                // model.PixelPos.z = depth;
+                // Pixel pix = phong(model);
+                model.finalColor.Red = 157 * (model.dot * depth);
+                model.finalColor.Green = 122 * (model.dot * depth);
+                model.finalColor.Blue = 33 * (model.dot * depth);
 
-                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
         }
@@ -158,12 +162,15 @@ const void fillsouthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
             depth = (z2 * (1 - barycentric)) + (z1 * barycentric);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                model.PixelPos.x = x;
-                model.PixelPos.y = y;
-                model.PixelPos.z = depth;
-                Pixel pix = phong(model);
+                // model.PixelPos.x = x;
+                // model.PixelPos.y = y;
+                // model.PixelPos.z = depth;
+                // Pixel pix = phong(model);
+                model.finalColor.Red = 157 * (model.dot * depth);
+                model.finalColor.Green = 122 * (model.dot * depth);
+                model.finalColor.Blue = 33 * (model.dot * depth);
 
-                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
         }
@@ -202,12 +209,15 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, P
             depth = ((z0 * (1 - barycentric)) + (z1 * barycentric));// - (z0 - z1);
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                model.PixelPos.x = x;
-                model.PixelPos.y = y;
-                model.PixelPos.z = depth;
-                Pixel pix = phong(model);
+                // model.PixelPos.x = x;
+                // model.PixelPos.y = y;
+                // model.PixelPos.z = depth;
+                // Pixel pix = phong(model);
+                model.finalColor.Red = 157 * (model.dot * depth);
+                model.finalColor.Green = 122 * (model.dot * depth);
+                model.finalColor.Blue = 33 * (model.dot * depth);
 
-                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
         }
@@ -234,12 +244,15 @@ const void fillgeneral(Pixel **pixels, float **depth_buffer, const Triangle t, P
             depth = ((z2 * (1 - barycentric)) + (z1 * barycentric));
 
             if (depth > depth_buffer[(int)y][(int)x]) {
-                model.PixelPos.x = x;
-                model.PixelPos.y = y;
-                model.PixelPos.z = depth;
-                Pixel pix = phong(model);
+                // model.PixelPos.x = x;
+                // model.PixelPos.y = y;
+                // model.PixelPos.z = depth;
+                // Pixel pix = phong(model);
+                model.finalColor.Red = 157 * (model.dot * depth);
+                model.finalColor.Green = 122 * (model.dot * depth);
+                model.finalColor.Blue = 33 * (model.dot * depth);
 
-                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depth;
             }
         }

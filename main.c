@@ -650,7 +650,7 @@ const static void viewtoscreen(const Mesh c) {
 
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            c.t[i].v[j].z = 1 / c.t[i].v[j].w;
+            c.t[i].v[j].z = 1 / c.t[i].v[j].w; //( (1.0 / c.t[i].v[j].z) - (1.0 / ZNear) ) / ( (1.0 / ZFar) - (1.0 / ZNear) );
 
             c.t[i].tex[j].u /= c.t[i].v[j].w;
             c.t[i].tex[j].v /= c.t[i].v[j].w;
