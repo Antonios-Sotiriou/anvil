@@ -72,6 +72,8 @@ typedef struct {
     Vector Specular;
     int halfWidth;
     int halfHeight;
+    Pixel finalColor;
+    float dot;
 } Phong;
 
 #endif /* _OBJECTS_H */
