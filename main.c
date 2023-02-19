@@ -21,6 +21,7 @@
 #include "header_files/draw_functions.h"
 #include "header_files/general_functions.h"
 #include "header_files/quaternions.h"
+#include "header_files/shadowmap.h"
 
 /* testing */
 #include "header_files/test_shapes.h"
@@ -72,7 +73,7 @@ Global light = {
 
 Scene scene = { 0 };
 Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
-Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 };
+Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
 Phong model = { 0 };
 
 /* Project Global Variables. */
@@ -83,7 +84,7 @@ static int HALFH = 0; // Half height of the screen; This variable is initialized
 static int EYEPOINT = 0;
 static float AspectRatio = 0;
 static float FOV = 45.0;
-static float Angle = 0.05;
+static float Angle = 3.0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
@@ -128,10 +129,11 @@ const static void loadTexture(Mesh *c);
 const static void createScene(Scene *s);
 const static void releaseScene(Scene *s);
 const static void project(Scene s);
+static void applyShadows(Mesh c);
 static void *pipeLine(void *c);
 const static void ppdiv(Mesh *c);
 const static Mesh bfculling(const Mesh c);
-const static void viewtoscreen(const Mesh c);
+const static Mesh viewtoscreen(const Mesh c);
 const static void rasterize(const Mesh sc);
 const static Phong initLightModel(void);
 const static void displayScene(void);
@@ -546,32 +548,55 @@ const static void releaseScene(Scene *s) {
     }
     free(s->m);
 }
-/* Starts the Projection Pipeline. */
+/* Starts the Projection Pipeline. */ // ########################################################################################################
 const static void project(Scene s) {
 
     Mat4x4 View = inverse_mat(LookAt);
-    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
-    // Mat4x4 Proj = orthographic_mat(FOV, AspectRatio);
-    WorldMat = mxm(View, Proj);
+    WorldMat = mxm(View, PerspMat);
 
     int THREADS = s.indexes;
-    pthread_t threads[THREADS];
+    // pthread_t threads[THREADS];
+    // for (int i = 0; i < THREADS; i++) {
+    //     if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[i]))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create()\n");
+    //     pthread_mutex_lock(&mutex);
+    // }
+    // for (int i = 0; i < THREADS; i++) {
+    //     if (pthread_join(threads[i], NULL))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
+    // }
     for (int i = 0; i < THREADS; i++) {
-        if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[i]))
-            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create()\n");
-        pthread_mutex_lock(&mutex);
+        applyShadows(s.m[i]);
+        pipeLine(&s.m[i]);
     }
-    for (int i = 0; i < THREADS; i++) {
-        if (pthread_join(threads[i], NULL))
-            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
-    }
-
-    // pthread_mutex_unlock(&mutex);
-
     displayScene();
     clearBuffers(wa.height, wa.width);
 }
+static void applyShadows(Mesh c) {
+    Mat4x4 lm = lookat(light.Pos, light.U, light.V, light.N);
+    Mat4x4 Lview = inverse_mat(lm);
+    LightMat = mxm(Lview, OrthoMat);
 
+    Mesh cache = meshxm(c, LightMat);
+    /* At this Point triangles must be clipped against near plane. */
+    Vector plane_near_p = { 0.0, 0.0, NPlane },
+        plane_near_n = { 0.0, 0.0, 1.0 };
+    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+
+    /* Applying perspective division. */
+    if (nf.indexes) {
+        // ppdiv(&nf);
+
+        /* Applying Backface culling before we proceed to full frustum clipping. */
+        Mesh bf = bfculling(nf);
+
+        /* Sending to translation from NDC to Screen Coordinates. */
+        Mesh uf = viewtoscreen(bf);
+        createShadowmap(shadow_buffer, uf, LightMat);
+        free(uf.t);
+    } else
+        free(nf.t);
+}
 static void *pipeLine(void *c) {
 
     Mesh *arg = (Mesh*)c;
@@ -590,15 +615,17 @@ static void *pipeLine(void *c) {
         Mesh bf = bfculling(nf);
 
         /* Sending to translation from NDC to Screen Coordinates. */
-        viewtoscreen(bf);
+        Mesh uf = viewtoscreen(bf);
+        rasterize(uf);
     } else
         free(nf.t);
 
-    pthread_mutex_unlock(&mutex);
+    // pthread_mutex_unlock(&mutex);
     return NULL;
-}
+} // ##############################################################################################################################################
 /* Perspective division. */
 const static void ppdiv(Mesh *c) {
+
     for (int i = 0; i < c->indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
@@ -643,18 +670,19 @@ const static Mesh bfculling(const Mesh c) {
     return r;
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
-const static void viewtoscreen(const Mesh c) {
+const static Mesh viewtoscreen(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
 
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            c.t[i].v[j].z = 1 / c.t[i].v[j].w; //( (1.0 / c.t[i].v[j].z) - (1.0 / ZNear) ) / ( (1.0 / ZFar) - (1.0 / ZNear) );
+            // c.t[i].v[j].z = ( (1.0 / c.t[i].v[j].z) - (1.0 / ZNear) ) / ( (1.0 / ZFar) - (1.0 / ZNear) );
+            c.t[i].v[j].w = 1 / c.t[i].v[j].w;
 
             c.t[i].tex[j].u /= c.t[i].v[j].w;
             c.t[i].tex[j].v /= c.t[i].v[j].w;
-            c.t[i].tex[j].w = c.t[i].v[j].z;
+            c.t[i].tex[j].w = c.t[i].v[j].w;
         }
     }
 
@@ -679,53 +707,41 @@ const static void viewtoscreen(const Mesh c) {
            plane_up_n = { 0.0, 1.0, 0.0 };
     Mesh uf = clipp(lf, plane_up_p, plane_up_n);
 
-    rasterize(uf);
-    free(uf.t);
+    return uf;
 }
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
-    
+
     // Phong model = initLightModel();
 
     for (int i = 0; i < c.indexes; i++) {
 
         if (DEBUG == 1) {
-            drawline(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
-            drawline(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
-            drawline(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
+            drawLine(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
+            drawLine(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
+            drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
-            filltriangle(pixels, depth_buffer, &c.t[i], model);
+            fillTriangle(pixels, depth_buffer, shadow_buffer, &c.t[i], model);
             // end(start_time);
         } else {
             // clock_t start_time = start();
-            textriangle(pixels, depth_buffer, &c.t[i], light.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
+            texTriangle(pixels, depth_buffer, &c.t[i], light.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
             // end(start_time);
         }
     }
+    free(c.t);
 }
 /* Initializing the structure which we pass arround for lighting calculations. This way we keep lighting vvariables more orginized. */
 const static Phong initLightModel(void) {
     Phong r = { 0 };
     Vector LightColor = { 1.0, 1.0, 1.0 };
-    Vector objColor = { 33 / 255.0, 122 / 255.0, 157 / 255.0 };
+    Vector objColor = { 33.0 / 255.0, 122.0 / 255.0, 157.0 / 255.0 };
     r.LightColor = LightColor;
     r.objColor = objColor;
 
-    Mat4x4 ortho = orthographic_mat(FOV, AspectRatio);
-    // Mat4x4 ortho = perspective_mat(FOV, AspectRatio);
-    r.lightPos = vecxm(light.Pos, ortho);
-    if (r.lightPos.w > 0.0) {
-        r.lightPos.x /= r.lightPos.w;    r.lightPos.y /= r.lightPos.w;    r.lightPos.z /= r.lightPos.w;
-        // r.lightPos.x = (1.0 + r.lightPos.x) * HALFW;
-        // r.lightPos.y = (1.0 + r.lightPos.y) * HALFH;
-    }
-    r.CameraPos = vecxm(camera.Pos, ortho);
-    if (r.CameraPos.w > 0.0) {
-        r.CameraPos.x /= r.CameraPos.w;    r.CameraPos.y /= r.CameraPos.w;    r.CameraPos.z /= r.CameraPos.w;
-        // r.CameraPos.x = (1.0 + r.CameraPos.x) * HALFW;
-        // r.CameraPos.y = (1.0 + r.CameraPos.y) * HALFH;
-    }
+    r.lightPos = vecxm(light.Pos, OrthoMat);
+    r.CameraPos = vecxm(camera.Pos, OrthoMat);
 
     r.AmbientStrength = 0.3;
     r.Ambient = multiply_vec(r.LightColor, r.AmbientStrength);
@@ -838,6 +854,8 @@ const static void initDependedVariables(void) {
     AspectRatio = ((float)wa.width / (float)wa.height);
     HALFW = wa.width / 2.00;
     HALFH = wa.height / 2.00;
+    PerspMat = perspective_mat(FOV, AspectRatio);
+    OrthoMat = orthographic_mat(FOV, AspectRatio);
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -907,9 +925,9 @@ const static int board(void) {
 
         // clock_t start_time = start();
         project(scene);
-        rotate_origin(&scene.m[2], 3.0, 0.0, 0.0, 1.0);
-        rotate_origin(&scene.m[2], 3.0, 0.0, 1.0, 0.0);
-        rotate_origin(&scene.m[2], 3.0, 1.0, 0.0, 0.0);
+        // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
+        // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
+        // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
         // end_time = end(start_time);
 
         while(XPending(displ)) {
@@ -960,10 +978,13 @@ const static Global rerasterize(const Global l) {
     r.Pos = vecxm(r.Pos, View);
     printf("Camera Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
-    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
-    // Mat4x4 Proj = orthographic_mat(FOV, AspectRatio);
+    Mat4x4 Proj = orthographic_mat(FOV, AspectRatio);
     r.Pos = vecxm(r.Pos, Proj);
-    printf("Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+    printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    // Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    // r.Pos = vecxm(r.Pos, Proj);
+    // printf("Perspec Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
     if (r.Pos.w > 0.0) {
         r.Pos.x /= r.Pos.w;
@@ -987,8 +1008,8 @@ const static Global rerasterize(const Global l) {
     }
     printf("To Homogin:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
-    Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
-    // Mat4x4 reProj = reorthographic_mat(FOV, AspectRatio);
+    // Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
+    Mat4x4 reProj = reorthographic_mat(FOV, AspectRatio);
     r.Pos = vecxm(r.Pos, reProj);
     r.Pos.w = 1.0;
     printf("To Camera:   r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);

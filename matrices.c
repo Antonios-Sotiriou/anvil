@@ -85,6 +85,18 @@ const Mat4x4 orthographic_mat(const float fov, const float aspectratio) {
     m.m[3][3] = 1.0;
     return m;
 }
+/* Reverse Orthographic Projection Matrix. */
+const Mat4x4 reorthographic_mat(const float fov, const float aspectratio) {
+    Mat4x4 m = { 0 };
+    m.m[0][0] = aspectratio * FovRadius;
+    m.m[1][1] = aspectratio * FovRadius;
+    m.m[3][2] = 2.00 * (ZFar - ZNear);
+    m.m[3][0] = 1.0;    /* Translation area. */
+    m.m[3][1] = 1.0;    /* Translation area. */
+    m.m[2][2] = ((ZFar + ZNear) * (ZFar - ZNear));
+    m.m[3][3] = 1.0;
+    return m;
+}
 /* Multiplies a Mesh c with the given Matrix and returns a new Mesh, leaving the original unmodified. */
 const Mesh meshxm(const Mesh c, const Mat4x4 m) {
 

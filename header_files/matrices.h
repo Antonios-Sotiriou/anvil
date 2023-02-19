@@ -38,6 +38,7 @@ const Mat4x4 translation_mat(const float x, const float y, const float z);
 const Mat4x4 perspective_mat(const float fov, const float aspectratio);
 const Mat4x4 reperspective_mat(const float fov, const float aspectratio);
 const Mat4x4 orthographic_mat(const float fov, const float aspectratio);
+const Mat4x4 reorthographic_mat(const float fov, const float aspectratio);
 const Mesh meshxm(const Mesh c, const Mat4x4 m);
 const Vector vecxm(const Vector v, const Mat4x4 m);
 const Mat4x4 pointat(const Vector P, const Vector T, const Vector V);
