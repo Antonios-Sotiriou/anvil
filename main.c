@@ -50,19 +50,19 @@ XWindowAttributes wa;
 XSetWindowAttributes sa;
 Atom wmatom[Atom_Last];
 
-/* Project Global Structures. */
+/* Project Global Buffers. */
 Pixel **pixels;
 char *frame_buffer;
 float **depth_buffer;
 float **shadow_buffer;
 
+/* Project Global Structures. */
 Global camera = {
     .Pos = { 0.0, 0.0, 498.0, 1.0 },
     .U   = { 1.0, 0.0, 0.0, 1.0 },
     .V   = { 0.0, 1.0, 0.0, 1.0 },
     .N   = { 0.0, 0.0, 1.0, 1.0 }
 };
-
 Global light = {
     .Pos = { -17.003309, -17.200029, 530.918640, 1.0 },
     .U   = { -0.883297, -0.006683, -0.468767, 1.0 },
@@ -70,7 +70,6 @@ Global light = {
     .N   = { 0.432035, 0.376621, -0.819453, 1.0 },
     .C   = { 1.0, 1.0, 1.0}
 };
-
 Scene scene = { 0 };
 Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
 Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
@@ -82,6 +81,8 @@ static int RUNNING = 1;
 static int HALFW = 0; // Half width of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static int HALFH = 0; // Half height of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static int EYEPOINT = 0;
+static int PROJECTIONVIEW = 0;
+static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 3.0;
@@ -92,7 +93,6 @@ static float NPlane = 1.0;
 static float FPlane = 0.0001;
 static float dplus = 0.0;
 static int DEBUG = 0;
-static float cvar = 0.01;
 pthread_mutex_t mutex;
 
 /* Event handling functions. */
@@ -267,21 +267,27 @@ const static void keypress(XEvent *event) {
             break;
         case 122 : rotate_z(&scene.m[0], Angle);       /* z */
             break;
-        case 112 : camera.Pos.x += cvar;         /* p */
-            camera.Pos.y += cvar;
-            camera.Pos.z += cvar;
+        case 112 :
+            if (PROJECTBUFFER == 3)
+                PROJECTBUFFER = 0;
+            PROJECTBUFFER++;
+            if (PROJECTBUFFER == 1) {
+                fprintf(stderr, "Projecting Pixels -- PROJECTBUFFER: %d\n", PROJECTBUFFER);
+            } else if (PROJECTBUFFER == 2) {
+                fprintf(stderr, "Projecting Depth buffer -- PROJECTBUFFER: %d\n", PROJECTBUFFER);
+            } else if (PROJECTBUFFER == 3) {
+                fprintf(stderr, "Projecting Shadow buffer -- PROJECTBUFFER: %d\n", PROJECTBUFFER);
+            }
             break;
-        case 117 : camera.U.x += cvar;          /* u */
-            camera.U.y += cvar;
-            camera.U.z += cvar;
+        case 117 : ;                            /* U */
             break;
-        case 118 : camera.V.x += cvar;          /* v */
-            // camera.V.y += cvar;
-            camera.V.z += cvar;
+        case 118 :
+            if (!PROJECTIONVIEW)               /* V */
+                PROJECTIONVIEW++;
+            else
+                PROJECTIONVIEW = 0;
             break;
-        case 110 : camera.N.x += cvar;          /* n */
-            camera.N.y += cvar;
-            camera.N.z += cvar;
+        case 110 : ;                            /* N */
             break;
         case 65451 : FPlane += 0.0001;             /* + */
             printf("FPlane.z: %f\n", FPlane);
@@ -315,13 +321,14 @@ const static void keypress(XEvent *event) {
             break;
         case 45 : light.Pos.z -= 1.0;                     /* - */
             break;
-        case 98 : exportScene();                     /* - */
+        case 98 : exportScene();                     /* b */
             break;
         case 65289 : rerasterize(light);             /* Tab */
             break;
         default :
             return;
     }
+    LookAt = lookat(eye->Pos, eye->U, eye->V, eye->N);
 }
 /* Rotates the camera to look left. */
 const static void look_left(Global *g, const float angle) {
@@ -339,7 +346,6 @@ const static void look_left(Global *g, const float angle) {
     g->U = resu.v;
     g->V = resv.v;
     g->N = resn.v;
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Rotates the camera to look right. */
 const static void look_right(Global *g, const float angle) {
@@ -357,15 +363,12 @@ const static void look_right(Global *g, const float angle) {
     g->U = resu.v;
     g->V = resv.v;
     g->N = resn.v;
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 const static void move_forward(Global *g) {
     g->Pos = add_vecs(g->Pos, multiply_vec(g->N, 0.1));
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 const static void move_backward(Global *g) {
     g->Pos = sub_vecs(g->Pos, multiply_vec(g->N, 0.1));
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
@@ -385,7 +388,6 @@ const static void look_up(Global *g, const float angle) {
     g->U = resu.v;
     g->V = resv.v;
     g->N = resn.v;
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Rotates the camera to look Down. */
 const static void look_down(Global *g, const float angle) {
@@ -405,29 +407,24 @@ const static void look_down(Global *g, const float angle) {
     g->U = resu.v;
     g->V = resv.v;
     g->N = resn.v;
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Moves camera position left. */
 const static void move_left(Global *g) {
     g->Pos = sub_vecs(g->Pos, multiply_vec(g->U, 0.1));
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Moves camera position right. */
 const static void move_right(Global *g) {
     g->Pos = add_vecs(g->Pos, multiply_vec(g->U, 0.1));
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Moves camera position Up. */
 const static void move_up(Global *g) {
     // g->Pos = sub_vecs(g->Pos, multiply_vec(g->V, 0.1));
     g->Pos.y -= 0.1;
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Moves camera position Down. */
 const static void move_down(Global *g) {
     // g->Pos = add_vecs(g->Pos, multiply_vec(g->V, 0.1));
     g->Pos.y += 0.1;
-    LookAt = lookat(g->Pos, g->U, g->V, g->N);
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
@@ -472,7 +469,7 @@ const static void initBuffers(void) {
     for (int y = 0; y < wa.height; y++){
         memset(pixels[y], 0, sizeof(Pixel) * wa.width);
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
-        memset(shadow_buffer[y], 0, sizeof(float) * wa.width);
+        memset(shadow_buffer[y], 1, sizeof(float) * wa.width);
     }
 }
 const static void initMeshes(Scene *s) {
@@ -552,7 +549,10 @@ const static void releaseScene(Scene *s) {
 const static void project(Scene s) {
 
     Mat4x4 View = inverse_mat(LookAt);
-    WorldMat = mxm(View, PerspMat);
+    if (!PROJECTIONVIEW)
+        WorldMat = mxm(View, PerspMat);
+    else
+        WorldMat = mxm(View, OrthoMat);
 
     int THREADS = s.indexes;
     // pthread_t threads[THREADS];
@@ -577,6 +577,16 @@ static void applyShadows(Mesh c) {
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
 
+    Mat4x4 Cview = inverse_mat(LookAt);
+
+    model.ViewSpace = lm;
+    model.LightSpace = LightMat;
+    model.CameraSpace = mxm(Cview, OrthoMat);
+    model.HomoSpace = reperspective_mat(FOV, AspectRatio);
+
+    // model.lightPos = vecxm(light.Pos, model.LightSpace);
+    // model.CameraPos = vecxm(camera.Pos, model.LightSpace);
+
     Mesh cache = meshxm(c, LightMat);
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
@@ -592,7 +602,7 @@ static void applyShadows(Mesh c) {
 
         /* Sending to translation from NDC to Screen Coordinates. */
         Mesh uf = viewtoscreen(bf);
-        createShadowmap(shadow_buffer, uf, LightMat);
+        createShadowmap(shadow_buffer, uf);
         free(uf.t);
     } else
         free(nf.t);
@@ -677,7 +687,7 @@ const static Mesh viewtoscreen(const Mesh c) {
 
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            // c.t[i].v[j].z = ( (1.0 / c.t[i].v[j].z) - (1.0 / ZNear) ) / ( (1.0 / ZFar) - (1.0 / ZNear) );
+            c.t[i].v[j].z = 1 / c.t[i].v[j].z;//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
             c.t[i].v[j].w = 1 / c.t[i].v[j].w;
 
             c.t[i].tex[j].u /= c.t[i].v[j].w;
@@ -711,8 +721,6 @@ const static Mesh viewtoscreen(const Mesh c) {
 }
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
-
-    // Phong model = initLightModel();
 
     for (int i = 0; i < c.indexes; i++) {
 
@@ -762,7 +770,13 @@ const static void displayScene(void) {
     int height_inc = 0;
     int width_inc = 0;
     for (int i = 0; i < size; i++) {
-        memcpy(&frame_buffer[i], &pixels[height_inc][width_inc], sizeof(Pixel));
+
+        if (PROJECTBUFFER <= 1)
+            memcpy(&frame_buffer[i], &pixels[height_inc][width_inc], sizeof(Pixel));
+        else if (PROJECTBUFFER == 2)
+            memcpy(&frame_buffer[i], &depth_buffer[height_inc][width_inc], sizeof(float));
+        else if (PROJECTBUFFER == 3)
+            memcpy(&frame_buffer[i], &shadow_buffer[height_inc][width_inc], sizeof(float));
 
         i += 3;
         width_inc++;
@@ -784,7 +798,7 @@ const static void clearBuffers(const int height, const int width) {
     for (int y = 0; y < height; y++) {
         memset(pixels[y], 0, sizeof(Pixel) * width);
         memset(depth_buffer[y], 0, sizeof(float) * width);
-        memset(shadow_buffer[y], 0, sizeof(float) * width);
+        memset(shadow_buffer[y], 1, sizeof(float) * width);
     }
 }
 const void exportScene(void) {
@@ -855,7 +869,7 @@ const static void initDependedVariables(void) {
     HALFW = wa.width / 2.00;
     HALFH = wa.height / 2.00;
     PerspMat = perspective_mat(FOV, AspectRatio);
-    OrthoMat = orthographic_mat(FOV, AspectRatio);
+    OrthoMat = orthographic_mat(0.08, 0.08, 0.0, 0.0);
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -978,7 +992,7 @@ const static Global rerasterize(const Global l) {
     r.Pos = vecxm(r.Pos, View);
     printf("Camera Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
-    Mat4x4 Proj = orthographic_mat(FOV, AspectRatio);
+    Mat4x4 Proj = orthographic_mat(0.08, 0.08, 0.0, 0.0);
     r.Pos = vecxm(r.Pos, Proj);
     printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 

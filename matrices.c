@@ -74,13 +74,13 @@ const Mat4x4 reperspective_mat(const float fov, const float aspectratio) {
     return m;
 }
 /* Orthographic Projection Matrix. */
-const Mat4x4 orthographic_mat(const float fov, const float aspectratio) {
+const Mat4x4 orthographic_mat(const float scaleX, const float scaleY, const float transX, const float transY) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = 0.08;
-    m.m[1][1] = 0.08;
+    m.m[0][0] = scaleX;
+    m.m[1][1] = scaleY;
     m.m[2][2] = 2.00 / (ZFar - ZNear);
-    m.m[3][0] = 0.0;    /* Translation area. */
-    m.m[3][1] = 0.0;    /* Translation area. */
+    m.m[3][0] = transX;
+    m.m[3][1] = transY;
     m.m[3][2] = ((ZFar + ZNear) / (ZFar - ZNear));
     m.m[3][3] = 1.0;
     return m;

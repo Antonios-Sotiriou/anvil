@@ -21,6 +21,10 @@
     #include "lighting.h"
 #endif
 
+#ifndef _MATRICES_H
+    #include "matrices.h"
+#endif
+
 #ifndef _MATH_H
     #include <math.h>
 #endif
