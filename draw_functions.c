@@ -55,30 +55,46 @@ const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, cons
         exit(EXIT_FAILURE);
     }
 }
-const float shadowTest(Phong model, float x, float y, float z, float w) {
-    // printf("Screen Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", x, y, depthZ, depthW);
+const Vector shadowTest(Phong model, float x, float y, float z, float w) {
+    // printf("Screen Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", x, y, z, w);
+    
     float ndcx = (x / 400) - 1.0;
     float ndcy = (y / 400) - 1.0;
-    float ndcz = 1 / z;
+    float ndcz = z + 1.0;
     float ndcw = 1 / w;
-
-    // printf("NDC Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", x, y, depthZ, depthW);
+    // printf("NDC Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", ndcx, ndcy, ndcz, ndcw);
+    
     ndcx *=  ndcw;
     ndcy *=  ndcw;
     ndcz *= ndcw;
+    // printf("Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", ndcx, ndcy, ndcz, ndcw);
 
     Vector r = { ndcx, ndcy, ndcz, ndcw };
     r = vecxm(r, model.HomoSpace);
-    // printf("ReHomo Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.x, r.y, r.z, r.w);
+    // printf("View Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.x, r.y, r.z, r.w);
+
     r.w = 1.0;
     r = vecxm(r, model.ViewSpace);
-    // printf("ReView Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.x, r.y, r.z, r.w);
+    // printf("World Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.x, r.y, r.z, r.w);
+
     r = vecxm(r, model.LightSpace);
-    r.z = 1 / r.z;
-    // printf("ReWorld Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.x, r.y, r.z, r.w);
-    // exit(1);
+
+    r.x = (1.0 + r.x) * 400;
+    if (r.x > 799)
+        r.x = 799;
+    else if (r.x < 0)
+        r.x = 0;
+
+    r.y = (1.0 + r.y) * 400;
+    if (r.y > 799)
+        r.y = 799;
+    else if (r.y < 0)
+        r.y = 0;
+    r.z -= 1.0;
+    // printf("Light Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.x, r.y, r.z, r.w);
     // printf("depth IN Filler: %f\n", r.z);
-    return r.z;
+    // exit(1);
+    return r;
 }
 const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle *t, Phong model) {
     Vector temp_v;
@@ -105,7 +121,7 @@ const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buf
     //     swap(&t->v[1], &t->v[2], sizeof(Vector));
 
     model.normal = t->normal;
-    model.dot = 24 * dot_product(model.lightPos, model.normal);
+    model.dot = 100 * dot_product(norm_vec(model.lightPos), model.normal);
     float winding = winding3D(*t);
 
     // if ( (t->v[1].y - t->v[2].y) == 0 )
@@ -240,21 +256,21 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
             float barycentric = (x - x_start) / (x_end - x_start);
             depthZ = ((z0 * (1 - barycentric)) + (z1 * barycentric));
             depthW = ((w0 * (1 - barycentric)) + (w1 * barycentric));
-
+            // printf("x: %f,   y: %f,    z: %f,    w: %f\n", x, y, depthZ, depthW);
             if (depthW > depth_buffer[(int)y][(int)x]) {
                 // model.PixelPos.x = x;
                 // model.PixelPos.y = y;
                 // model.PixelPos.z = depthZ;
                 // model.PixelPos.w = depthW;
                 // Pixel pix = phong(model);
-                float shadow = shadowTest(model, x, y, depthZ, depthW);
-                if (shadow < shadow_buffer[(int)y][(int)x])
-                    model.dot -= 23 ;
-                    // printf("depth: %f    shadow: %f\n", depthZ, shadow);
+                Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                if (shadow.z > shadow_buffer[(int)y][(int)x])
+                    shadow.z += 0.2;
+                    // printf("depth: %f    shadow: %f    shadow_buffer: %f\n", depthZ, shadow, shadow_buffer[(int)y][(int)x]);
 
-                model.finalColor.Red = 157 * (model.dot * depthW);
-                model.finalColor.Green = 122 * (model.dot * depthW);
-                model.finalColor.Blue = 33 * (model.dot * depthW);
+                model.finalColor.Red = 157 * (model.dot * shadow.z);
+                model.finalColor.Green = 122 * (model.dot * shadow.z);
+                model.finalColor.Blue = 33 * (model.dot * shadow.z);
 
                 memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depthW;
@@ -295,14 +311,14 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                 // model.PixelPos.z = depthZ;
                 // model.PixelPos.w = depthW;
                 // Pixel pix = phong(model);
-                float shadow = shadowTest(model, x, y, depthZ, depthW);
-                if (shadow < shadow_buffer[(int)y][(int)x])
-                    model.dot -= 23 ;
-                    // printf("depth: %f    shadow: %f\n", depthZ, shadow);
+                Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                if (shadow.z > shadow_buffer[(int)y][(int)x])
+                    shadow.z += 0.2;
+                    // printf("depth: %f    shadow: %f    shadow_buffer: %f\n", depthZ, shadow, shadow_buffer[(int)y][(int)x]);
 
-                model.finalColor.Red = 157 * (model.dot * depthW);
-                model.finalColor.Green = 122 * (model.dot * depthW);
-                model.finalColor.Blue = 33 * (model.dot * depthW);
+                model.finalColor.Red = 157 * (model.dot * shadow.z);
+                model.finalColor.Green = 122 * (model.dot * shadow.z);
+                model.finalColor.Blue = 33 * (model.dot * shadow.z);
 
                 memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depthW;

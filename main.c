@@ -64,10 +64,10 @@ Global camera = {
     .N   = { 0.0, 0.0, 1.0, 1.0 }
 };
 Global light = {
-    .Pos = { -17.003309, -17.200029, 530.918640, 1.0 },
-    .U   = { -0.883297, -0.006683, -0.468767, 1.0 },
-    .V   = { -0.182024, 0.926344, 0.329780, 1.0 },
-    .N   = { 0.432035, 0.376621, -0.819453, 1.0 },
+    .Pos = { -9.648195, -16.342173, 517.552246 },
+    .U   = { -0.883299, -0.006683, -0.468767 },
+    .V   = { -0.330613, 0.717806, 0.612739 },
+    .N   = { 0.332388, 0.696211, -0.636246 },
     .C   = { 1.0, 1.0, 1.0}
 };
 Scene scene = { 0 };
@@ -85,13 +85,13 @@ static int PROJECTIONVIEW = 0;
 static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
-static float Angle = 3.0;
+static float Angle = 2.0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
-static float dplus = 0.0;
+static float Scale = 0.08;
 static int DEBUG = 0;
 pthread_mutex_t mutex;
 
@@ -289,19 +289,19 @@ const static void keypress(XEvent *event) {
             break;
         case 110 : ;                            /* N */
             break;
-        case 65451 : FPlane += 0.0001;             /* + */
+        case 65451 : FPlane += 0.01;             /* + */
             printf("FPlane.z: %f\n", FPlane);
             break;
-        case 65453 : FPlane -= 0.0001;             /* - */
+        case 65453 : FPlane -= 0.01;             /* - */
             printf("FPlane.z: %f\n", FPlane);
             break;
-        case 65450 : dplus += 0.01;             /* * */
-            printf("NPlane.z: %f\n", dplus);
+        case 65450 : NPlane += 0.01;             /* * */
+            printf("NPlane.z: %f\n", NPlane);
             break;
-        case 65455 : dplus -= 0.01;             /* / */
-            printf("NPlane.z: %f\n", dplus);
+        case 65455 : NPlane -= 0.01;             /* / */
+            printf("NPlane.z: %f\n", NPlane);
             break;
-        case 99 : rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);        /* c */
+        case 99 : rotate_origin(&scene.m[1], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
         case 108 :                                    /* l */
             if (EYEPOINT == 0)
@@ -317,13 +317,17 @@ const static void keypress(XEvent *event) {
             break;
         case 65464 : light.Pos.y -= 0.01;                   /* Adjust Light Source */
             break;
-        case 43 : light.Pos.z += 1.0;                     /* + */
+        case 43 : Scale += 0.01;
+            printf("Scale: %f\n", Scale);                    /* + */
+            OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
             break;
-        case 45 : light.Pos.z -= 1.0;                     /* - */
+        case 45 : Scale -= 0.01;                            /* - */
+            printf("Scale: %f\n", Scale);
+            OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
             break;
-        case 98 : exportScene();                     /* b */
+        case 98 : exportScene();                            /* b */
             break;
-        case 65289 : rerasterize(light);             /* Tab */
+        case 65289 : rerasterize(light);                    /* Tab */
             break;
         default :
             return;
@@ -469,16 +473,17 @@ const static void initBuffers(void) {
     for (int y = 0; y < wa.height; y++){
         memset(pixels[y], 0, sizeof(Pixel) * wa.width);
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
-        memset(shadow_buffer[y], 1, sizeof(float) * wa.width);
+        for (int x = 0; x < wa.width; x++)
+            shadow_buffer[y][x] = 1.0;
     }
 }
 const static void initMeshes(Scene *s) {
     Mat4x4 ScaleMat, TransMat;
 
-    terrain = load_obj("objects/terrain.obj");
+    terrain = load_obj("objects/smallterrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
-    ScaleMat = scale_mat(1.0);
+    ScaleMat = scale_mat(10.0);
     TransMat = translation_mat(0.0, 0.5, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
@@ -577,11 +582,11 @@ static void applyShadows(Mesh c) {
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
 
-    Mat4x4 Cview = inverse_mat(LookAt);
+    // Mat4x4 Cview = inverse_mat(LookAt);
 
-    model.ViewSpace = lm;
+    model.ViewSpace = LookAt;
     model.LightSpace = LightMat;
-    model.CameraSpace = mxm(Cview, OrthoMat);
+    model.CameraSpace = LookAt;
     model.HomoSpace = reperspective_mat(FOV, AspectRatio);
 
     // model.lightPos = vecxm(light.Pos, model.LightSpace);
@@ -687,7 +692,7 @@ const static Mesh viewtoscreen(const Mesh c) {
 
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            c.t[i].v[j].z = 1 / c.t[i].v[j].z;//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
+            c.t[i].v[j].z -=  1;//1 / c.t[i].v[j].z;//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
             c.t[i].v[j].w = 1 / c.t[i].v[j].w;
 
             c.t[i].tex[j].u /= c.t[i].v[j].w;
@@ -798,7 +803,8 @@ const static void clearBuffers(const int height, const int width) {
     for (int y = 0; y < height; y++) {
         memset(pixels[y], 0, sizeof(Pixel) * width);
         memset(depth_buffer[y], 0, sizeof(float) * width);
-        memset(shadow_buffer[y], 1, sizeof(float) * width);
+        for (int x = 0; x < wa.width; x++)
+            shadow_buffer[y][x] = 1.0;
     }
 }
 const void exportScene(void) {
@@ -992,13 +998,13 @@ const static Global rerasterize(const Global l) {
     r.Pos = vecxm(r.Pos, View);
     printf("Camera Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
-    Mat4x4 Proj = orthographic_mat(0.08, 0.08, 0.0, 0.0);
-    r.Pos = vecxm(r.Pos, Proj);
-    printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    // Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    // Mat4x4 Proj = orthographic_mat(0.08, 0.08, 0.0, 0.0, near, far);
     // r.Pos = vecxm(r.Pos, Proj);
-    // printf("Perspec Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+    // printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    r.Pos = vecxm(r.Pos, Proj);
+    printf("Perspec Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
     if (r.Pos.w > 0.0) {
         r.Pos.x /= r.Pos.w;
@@ -1020,7 +1026,7 @@ const static Global rerasterize(const Global l) {
         r.Pos.y *= r.Pos.w;
         r.Pos.z *= r.Pos.w;
     }
-    printf("To Homogin:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+    printf("To Clipp:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
     // Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
     Mat4x4 reProj = reorthographic_mat(FOV, AspectRatio);
