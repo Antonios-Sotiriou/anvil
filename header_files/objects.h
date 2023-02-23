@@ -76,8 +76,8 @@ typedef struct {
     float dot;
     Mat4x4 ViewSpace;
     Mat4x4 LightSpace;
-    Mat4x4 CameraSpace;
     Mat4x4 HomoSpace;
+    float bias;
 } Phong;
 
 #endif /* _OBJECTS_H */
