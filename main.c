@@ -64,10 +64,10 @@ Global camera = {
     .N   = { 0.0, 0.0, 1.0, 1.0 }
 };
 Global light = {
-    .Pos = { -9.648195, -16.342173, 517.552246 },
-    .U   = { -0.883299, -0.006683, -0.468767 },
-    .V   = { -0.330613, 0.717806, 0.612739 },
-    .N   = { 0.332388, 0.696211, -0.636246 },
+    .Pos = { -9.648195, -16.342173, 517.552246, 1.0 },
+    .U   = { -0.883299, -0.006683, -0.468767, 1.0 },
+    .V   = { -0.330613, 0.717806, 0.612739, 1.0 },
+    .N   = { 0.332388, 0.696211, -0.636246, 1.0 },
     .C   = { 1.0, 1.0, 1.0}
 };
 Scene scene = { 0 };
@@ -86,12 +86,13 @@ static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
+static float bias = 0.0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
-static float Scale = 0.08;
+static float Scale = 0.1;
 static int DEBUG = 0;
 pthread_mutex_t mutex;
 
@@ -279,7 +280,11 @@ const static void keypress(XEvent *event) {
                 fprintf(stderr, "Projecting Shadow buffer -- PROJECTBUFFER: %d\n", PROJECTBUFFER);
             }
             break;
-        case 117 : ;                            /* U */
+        case 110 : bias -= 0.00001;               /* N */
+            printf("Bias: %f\n", bias);
+            break;
+        case 117 : bias += 0.00001;              /* U */
+            printf("Bias: %f\n", bias);
             break;
         case 118 :
             if (!PROJECTIONVIEW)               /* V */
@@ -287,19 +292,17 @@ const static void keypress(XEvent *event) {
             else
                 PROJECTIONVIEW = 0;
             break;
-        case 110 : ;                            /* N */
+        case 65451 :FPlane += 0.0001;             /* + */
+            printf("FPlane: %f\n",FPlane);
             break;
-        case 65451 : FPlane += 0.01;             /* + */
-            printf("FPlane.z: %f\n", FPlane);
-            break;
-        case 65453 : FPlane -= 0.01;             /* - */
-            printf("FPlane.z: %f\n", FPlane);
+        case 65453 :FPlane -= 0.0001;             /* - */
+            printf("FPlane: %f\n", FPlane);
             break;
         case 65450 : NPlane += 0.01;             /* * */
-            printf("NPlane.z: %f\n", NPlane);
+            printf("NPlane: %f\n", NPlane);
             break;
         case 65455 : NPlane -= 0.01;             /* / */
-            printf("NPlane.z: %f\n", NPlane);
+            printf("NPlane: %f\n", NPlane);
             break;
         case 99 : rotate_origin(&scene.m[1], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
@@ -309,13 +312,13 @@ const static void keypress(XEvent *event) {
             else
                 EYEPOINT = 0;
             break;
-        case 65462 : light.Pos.x += 0.01;                   /* Adjust Light Source */
+        case 65462 : light.Pos.x += 0.1;                   /* bias */
             break;
-        case 65460 : light.Pos.x -= 0.01;                   /* Adjust Light Source */
+        case 65460 : light.Pos.x -= 0.1;                   /* bias */
             break;
-        case 65458 : light.Pos.y += 0.01;                   /* Adjust Light Source */
+        case 65458 : light.Pos.y += 0.1;                   /* Adjust Light Source */
             break;
-        case 65464 : light.Pos.y -= 0.01;                   /* Adjust Light Source */
+        case 65464 : light.Pos.y -= 0.1;                   /* Adjust Light Source */
             break;
         case 43 : Scale += 0.01;
             printf("Scale: %f\n", Scale);                    /* + */
@@ -340,7 +343,7 @@ const static void look_left(Global *g, const float angle) {
     Quat v = setQuat(0, g->V);
     Quat n = setQuat(0, g->N);
 
-    Quat xrot = rotationQuat(-1, g->V);
+    Quat xrot = rotationQuat(-2, g->V);
     Quat rerot = conjugateQuat(xrot);
 
     Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
@@ -357,7 +360,7 @@ const static void look_right(Global *g, const float angle) {
     Quat v = setQuat(0, g->V);
     Quat n = setQuat(0, g->N);
 
-    Quat xrot = rotationQuat(1, g->V);
+    Quat xrot = rotationQuat(2, g->V);
     Quat rerot = conjugateQuat(xrot);
 
     Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
@@ -369,10 +372,10 @@ const static void look_right(Global *g, const float angle) {
     g->N = resn.v;
 }
 const static void move_forward(Global *g) {
-    g->Pos = add_vecs(g->Pos, multiply_vec(g->N, 0.1));
+    g->Pos = add_vecs(g->Pos, multiply_vec(g->N, 0.2));
 }
 const static void move_backward(Global *g) {
-    g->Pos = sub_vecs(g->Pos, multiply_vec(g->N, 0.1));
+    g->Pos = sub_vecs(g->Pos, multiply_vec(g->N, 0.2));
 }
 /* Rotates the camera to look Up. */
 const static void look_up(Global *g, const float angle) {
@@ -480,7 +483,7 @@ const static void initBuffers(void) {
 const static void initMeshes(Scene *s) {
     Mat4x4 ScaleMat, TransMat;
 
-    terrain = load_obj("objects/smallterrain.obj");
+    terrain = load_obj("objects/terrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
@@ -582,12 +585,10 @@ static void applyShadows(Mesh c) {
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
 
-    // Mat4x4 Cview = inverse_mat(LookAt);
-
     model.ViewSpace = LookAt;
     model.LightSpace = LightMat;
-    model.CameraSpace = LookAt;
     model.HomoSpace = reperspective_mat(FOV, AspectRatio);
+    model.bias = bias;
 
     // model.lightPos = vecxm(light.Pos, model.LightSpace);
     // model.CameraPos = vecxm(camera.Pos, model.LightSpace);
@@ -600,7 +601,7 @@ static void applyShadows(Mesh c) {
 
     /* Applying perspective division. */
     if (nf.indexes) {
-        // ppdiv(&nf);
+        ppdiv(&nf);
 
         /* Applying Backface culling before we proceed to full frustum clipping. */
         Mesh bf = bfculling(nf);
@@ -692,7 +693,7 @@ const static Mesh viewtoscreen(const Mesh c) {
 
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            c.t[i].v[j].z -=  1;//1 / c.t[i].v[j].z;//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
+            c.t[i].v[j].z -= 1.0;//1 / c.t[i].v[j].z;//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
             c.t[i].v[j].w = 1 / c.t[i].v[j].w;
 
             c.t[i].tex[j].u /= c.t[i].v[j].w;
@@ -875,7 +876,7 @@ const static void initDependedVariables(void) {
     HALFW = wa.width / 2.00;
     HALFH = wa.height / 2.00;
     PerspMat = perspective_mat(FOV, AspectRatio);
-    OrthoMat = orthographic_mat(0.08, 0.08, 0.0, 0.0);
+    OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -998,13 +999,13 @@ const static Global rerasterize(const Global l) {
     r.Pos = vecxm(r.Pos, View);
     printf("Camera Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
-    // Mat4x4 Proj = orthographic_mat(0.08, 0.08, 0.0, 0.0, near, far);
-    // r.Pos = vecxm(r.Pos, Proj);
-    // printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    Mat4x4 Proj = orthographic_mat(Scale, Scale, 0.0, 0.0);
     r.Pos = vecxm(r.Pos, Proj);
-    printf("Perspec Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+    printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    // Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    // r.Pos = vecxm(r.Pos, Proj);
+    // printf("Perspec Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
     if (r.Pos.w > 0.0) {
         r.Pos.x /= r.Pos.w;
@@ -1029,7 +1030,7 @@ const static Global rerasterize(const Global l) {
     printf("To Clipp:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
     // Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
-    Mat4x4 reProj = reorthographic_mat(FOV, AspectRatio);
+    Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
     r.Pos = vecxm(r.Pos, reProj);
     r.Pos.w = 1.0;
     printf("To Camera:   r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
