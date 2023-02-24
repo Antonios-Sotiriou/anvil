@@ -92,7 +92,7 @@ static float bias = 0.0;
 // static float Roll = 0.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
-static float Scale = 0.1;
+static float Scale = 0.05;
 static int DEBUG = 0;
 pthread_mutex_t mutex;
 
@@ -130,10 +130,10 @@ const static void loadTexture(Mesh *c);
 const static void createScene(Scene *s);
 const static void releaseScene(Scene *s);
 const static void project(Scene s);
-static void applyShadows(Mesh c);
+static void *applyShadows(void *c);
 static void *pipeLine(void *c);
 const static void ppdiv(Mesh *c);
-const static Mesh bfculling(const Mesh c);
+const static Mesh bfculling(const Mesh c, const int bfculling_flip);
 const static Mesh viewtoscreen(const Mesh c);
 const static void rasterize(const Mesh sc);
 const static Phong initLightModel(void);
@@ -483,7 +483,7 @@ const static void initBuffers(void) {
 const static void initMeshes(Scene *s) {
     Mat4x4 ScaleMat, TransMat;
 
-    terrain = load_obj("objects/terrain.obj");
+    terrain = load_obj("objects/smallterrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
@@ -562,25 +562,35 @@ const static void project(Scene s) {
     else
         WorldMat = mxm(View, OrthoMat);
 
-    int THREADS = s.indexes;
+    // int THREADS = s.indexes * 2;
     // pthread_t threads[THREADS];
+    // int mesh_counter = 0;
+
     // for (int i = 0; i < THREADS; i++) {
-    //     if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[i]))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create()\n");
+    //     if (pthread_create(&threads[i], NULL, &applyShadows, &s.m[mesh_counter]))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- applyShadows\n");
+    //     i++;
     //     pthread_mutex_lock(&mutex);
+    //     if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[mesh_counter]))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- pipeLine()\n");
+    //     pthread_mutex_lock(&mutex);
+    //     mesh_counter++;
     // }
+
     // for (int i = 0; i < THREADS; i++) {
     //     if (pthread_join(threads[i], NULL))
     //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
     // }
-    for (int i = 0; i < THREADS; i++) {
-        applyShadows(s.m[i]);
+
+    for (int i = 0; i < s.indexes; i++) {
+        applyShadows(&s.m[i]);
         pipeLine(&s.m[i]);
     }
+
     displayScene();
     clearBuffers(wa.height, wa.width);
 }
-static void applyShadows(Mesh c) {
+static void *applyShadows(void *c) {
     Mat4x4 lm = lookat(light.Pos, light.U, light.V, light.N);
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
@@ -590,10 +600,10 @@ static void applyShadows(Mesh c) {
     model.HomoSpace = reperspective_mat(FOV, AspectRatio);
     model.bias = bias;
 
-    // model.lightPos = vecxm(light.Pos, model.LightSpace);
-    // model.CameraPos = vecxm(camera.Pos, model.LightSpace);
 
-    Mesh cache = meshxm(c, LightMat);
+    Mesh *arg = (Mesh*)c;
+    Mesh cache = meshxm(*arg, LightMat);
+
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
         plane_near_n = { 0.0, 0.0, 1.0 };
@@ -601,10 +611,10 @@ static void applyShadows(Mesh c) {
 
     /* Applying perspective division. */
     if (nf.indexes) {
-        ppdiv(&nf);
+        // ppdiv(&nf);
 
         /* Applying Backface culling before we proceed to full frustum clipping. */
-        Mesh bf = bfculling(nf);
+        Mesh bf = bfculling(nf, 1);
 
         /* Sending to translation from NDC to Screen Coordinates. */
         Mesh uf = viewtoscreen(bf);
@@ -612,6 +622,9 @@ static void applyShadows(Mesh c) {
         free(uf.t);
     } else
         free(nf.t);
+    
+    pthread_mutex_unlock(&mutex);
+    return NULL;
 }
 static void *pipeLine(void *c) {
 
@@ -628,7 +641,7 @@ static void *pipeLine(void *c) {
         ppdiv(&nf);
 
         /* Applying Backface culling before we proceed to full frustum clipping. */
-        Mesh bf = bfculling(nf);
+        Mesh bf = bfculling(nf, 0);
 
         /* Sending to translation from NDC to Screen Coordinates. */
         Mesh uf = viewtoscreen(bf);
@@ -636,7 +649,7 @@ static void *pipeLine(void *c) {
     } else
         free(nf.t);
 
-    // pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&mutex);
     return NULL;
 } // ##############################################################################################################################################
 /* Perspective division. */
@@ -654,7 +667,7 @@ const static void ppdiv(Mesh *c) {
     }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
-const static Mesh bfculling(const Mesh c) {
+const static Mesh bfculling(const Mesh c, const int bfculling_flip) {
     Mesh r = c;
     Vector cp;
     float dpc;
@@ -666,7 +679,11 @@ const static Mesh bfculling(const Mesh c) {
 
     for (int i = 0; i < c.indexes; i++) {
         cp = norm_vec(triangle_cp(c.t[i]));
-        dpc = dot_product(norm_vec(camera.Pos), cp);
+
+        if (bfculling_flip)
+            dpc = dot_product(norm_vec(light.Pos), cp);
+        else
+            dpc = dot_product(norm_vec(camera.Pos), cp);
 
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -946,9 +963,9 @@ const static int board(void) {
 
         // clock_t start_time = start();
         project(scene);
-        // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
-        // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
-        // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
+        rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
+        rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
+        rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
         // end_time = end(start_time);
 
         while(XPending(displ)) {

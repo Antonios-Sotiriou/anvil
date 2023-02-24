@@ -78,7 +78,7 @@ const Mat4x4 orthographic_mat(const float scaleX, const float scaleY, const floa
     Mat4x4 m = { 0 };
     m.m[0][0] = scaleX;
     m.m[1][1] = scaleY;
-    m.m[2][2] = 2.00 / (ZFar - ZNear);
+    m.m[2][2] = 1.00 / (ZFar - ZNear);
     m.m[3][0] = transX;
     m.m[3][1] = transY;
     m.m[3][2] = ( (ZFar + ZNear) / (ZFar - ZNear) );
