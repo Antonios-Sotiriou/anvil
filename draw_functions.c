@@ -267,9 +267,9 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                 // Pixel pix = phong(model);
                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
                 if ( shadow.z > ( shadow_buffer[(int)shadow.y][(int)shadow.x] - model.bias) )
-                    shadow.z = 1;
+                    // shadow.z = 1;
                     // printf("depth: %f    shadow: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
-
+                    drawLine(pixels, shadow.x, shadow.y, shadow.x, shadow.y, 255, 0, 0);
                 model.finalColor.Red = 157 * 100 * shadow.z;
                 model.finalColor.Green = 122 * 100 * shadow.z;
                 model.finalColor.Blue = 33 * 100 * shadow.z;
@@ -312,9 +312,10 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                 // model.PixelPos.w = depthW;
                 // Pixel pix = phong(model);
                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                if ( shadow.z > ( shadow_buffer[(int)shadow.y][(int)shadow.x] - model.bias) )
-                    shadow.z = 1;
+                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] - model.bias) )
+                    // shadow.z = 1;
                     // printf("depth: %f    shadow: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
+                    drawLine(pixels, shadow.x, shadow.y, shadow.x, shadow.y, 255, 0, 0);
 
                 model.finalColor.Red = 157 * 100 * shadow.z;
                 model.finalColor.Green = 122 * 100 * shadow.z;
