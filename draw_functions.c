@@ -1,8 +1,7 @@
 #include "header_files/draw_functions.h"
-#include "header_files/exec_time.h"
 
 const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, const float red, const float green, const float blue) {
-    Pixel pix = { red, green, blue };
+    Pixel pix = { blue, green, red };
     float delta_y = y2 - y1;
     float delta_x = x2 - x1;
 
@@ -268,7 +267,7 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
                 if ( shadow.z > ( shadow_buffer[(int)shadow.y][(int)shadow.x] - model.bias) )
                     // shadow.z = 1;
-                    // printf("depth: %f    shadow: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
+                    // printf("depthZ: %f    shadow.z: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
                     drawLine(pixels, shadow.x, shadow.y, shadow.x, shadow.y, 255, 0, 0);
                 model.finalColor.Red = 157 * 100 * shadow.z;
                 model.finalColor.Green = 122 * 100 * shadow.z;
@@ -314,7 +313,7 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
                 if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] - model.bias) )
                     // shadow.z = 1;
-                    // printf("depth: %f    shadow: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
+                    // printf("depthZ: %f    shadow.z: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
                     drawLine(pixels, shadow.x, shadow.y, shadow.x, shadow.y, 255, 0, 0);
 
                 model.finalColor.Red = 157 * 100 * shadow.z;
