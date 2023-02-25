@@ -86,13 +86,13 @@ static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
-static float bias = 0.0;
+static float bias = 0.000440;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
-static float Scale = 0.05;
+static float Scale = 0.1;
 static int DEBUG = 0;
 pthread_mutex_t mutex;
 
@@ -304,7 +304,7 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.01;             /* / */
             printf("NPlane: %f\n", NPlane);
             break;
-        case 99 : rotate_origin(&scene.m[1], Angle, 1.0, 0.0, 0.0);        /* c */
+        case 99 : rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
         case 108 :                                    /* l */
             if (EYEPOINT == 0)
@@ -623,7 +623,7 @@ static void *applyShadows(void *c) {
     } else
         free(nf.t);
     
-    pthread_mutex_unlock(&mutex);
+    // pthread_mutex_unlock(&mutex);
     return NULL;
 }
 static void *pipeLine(void *c) {
@@ -649,7 +649,7 @@ static void *pipeLine(void *c) {
     } else
         free(nf.t);
 
-    pthread_mutex_unlock(&mutex);
+    // pthread_mutex_unlock(&mutex);
     return NULL;
 } // ##############################################################################################################################################
 /* Perspective division. */
@@ -963,9 +963,9 @@ const static int board(void) {
 
         // clock_t start_time = start();
         project(scene);
-        rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
-        rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
-        rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
+        // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
+        // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
+        // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
         // end_time = end(start_time);
 
         while(XPending(displ)) {
@@ -1016,13 +1016,13 @@ const static Global rerasterize(const Global l) {
     r.Pos = vecxm(r.Pos, View);
     printf("Camera Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
-    Mat4x4 Proj = orthographic_mat(Scale, Scale, 0.0, 0.0);
-    r.Pos = vecxm(r.Pos, Proj);
-    printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    // Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    // Mat4x4 Proj = orthographic_mat(Scale, Scale, 0.0, 0.0);
     // r.Pos = vecxm(r.Pos, Proj);
-    // printf("Perspec Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+    // printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
+
+    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
+    r.Pos = vecxm(r.Pos, Proj);
+    printf("Perspec Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
 
     if (r.Pos.w > 0.0) {
         r.Pos.x /= r.Pos.w;
