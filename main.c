@@ -86,7 +86,7 @@ static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
-static float bias = 0.000440;
+static float bias = 0.000120; //0.000440;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
@@ -218,6 +218,7 @@ const static void configurenotify(XEvent *event) {
             initBuffers();
         }
         initDependedVariables();
+        initLightModel();
         if (!INIT)
             INIT = 1;
     }
@@ -304,7 +305,7 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.01;             /* / */
             printf("NPlane: %f\n", NPlane);
             break;
-        case 99 : rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);        /* c */
+        case 99 : rotate_origin(&scene.m[1], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
         case 108 :                                    /* l */
             if (EYEPOINT == 0)
@@ -584,6 +585,9 @@ const static void project(Scene s) {
 
     for (int i = 0; i < s.indexes; i++) {
         applyShadows(&s.m[i]);
+    }
+
+    for (int i = 0; i < s.indexes; i++) {
         pipeLine(&s.m[i]);
     }
 
@@ -710,7 +714,7 @@ const static Mesh viewtoscreen(const Mesh c) {
 
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            c.t[i].v[j].z -= 1.0;//1 / c.t[i].v[j].z;//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
+            c.t[i].v[j].z -= 1.0;
             c.t[i].v[j].w = 1 / c.t[i].v[j].w;
 
             c.t[i].tex[j].u /= c.t[i].v[j].w;
@@ -780,7 +784,9 @@ const static Phong initLightModel(void) {
     r.SpecularStrength = 0.5;
     r.Specular = multiply_vec(r.LightColor, r.SpecularStrength);
 
+    r.width = wa.width;
     r.halfWidth = HALFW;
+    r.height = wa.height;
     r.halfHeight = HALFH;
 
     return r;
