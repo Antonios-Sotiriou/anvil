@@ -57,14 +57,14 @@ const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, cons
 const Vector shadowTest(Phong model, float x, float y, float z, float w) {
     // printf("Screen Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", x, y, z, w);
 
-    float ndcx = (x / 400) - 1.0;
-    float ndcy = (y / 400) - 1.0;
+    float ndcx = (x / model.halfWidth) - 1.0;
+    float ndcy = (y / model.halfHeight) - 1.0;
     float ndcz = z + 1.0;
     float ndcw = 1 / w;
     // printf("NDC Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", ndcx, ndcy, ndcz, ndcw);
 
-    ndcx *=  ndcw;
-    ndcy *=  ndcw;
+    ndcx *= ndcw;
+    ndcy *= ndcw;
     ndcz *= ndcw;
     // printf("Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", ndcx, ndcy, ndcz, ndcw);
 
@@ -79,15 +79,15 @@ const Vector shadowTest(Phong model, float x, float y, float z, float w) {
     r = vecxm(r, model.LightSpace);
     // printf("Light Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.x, r.y, r.z, r.w);
 
-    r.x = (1.0 + r.x) * 400;
-    if (r.x > 799)
-        r.x = 799;
+    r.x = (1.0 + r.x) * model.halfWidth;
+    if (r.x >= model.width)
+        r.x = model.width - 1;
     else if (r.x < 0)
         r.x = 0;
 
-    r.y = (1.0 + r.y) * 400;
-    if (r.y > 799)
-        r.y = 799;
+    r.y = (1.0 + r.y) * model.halfHeight;
+    if (r.y >= model.height)
+        r.y = model.height - 1;
     else if (r.y < 0)
         r.y = 0;
 
@@ -122,7 +122,7 @@ const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buf
     //     swap(&t->v[1], &t->v[2], sizeof(Vector));
 
     model.normal = t->normal;
-    model.dot = 100 * dot_product(norm_vec(model.lightPos), model.normal);
+    // model.dot = 100 * dot_product(norm_vec(model.lightPos), model.normal);
     float winding = winding3D(*t);
 
     // if ( (t->v[1].y - t->v[2].y) == 0 )
@@ -265,15 +265,23 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                 // model.PixelPos.w = depthW;
                 // Pixel pix = phong(model);
                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                if ( shadow.z > ( shadow_buffer[(int)shadow.y][(int)shadow.x] - model.bias) )
-                    // shadow.z = 1;
-                    // printf("depthZ: %f    shadow.z: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
-                    drawLine(pixels, shadow.x, shadow.y, shadow.x, shadow.y, 255, 0, 0);
-                model.finalColor.Red = 157 * 100 * shadow.z;
-                model.finalColor.Green = 122 * 100 * shadow.z;
-                model.finalColor.Blue = 33 * 100 * shadow.z;
+                if ( shadow.z > ( shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                    model.finalColor.Red = 157 - 20;
+                    model.finalColor.Green = 122 - 20;
+                    model.finalColor.Blue = 33 - 20;
+                } else {
+                    model.finalColor.Red = 157 + (100 * depthW);
+                    model.finalColor.Green = 122 + (100 * depthW);
+                    model.finalColor.Blue = 33 + (100 * depthW);
+                }
+
+                    // drawLine(pixels, x + 1, y + 1, x , y, 255, 0, 0);
+                // model.finalColor.Red = 157 * 100 * shadow.z;
+                // model.finalColor.Green = 122 * 100 * shadow.z;
+                // model.finalColor.Blue = 33 * 100 * shadow.z;
 
                 memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
+                // drawLine(pixels, x, y, x, y, 0, 0, 255);
                 depth_buffer[(int)y][(int)x] = depthW;
             }
         }
@@ -311,16 +319,22 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                 // model.PixelPos.w = depthW;
                 // Pixel pix = phong(model);
                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] - model.bias) )
-                    // shadow.z = 1;
-                    // printf("depthZ: %f    shadow.z: %f    shadow_buffer: %f\n", depthZ, shadow.z, shadow_buffer[(int)shadow.y][(int)shadow.x]);
-                    drawLine(pixels, shadow.x, shadow.y, shadow.x, shadow.y, 255, 0, 0);
-
-                model.finalColor.Red = 157 * 100 * shadow.z;
-                model.finalColor.Green = 122 * 100 * shadow.z;
-                model.finalColor.Blue = 33 * 100 * shadow.z;
+                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                    model.finalColor.Red = 157 - 20;
+                    model.finalColor.Green = 122 - 20;
+                    model.finalColor.Blue = 33 - 20;
+                } else {
+                    model.finalColor.Red = 157 + (100 * depthW);
+                    model.finalColor.Green = 122 + (100 * depthW);
+                    model.finalColor.Blue = 33 + (100 * depthW);
+                }
+                    // drawLine(pixels, x + 1, y + 1, x, y, 255, 0, 0);
+                // model.finalColor.Red = 157 * 100 * shadow.z;
+                // model.finalColor.Green = 122 * 100 * shadow.z;
+                // model.finalColor.Blue = 33 * 100 * shadow.z;
 
                 memcpy(&pixels[(int)y][(int)x], &model.finalColor, sizeof(Pixel));
+                // drawLine(pixels, x, y, x, y, 0, 0, 255);
                 depth_buffer[(int)y][(int)x] = depthW;
             }
         }

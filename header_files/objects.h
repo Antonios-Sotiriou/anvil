@@ -70,7 +70,9 @@ typedef struct {
     Vector Ambient;
     float SpecularStrength;
     Vector Specular;
+    int width;
     int halfWidth;
+    int height;
     int halfHeight;
     Pixel finalColor;
     float dot;
