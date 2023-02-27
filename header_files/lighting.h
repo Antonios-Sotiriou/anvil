@@ -9,7 +9,7 @@
     #include "vectors_math.h"
 #endif
 
-const Pixel phong(Phong model);
+const Pixel phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW, const float shadow);
 
 #endif /* _LIGHTING_H */
 
