@@ -599,9 +599,9 @@ static void *applyShadows(void *c) {
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
 
-    model.ViewSpace = LookAt;
+    model.ModelSpace = LookAt;
     model.LightSpace = LightMat;
-    model.HomoSpace = reperspective_mat(FOV, AspectRatio);
+    model.ViewSpace = reperspective_mat(FOV, AspectRatio);
     model.bias = bias;
 
 
@@ -708,17 +708,17 @@ const static Mesh bfculling(const Mesh c, const int bfculling_flip) {
 }
 /* Translates the Mesh's Triangles from world to Screen Coordinates. */
 const static Mesh viewtoscreen(const Mesh c) {
-
+    float w = 0.0;
     for (int i = 0; i < c.indexes; i++) {
         for (int j = 0; j < 3; j++) {
-
+            w = c.t[i].v[j].w;
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
             c.t[i].v[j].z -= 1.0;
-            c.t[i].v[j].w = 1 / c.t[i].v[j].w;
+            c.t[i].v[j].w = 1 / w;
 
-            c.t[i].tex[j].u /= c.t[i].v[j].w;
-            c.t[i].tex[j].v /= c.t[i].v[j].w;
+            c.t[i].tex[j].u /= w;
+            c.t[i].tex[j].v /= w;
             c.t[i].tex[j].w = c.t[i].v[j].w;
         }
     }
@@ -757,7 +757,7 @@ const static void rasterize(const Mesh c) {
             drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
-            fillTriangle(pixels, depth_buffer, shadow_buffer, &c.t[i], model);
+            fillTriangle(pixels, depth_buffer, shadow_buffer, &c.t[i], model, 1, 0);
             // end(start_time);
         } else {
             // clock_t start_time = start();

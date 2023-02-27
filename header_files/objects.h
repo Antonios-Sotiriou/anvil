@@ -62,7 +62,6 @@ typedef struct {
 typedef struct {
     Vector CameraPos;
     Vector lightPos;
-    Vector PixelPos;
     Vector LightColor;
     Vector objColor;
     Vector normal;
@@ -74,11 +73,10 @@ typedef struct {
     int halfWidth;
     int height;
     int halfHeight;
-    Pixel finalColor;
     float dot;
-    Mat4x4 ViewSpace;
+    Mat4x4 ModelSpace;
     Mat4x4 LightSpace;
-    Mat4x4 HomoSpace;
+    Mat4x4 ViewSpace;
     float bias;
 } Phong;
 
