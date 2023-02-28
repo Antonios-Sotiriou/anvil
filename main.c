@@ -71,8 +71,7 @@ Global light = {
     .C   = { 1.0, 1.0, 1.0}
 };
 Scene scene = { 0 };
-Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
-Mat4x4 WorldMat = { 0 }, PosMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
+Mat4x4 WorldMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
 Phong model = { 0 };
 
 /* Project Global Variables. */
@@ -468,6 +467,7 @@ const static void rotate_origin(Mesh *c, const float angle, float x, float y, fl
     *c = meshxm(cache, rm);
     free(cache.t);
 }
+/* Creates and Initializes the importand buffers. (frame, depth, shadow). */
 const static void initBuffers(void) {
     pixels = create2darray((void*)pixels, sizeof(Pixel), wa.height, wa.width);
     depth_buffer = create2darray((void*)depth_buffer, sizeof(float), wa.height, wa.width);
@@ -481,8 +481,10 @@ const static void initBuffers(void) {
             shadow_buffer[y][x] = 1.0;
     }
 }
+/* Initializes the meshes from which the Scene consists. */
 const static void initMeshes(Scene *s) {
-    Mat4x4 ScaleMat, TransMat;
+    Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
+    Mat4x4 ScaleMat, TransMat, PosMat;
 
     terrain = load_obj("objects/smallterrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
@@ -514,6 +516,7 @@ const static void initMeshes(Scene *s) {
 
     LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
+/* Loads the appropriate Textures and importand Texture infos. */
 const static void loadTexture(Mesh *c) {
 
     BMP_Header bmp_header;
@@ -530,7 +533,7 @@ const static void loadTexture(Mesh *c) {
         fread(&texture, sizeof(BMP_Info), 1, fp);
         fseek(fp, (14 + texture.Size), SEEK_SET);
 
-        c->texture_height = texture.Height;
+        c->texture_height = texture.Height - 1;
         c->texture_width = texture.Width;
         c->texels = create2darray((void*)c->texels, sizeof(Pixel), texture.Height, texture.Width);
 
@@ -761,7 +764,7 @@ const static void rasterize(const Mesh c) {
             // end(start_time);
         } else {
             // clock_t start_time = start();
-            texTriangle(pixels, depth_buffer, &c.t[i], light.Pos.w, c.texels, (c.texture_height - 1), (c.texture_width - 1));
+            texTriangle(pixels, depth_buffer, &c.t[i], c.texels, c.texture_height, c.texture_width);
             // end(start_time);
         }
     }
@@ -831,6 +834,7 @@ const static void clearBuffers(const int height, const int width) {
             shadow_buffer[y][x] = 1.0;
     }
 }
+/* Exports displayed Scene in bmp format. */
 const void exportScene(void) {
     BMP_Header header = {
         .Type = 0x4d42,
@@ -916,6 +920,7 @@ const static void atomsinit(void) {
     wmatom[Atom_Type] =  XInternAtom(displ, "STRING", False);
     XChangeProperty(displ, win, wmatom[Win_Name], wmatom[Atom_Type], 8, PropModeReplace, (unsigned char*)"Anvil", 5);
 }
+/* Signal handler to clean memory before exit, after receiving a given signal. */
 const static void sigsegv_handler(const int sig) {
     printf("Received Signal from OS with ID: %d\n", sig);
     XEvent event = { 0 };
@@ -924,6 +929,7 @@ const static void sigsegv_handler(const int sig) {
     /* Send the signal to our event dispatcher for further processing. */
     handler[event.type](&event);
 }
+/* Registers the given Signal. */
 const static int registerSig(const int signal) {
     /* Signal handling for effectivelly releasing the resources. */
     struct sigaction sig = { 0 };
@@ -964,6 +970,7 @@ const static int board(void) {
     atomsinit();
     registerSig(SIGSEGV);
     model = initLightModel();
+
     float end_time = 0.0;
     while (RUNNING) {
 
