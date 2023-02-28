@@ -23,13 +23,13 @@ const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, cons
         if (delta_x < 0) {
 
             for (float x = start_x; x > end_x; x -= 1.0) {
-                step_y = (slope * (x - start_x)) + y1;
+                step_y = ceilf(((slope * (x - start_x)) + y1) - 0.5);
                 memcpy(&pixels[(int)step_y][(int)x], &pix, sizeof(Pixel));
             }
         } else {
 
             for (float x = start_x; x < end_x; x += 1.0) {
-                step_y = (slope * (x - start_x)) + y1;
+                step_y = ceilf(((slope * (x - start_x)) + y1) - 0.5);
                 memcpy(&pixels[(int)step_y][(int)x], &pix, sizeof(Pixel));
             }
         }
@@ -39,13 +39,13 @@ const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, cons
         if (delta_y < 0) {
 
             for (float y = start_y; y > end_y; y -= 1.0) {
-                step_x = (slope * (y - start_y)) + x1;
+                step_x = ceilf(((slope * (y - start_y)) + x1) - 0.5);
                 memcpy(&pixels[(int)y][(int)step_x], &pix, sizeof(Pixel));
             }
         } else {
 
             for (float y = start_y; y < end_y; y += 1.0) {
-                step_x = (slope * (y - start_y)) + x1;
+                step_x = ceilf(((slope * (y - start_y)) + x1) - 0.5);
                 memcpy(&pixels[(int)y][(int)step_x], &pix, sizeof(Pixel));
             }
         }
@@ -88,8 +88,8 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
     ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
 
-    za = (t.v[1].w - t.v[0].w) / (t.v[1].y - t.v[0].y);
-    zb = (t.v[2].w - t.v[0].w) / (t.v[2].y - t.v[0].y);
+    za = (t.v[1].z - t.v[0].z) / (t.v[1].y - t.v[0].y);
+    zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
 
     float y_start = ceilf(t.v[0].y - 0.5);
     float y_end = ceilf(t.v[1].y - 0.5);
@@ -101,8 +101,8 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(float));
 
-        float z0 = (za * (y - y_start)) + t.v[0].w;
-        float z1 = (zb * (y - y_start)) + t.v[0].w;
+        float z0 = (za * (y - y_start)) + t.v[0].z;
+        float z1 = (zb * (y - y_start)) + t.v[0].z;
         if (winding > 0)
             swap(&z0, &z1, sizeof(float));
 
@@ -128,8 +128,8 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
     mc = (t.v[2].x - t.v[1].x) / (t.v[2].y - t.v[1].y);
 
-    zb = (t.v[2].w - t.v[0].w) / (t.v[2].y - t.v[0].y);
-    zc = (t.v[2].w - t.v[1].w) / (t.v[2].y - t.v[1].y);
+    zb = (t.v[2].z - t.v[0].z) / (t.v[2].y - t.v[0].y);
+    zc = (t.v[2].z - t.v[1].z) / (t.v[2].y - t.v[1].y);
 
     float y_start = ceilf(t.v[1].y - 0.5);
     float y_end = ceilf(t.v[2].y - 0.5);
@@ -141,8 +141,8 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(float));
 
-        float z1 = (zb * (y - y_start)) + t.v[0].w;
-        float z2 = (zc * (y - y_start)) + t.v[1].w;
+        float z1 = (zb * (y - y_start)) + t.v[0].z;
+        float z2 = (zc * (y - y_start)) + t.v[1].z;
         if (winding > 0)
             swap(&z1, &z2, sizeof(float));
 
@@ -224,6 +224,9 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                         if (LIGHTS)
                             pix = phong(model, x, y, depthZ, depthW, 0.0);
 
+                        pix.Blue += 20;
+                        pix.Green += 20;
+                        pix .Red += 20;
                     }
                 }
 
@@ -279,6 +282,9 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                         if (LIGHTS)
                             pix = phong(model, x, y, depthZ, depthW, 0.0);
 
+                        pix.Blue += 20;
+                        pix.Green += 20;
+                        pix .Red += 20;
                     }
                 }
 
@@ -288,7 +294,7 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
         }
     }
 }
-const void texTriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const float light, Pixel **texels, const int tex_height, const int tex_width) {
+const void texTriangle(Pixel **pixels, float **depth_buffer, Triangle *t, Pixel **texels, const int tex_height, const int tex_width) {
     Vector temp_v;
     Textor temp_t;
     for (int i = 0; i < 3; i++)
@@ -308,13 +314,13 @@ const void texTriangle(Pixel **pixels, float **depth_buffer, Triangle *t, const 
     float winding = winding3D(*t);
 
     if ( (t->v[1].y - t->v[2].y) == 0 )
-        texNorthway(pixels, depth_buffer, *t, light, winding, texels, tex_height, tex_width);
+        texNorthway(pixels, depth_buffer, *t, winding, texels, tex_height, tex_width);
     else if ( (t->v[0].y - t->v[1].y) == 0 )
-        texSouthway(pixels, depth_buffer, *t, light, winding, texels, tex_height, tex_width);
+        texSouthway(pixels, depth_buffer, *t, winding, texels, tex_height, tex_width);
     else
-        texGeneral(pixels, depth_buffer, *t, light, winding, texels, tex_height, tex_width);
+        texGeneral(pixels, depth_buffer, *t, winding, texels, tex_height, tex_width);
 }
-const void texNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
+const void texNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
     float ma, mb, za, zb, wa, wb, depthZ, depthW;
     ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
@@ -386,7 +392,7 @@ const void texNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
         }
     }
 }
-const void texSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
+const void texSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
     float mb, mc, zb, zc, wb, wc, depthZ, depthW;
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
     mc = (t.v[2].x - t.v[1].x) / (t.v[2].y - t.v[1].y);
@@ -458,7 +464,7 @@ const void texSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
         }
     }
 }
-const void texGeneral(Pixel **pixels, float **depth_buffer, const Triangle t, const float light, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
+const void texGeneral(Pixel **pixels, float **depth_buffer, const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
     float ma, mb, mc, za, zb, zc, wa, wb, wc, depthZ, depthW;
     ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);

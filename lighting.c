@@ -15,13 +15,10 @@ const Pixel phong(Phong model, const float pixX, const float pixY, const float p
     if ( diff < 0 )
         diff = 0;
 
-    Vector diffuse;
-    diffuse.x = model.LightColor.x * diff;
-    diffuse.y = model.LightColor.y * diff;
-    diffuse.z = model.LightColor.z * diff;
+    Vector diffuse = multiply_vec(model.LightColor, diff);
 
     Vector viewdir = norm_vec(sub_vecs(pixel, model.CameraPos));
-    /* R = 2 * (N * L) * (N - L)  */
+
     Vector reflectdir = multiply_vec(cross_product(cross_product(model.normal, lightdir), sub_vecs(model.normal, lightdir)), 2.00);
     float spec = powf(dot_product(viewdir, norm_vec(reflectdir)), 32.00);
     model.Specular = multiply_vec(norm_vec(model.Specular), spec);
