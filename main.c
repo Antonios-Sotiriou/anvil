@@ -215,9 +215,10 @@ const static void configurenotify(XEvent *event) {
 
             pixmapcreate();
             initBuffers();
+            initLightModel();
         }
         initDependedVariables();
-        initLightModel();
+
         if (!INIT)
             INIT = 1;
     }
@@ -791,7 +792,7 @@ const static Phong initLightModel(void) {
     r.halfWidth = HALFW;
     r.height = wa.height;
     r.halfHeight = HALFH;
-
+    printf("Init light model.\n");
     return r;
 }
 /* Writes the final Pixel values on screen. */
@@ -974,12 +975,12 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        // clock_t start_time = start();
+        clock_t start_time = start();
         project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        // end_time = end(start_time);
+        end_time = end(start_time);
 
         while(XPending(displ)) {
 
