@@ -95,14 +95,15 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
     float y_end = ceilf(t.v[1].y - 0.5);
 
     for (float y = y_start; y < y_end; y += 1.0) {
+        const float yA = y - y_start;
 
-        float x_start = ceilf(((ma * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
+        float x_start = ceilf(((ma * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mb * yA) + t.v[0].x) - 0.5);
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(float));
 
-        float z0 = (za * (y - y_start)) + t.v[0].z;
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
+        float z0 = (za * yA) + t.v[0].z;
+        float z1 = (zb * yA) + t.v[0].z;
         if (winding > 0)
             swap(&z0, &z1, sizeof(float));
 
@@ -135,14 +136,15 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, 
     float y_end = ceilf(t.v[2].y - 0.5);
 
     for (float y = y_start; y < y_end; y += 1.0) {
+        const float yA = y - y_start;
 
-        float x_start = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mc * (y - y_start)) + t.v[1].x) - 0.5);
+        float x_start = ceilf(((mb * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mc * yA) + t.v[1].x) - 0.5);
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(float));
 
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-        float z2 = (zc * (y - y_start)) + t.v[1].z;
+        float z1 = (zb * yA) + t.v[0].z;
+        float z2 = (zc * yA) + t.v[1].z;
         if (winding > 0)
             swap(&z1, &z2, sizeof(float));
 
@@ -187,16 +189,17 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
     float y_end2 = ceilf(t.v[2].y - 0.5);
 
     for (float y = y_start; y < y_end1; y += 1.0) {
+        const float yA = y - y_start;
 
-        float x_start = ceilf(((ma * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
+        float x_start = ceilf(((ma * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mb * yA) + t.v[0].x) - 0.5);
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(float));
 
-        float z0 = (za * (y - y_start)) + t.v[0].z;
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-        float w0 = (wa * (y - y_start)) + t.v[0].w;
-        float w1 = (wb * (y - y_start)) + t.v[0].w;
+        float z0 = (za * yA) + t.v[0].z;
+        float z1 = (zb * yA) + t.v[0].z;
+        float w0 = (wa * yA) + t.v[0].w;
+        float w1 = (wb * yA) + t.v[0].w;
 
         for (float x = x_start; x < x_end; x += 1.0) {
 
@@ -236,23 +239,25 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
         }
     }
     for (float y = y_end1; y < y_end2; y += 1.0) {
+        const float yA = y - y_start;
+        const float yB = y - y_end1;
 
-        float x_start = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mc * (y - y_end1)) + t.v[1].x) - 0.5);
+        float x_start = ceilf(((mb * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mc * yB) + t.v[1].x) - 0.5);
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(float));
 
         float z1, z2, w1, w2;
         if (winding < 0) {
-            z1 = (zb * (y - y_start)) + t.v[0].z;
-            z2 = (zc * (y - y_end1)) + t.v[1].z;
-            w1 = (wb * (y - y_start)) + t.v[0].w;
-            w2 = (wc * (y - y_end1)) + t.v[1].w;
+            z1 = (zb * yA) + t.v[0].z;
+            z2 = (zc * yB) + t.v[1].z;
+            w1 = (wb * yA) + t.v[0].w;
+            w2 = (wc * yB) + t.v[1].w;
         } else {
-            z2 = (za * (y - y_start)) + t.v[0].z;
-            z1 = (zc * (y - y_end1)) + t.v[1].z;
-            w2 = (wa * (y - y_start)) + t.v[0].w;
-            w1 = (wc * (y - y_end1)) + t.v[1].w;
+            z2 = (za * yA) + t.v[0].z;
+            z1 = (zc * yB) + t.v[1].z;
+            w2 = (wa * yA) + t.v[0].w;
+            w1 = (wc * yB) + t.v[1].w;
         }
 
         for (float x = x_start; x < x_end; x += 1.0) {
@@ -343,18 +348,19 @@ const void texNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
     float y_end = ceilf(t.v[1].y - 0.5);
 
     for (float y = y_start; y < y_end; y += 1.0) {
+        const float yA = y - y_start;
 
-        float x_start = ceilf(((ma * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
+        float x_start = ceilf(((ma * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mb * yA) + t.v[0].x) - 0.5);
 
-        float tex_ys = (tv1 * (y - y_start)) + t.tex[0].v;
-        float tex_ye = (tv2 * (y - y_start)) + t.tex[0].v;
+        float tex_ys = (tv1 * yA) + t.tex[0].v;
+        float tex_ye = (tv2 * yA) + t.tex[0].v;
 
-        float tex_xs = (tu1 * (y - y_start)) + t.tex[0].u;
-        float tex_xe = (tu2 * (y - y_start)) + t.tex[0].u;
+        float tex_xs = (tu1 * yA) + t.tex[0].u;
+        float tex_xe = (tu2 * yA) + t.tex[0].u;
 
-        float tex_ws = (tw1 * (y - y_start)) + t.tex[0].w;
-        float tex_we = (tw2 * (y - y_start)) + t.tex[0].w;
+        float tex_ws = (tw1 * yA) + t.tex[0].w;
+        float tex_we = (tw2 * yA) + t.tex[0].w;
 
         if (x_start > x_end) {
             swap(&x_start, &x_end, sizeof(float));
@@ -363,10 +369,10 @@ const void texNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
             swap(&tex_ws, &tex_we, sizeof(float));
         }
 
-        float z0 = (za * (y - y_start)) + t.v[0].z;
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-        float w0 = (wa * (y - y_start)) + t.v[0].w;
-        float w1 = (wb * (y - y_start)) + t.v[0].w;
+        float z0 = (za * yA) + t.v[0].z;
+        float z1 = (zb * yA) + t.v[0].z;
+        float w0 = (wa * yA) + t.v[0].w;
+        float w1 = (wb * yA) + t.v[0].w;
         if (winding > 0) {
             swap(&z0, &z1, sizeof(float));
             swap(&w0, &w1, sizeof(float));
@@ -415,18 +421,19 @@ const void texSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
     float y_end = ceilf(t.v[2].y - 0.5);
 
     for (float y = y_start; y < y_end; y += 1.0) {
+        const float yA = y - y_start;
 
-        float x_start = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mc * (y - y_start)) + t.v[1].x) - 0.5);
+        float x_start = ceilf(((mb * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mc * yA) + t.v[1].x) - 0.5);
 
-        float tex_ys = (tv2 * (y - y_start)) + t.tex[0].v;
-        float tex_ye = (tv3 * (y - y_start)) + t.tex[1].v;
+        float tex_ys = (tv2 * yA) + t.tex[0].v;
+        float tex_ye = (tv3 * yA) + t.tex[1].v;
 
-        float tex_xs = (tu2 * (y - y_start)) + t.tex[0].u;
-        float tex_xe = (tu3 * (y - y_start)) + t.tex[1].u;
+        float tex_xs = (tu2 * yA) + t.tex[0].u;
+        float tex_xe = (tu3 * yA) + t.tex[1].u;
 
-        float tex_ws = (tw2 * (y - y_start)) + t.tex[0].w;
-        float tex_we = (tw3 * (y - y_start)) + t.tex[1].w;
+        float tex_ws = (tw2 * yA) + t.tex[0].w;
+        float tex_we = (tw3 * yA) + t.tex[1].w;
 
         if (x_start > x_end) {
             swap(&x_start, &x_end, sizeof(float));
@@ -435,10 +442,10 @@ const void texSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, c
             swap(&tex_ws, &tex_we, sizeof(float));
         }
 
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-        float z2 = (zc * (y - y_start)) + t.v[1].z;
-        float w1 = (wb * (y - y_start)) + t.v[0].w;
-        float w2 = (wc * (y - y_start)) + t.v[1].w;
+        float z1 = (zb * yA) + t.v[0].z;
+        float z2 = (zc * yA) + t.v[1].z;
+        float w1 = (wb * yA) + t.v[0].w;
+        float w2 = (wc * yA) + t.v[1].w;
         if (winding > 0) {
             swap(&z1, &z2, sizeof(float));
             swap(&w1, &w2, sizeof(float));
@@ -502,18 +509,19 @@ const void texGeneral(Pixel **pixels, float **depth_buffer, const Triangle t, co
 
 
     for (float y = y_start; y < y_end1; y += 1.0) {
+        const float yA = y - y_start;
 
-        float x_start = ceilf(((ma * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
+        float x_start = ceilf(((ma * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mb * yA) + t.v[0].x) - 0.5);
 
-        float tex_ys = (tv1 * (y - y_start)) + t.tex[0].v;
-        float tex_ye = (tv2 * (y - y_start)) + t.tex[0].v;
+        float tex_ys = (tv1 * yA) + t.tex[0].v;
+        float tex_ye = (tv2 * yA) + t.tex[0].v;
 
-        float tex_xs = (tu1 * (y - y_start)) + t.tex[0].u;
-        float tex_xe = (tu2 * (y - y_start)) + t.tex[0].u;
+        float tex_xs = (tu1 * yA) + t.tex[0].u;
+        float tex_xe = (tu2 * yA) + t.tex[0].u;
 
-        float tex_ws = (tw1 * (y - y_start)) + t.tex[0].w;
-        float tex_we = (tw2 * (y - y_start)) + t.tex[0].w;
+        float tex_ws = (tw1 * yA) + t.tex[0].w;
+        float tex_we = (tw2 * yA) + t.tex[0].w;
 
         if (x_start > x_end) {
             swap(&x_start, &x_end, sizeof(float));
@@ -525,10 +533,10 @@ const void texGeneral(Pixel **pixels, float **depth_buffer, const Triangle t, co
         float q_step = 1.0 / (x_end - x_start);
         float q = 0.0;
 
-        float z0 = (za * (y - y_start)) + t.v[0].z;
-        float z1 = (zb * (y - y_start)) + t.v[0].z;
-        float w0 = (wa * (y - y_start)) + t.v[0].w;
-        float w1 = (wb * (y - y_start)) + t.v[0].w;
+        float z0 = (za * yA) + t.v[0].z;
+        float z1 = (zb * yA) + t.v[0].z;
+        float w0 = (wa * yA) + t.v[0].w;
+        float w1 = (wb * yA) + t.v[0].w;
 
         for (float x = x_start; x < x_end; x += 1.0) {
             float tex_w = ((tex_ws * (1 - q)) + (tex_we * q));
@@ -547,18 +555,20 @@ const void texGeneral(Pixel **pixels, float **depth_buffer, const Triangle t, co
         }
     }
     for (float y = y_end1; y < y_end2; y += 1.0) {
+        const float yA = y - y_start;
+        const float yB = y - y_end1;
 
-        float x_start = ceilf(((mb * (y - y_start)) + t.v[0].x) - 0.5);
-        float x_end = ceilf(((mc * (y - y_end1)) + t.v[1].x) - 0.5);
+        float x_start = ceilf(((mb * yA) + t.v[0].x) - 0.5);
+        float x_end = ceilf(((mc * yB) + t.v[1].x) - 0.5);
 
-        float tex_ys = (tv2 * (y - y_start)) + t.tex[0].v;
-        float tex_ye = (tv3 * (y - y_end1)) + t.tex[1].v;
+        float tex_ys = (tv2 * yA) + t.tex[0].v;
+        float tex_ye = (tv3 * yB) + t.tex[1].v;
 
-        float tex_xs = (tu2 * (y - y_start)) + t.tex[0].u;
-        float tex_xe = (tu3 * (y - y_end1)) + t.tex[1].u;
+        float tex_xs = (tu2 * yA) + t.tex[0].u;
+        float tex_xe = (tu3 * yB) + t.tex[1].u;
 
-        float tex_ws = (tw2 * (y - y_start)) + t.tex[0].w;
-        float tex_we = (tw3 * (y - y_end1)) + t.tex[1].w;
+        float tex_ws = (tw2 * yA) + t.tex[0].w;
+        float tex_we = (tw3 * yB) + t.tex[1].w;
 
         if (x_start > x_end) {
             swap(&x_start, &x_end, sizeof(float));
@@ -569,15 +579,15 @@ const void texGeneral(Pixel **pixels, float **depth_buffer, const Triangle t, co
 
         float z1, z2, w1, w2;
         if (winding < 0) {
-            z1 = (zb * (y - y_start)) + t.v[0].z;
-            z2 = (zc * (y - y_end1)) + t.v[1].z;
-            w1 = (wb * (y - y_start)) + t.v[0].w;
-            w2 = (wc * (y - y_end1)) + t.v[1].w;
+            z1 = (zb * yA) + t.v[0].z;
+            z2 = (zc * yB) + t.v[1].z;
+            w1 = (wb * yA) + t.v[0].w;
+            w2 = (wc * yB) + t.v[1].w;
         } else {
-            z2 = (za * (y - y_start)) + t.v[0].z;
-            z1 = (zc * (y - y_end1)) + t.v[1].z;
-            w2 = (wa * (y - y_start)) + t.v[0].w;
-            w1 = (wc * (y - y_end1)) + t.v[1].w;
+            z2 = (za * yA) + t.v[0].z;
+            z1 = (zc * yB) + t.v[1].z;
+            w2 = (wa * yA) + t.v[0].w;
+            w1 = (wc * yB) + t.v[1].w;
         }
 
         float q_step = 1.0 / (x_end - x_start);
