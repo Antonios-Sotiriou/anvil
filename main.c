@@ -567,33 +567,31 @@ const static void project(Scene s) {
     else
         WorldMat = mxm(View, OrthoMat);
 
-    // int THREADS = s.indexes * 2;
-    // pthread_t threads[THREADS];
-    // int mesh_counter = 0;
+    int THREADS = s.indexes * 2;
+    pthread_t threads[THREADS];
+    int mesh_counter = 0;
 
-    // for (int i = 0; i < THREADS; i++) {
-    //     if (pthread_create(&threads[i], NULL, &applyShadows, &s.m[mesh_counter]))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- applyShadows\n");
-    //     i++;
-    //     pthread_mutex_lock(&mutex);
-    //     if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[mesh_counter]))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- pipeLine()\n");
-    //     pthread_mutex_lock(&mutex);
-    //     mesh_counter++;
-    // }
-
-    // for (int i = 0; i < THREADS; i++) {
-    //     if (pthread_join(threads[i], NULL))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
-    // }
-
-    for (int i = 0; i < s.indexes; i++) {
-        applyShadows(&s.m[i]);
+    for (int i = 0; i < THREADS; i++) {
+        if (pthread_create(&threads[i], NULL, &applyShadows, &s.m[mesh_counter]))
+            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- applyShadows\n");
+        i++;
+        if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[mesh_counter]))
+            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- pipeLine()\n");
+        mesh_counter++;
     }
 
-    for (int i = 0; i < s.indexes; i++) {
-        pipeLine(&s.m[i]);
+    for (int i = 0; i < THREADS; i++) {
+        if (pthread_join(threads[i], NULL))
+            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
     }
+
+    // for (int i = 0; i < s.indexes; i++) {
+    //     applyShadows(&s.m[i]);
+    // }
+
+    // for (int i = 0; i < s.indexes; i++) {
+    //     pipeLine(&s.m[i]);
+    // }
 
     displayScene();
     clearBuffers(wa.height, wa.width);
@@ -631,7 +629,6 @@ static void *applyShadows(void *c) {
     } else
         free(nf.t);
     
-    // pthread_mutex_unlock(&mutex);
     return NULL;
 }
 static void *pipeLine(void *c) {
@@ -657,7 +654,6 @@ static void *pipeLine(void *c) {
     } else
         free(nf.t);
 
-    // pthread_mutex_unlock(&mutex);
     return NULL;
 } // ##############################################################################################################################################
 /* Perspective division. */
@@ -761,7 +757,7 @@ const static void rasterize(const Mesh c) {
             drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
-            fillTriangle(pixels, depth_buffer, shadow_buffer, &c.t[i], model, 1, 0);
+            fillTriangle(pixels, depth_buffer, shadow_buffer, &c.t[i], model, 1, 1);
             // end(start_time);
         } else {
             // clock_t start_time = start();
@@ -775,11 +771,11 @@ const static void rasterize(const Mesh c) {
 const static Phong initLightModel(void) {
     Phong r = { 0 };
     Vector LightColor = { 1.0, 1.0, 1.0 };
-    Vector objColor = { 33.0 / 255.0, 122.0 / 255.0, 157.0 / 255.0 };
+    Vector objColor = { 0.129, 0.478, 0.615 };
     r.LightColor = LightColor;
     r.objColor = objColor;
 
-    r.lightPos = vecxm(light.Pos, OrthoMat);
+    r.lightPos = vecxm(light.Pos, WorldMat);
     r.CameraPos = vecxm(camera.Pos, OrthoMat);
 
     r.AmbientStrength = 0.3;
@@ -792,7 +788,7 @@ const static Phong initLightModel(void) {
     r.halfWidth = HALFW;
     r.height = wa.height;
     r.halfHeight = HALFH;
-    printf("Init light model.\n");
+
     return r;
 }
 /* Writes the final Pixel values on screen. */
@@ -975,12 +971,12 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        clock_t start_time = start();
+        // clock_t start_time = start();
         project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        end_time = end(start_time);
+        // end_time = end(start_time);
 
         while(XPending(displ)) {
 
