@@ -44,8 +44,8 @@
 const void drawLine(Pixel **buffer, float x1, float y1, float x2, float y2, const float red, const float green, const float blue);
 
 const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle *t, Phong model, const int SHADOWS, const int LIGHTS);
-const void fillNorthway(Pixel **pixels, float **depth_buffer, const Triangle t, Phong model, const float winding);
-const void fillSouthway(Pixel **pixels, float **depth_buffer, const Triangle t, Phong model, const float winding);
+const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS);
+const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS);
 const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS);
 
 const void texTriangle(Pixel **pixels, float **depth_buffer, Triangle *t, Pixel **texels, const int tex_height, const int tex_width);
