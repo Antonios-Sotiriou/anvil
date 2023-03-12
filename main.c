@@ -138,9 +138,9 @@ const static void rasterize(const Mesh sc);
 const static Phong initLightModel(void);
 const static void displayScene(void);
 const static void clearBuffers(const int height, const int width);
+const void exportScene(void);
 
 /* Xlib relative functions and event dispatcher. */
-const void exportScene(void);
 const static KeySym getKeysym(XEvent *event);
 const static void initMainWindow();
 const static void initGlobalGC();
@@ -305,7 +305,7 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.01;             /* / */
             printf("NPlane: %f\n", NPlane);
             break;
-        case 99 : rotate_origin(&scene.m[1], Angle, 1.0, 0.0, 0.0);        /* c */
+        case 99 : rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
         case 108 :                                    /* l */
             if (EYEPOINT == 0)
@@ -567,31 +567,38 @@ const static void project(Scene s) {
     else
         WorldMat = mxm(View, OrthoMat);
 
-    int THREADS = s.indexes * 2;
-    pthread_t threads[THREADS];
-    int mesh_counter = 0;
-
-    for (int i = 0; i < THREADS; i++) {
-        if (pthread_create(&threads[i], NULL, &applyShadows, &s.m[mesh_counter]))
-            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- applyShadows\n");
-        i++;
-        if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[mesh_counter]))
-            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- pipeLine()\n");
-        mesh_counter++;
-    }
-
-    for (int i = 0; i < THREADS; i++) {
-        if (pthread_join(threads[i], NULL))
-            fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
-    }
+    // int THREADS = s.indexes;
+    // pthread_t threads[THREADS];
 
     // for (int i = 0; i < s.indexes; i++) {
-    //     applyShadows(&s.m[i]);
+    //     // pthread_mutex_lock(&mutex);
+    //     if (pthread_create(&threads[i], NULL, &applyShadows, &s.m[i]))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- applyShadows\n");
     // }
 
     // for (int i = 0; i < s.indexes; i++) {
-    //     pipeLine(&s.m[i]);
+    //     if (pthread_join(threads[i], NULL))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
     // }
+
+    // for (int i = 0; i < s.indexes; i++) {
+    //     // pthread_mutex_lock(&mutex);
+    //     if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[i]))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- pipeLine()\n");
+    // }
+
+    // for (int i = 0; i < s.indexes; i++) {
+    //     if (pthread_join(threads[i], NULL))
+    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
+    // }
+
+    for (int i = 0; i < s.indexes; i++) {
+        applyShadows(&s.m[i]);
+    }
+
+    for (int i = 0; i < s.indexes; i++) {
+        pipeLine(&s.m[i]);
+    }
 
     displayScene();
     clearBuffers(wa.height, wa.width);
@@ -628,7 +635,8 @@ static void *applyShadows(void *c) {
         free(uf.t);
     } else
         free(nf.t);
-    
+
+    // pthread_mutex_unlock(&mutex);
     return NULL;
 }
 static void *pipeLine(void *c) {
@@ -654,6 +662,7 @@ static void *pipeLine(void *c) {
     } else
         free(nf.t);
 
+    // pthread_mutex_unlock(&mutex);
     return NULL;
 } // ##############################################################################################################################################
 /* Perspective division. */
@@ -971,12 +980,12 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        // clock_t start_time = start();
+        clock_t start_time = start();
         project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        // end_time = end(start_time);
+        end_time = end(start_time);
 
         while(XPending(displ)) {
 
