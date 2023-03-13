@@ -90,7 +90,11 @@ const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buf
         fillGeneral(pixels, depth_buffer, shadow_buffer, *t, model, winding, SHADOWS, LIGHTS);
 }
 const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS) {
-    Pixel pix = { 0 };
+    Pixel pix = {
+        .Blue = model.objColor.x,
+        .Green = model.objColor.y,
+        .Red = model.objColor.z,
+    };
     float ma, mb, za, zb, wa, wb, depthZ, depthW;
     ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
@@ -127,9 +131,6 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
             depthW = (w0 * (1 - barycentric)) + (w1 * barycentric);
 
             if (depthW > depth_buffer[(int)y][(int)x]) {
-                pix.Blue = model.objColor.x;
-                pix.Green = model.objColor.y;
-                pix .Red = model.objColor.z;
 
                 if (SHADOWS) {
                     Vector shadow = shadowTest(model, x, y, depthZ, depthW);
@@ -149,7 +150,11 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
     }
 }
 const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS) {
-    Pixel pix = { 0 };
+    Pixel pix = {
+        .Blue = model.objColor.x,
+        .Green = model.objColor.y,
+        .Red = model.objColor.z,
+    };
     float mb, mc, zb, zc, wb, wc, depthZ, depthW;
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
     mc = (t.v[2].x - t.v[1].x) / (t.v[2].y - t.v[1].y);
@@ -186,9 +191,6 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
             depthW = (w2 * (1 - barycentric)) + (w1 * barycentric);
 
             if (depthW > depth_buffer[(int)y][(int)x]) {
-                pix.Blue = model.objColor.x;
-                pix.Green = model.objColor.y;
-                pix .Red = model.objColor.z;
 
                 if (SHADOWS) {
                     Vector shadow = shadowTest(model, x, y, depthZ, depthW);
@@ -208,7 +210,11 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
     }
 }
 const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS) {
-    Pixel pix = { 0 };
+    Pixel pix = {
+        .Blue = model.objColor.x,
+        .Green = model.objColor.y,
+        .Red = model.objColor.z,
+    };
     float ma, mb, mc, za, zb, zc, wa, wb, wc, depthZ, depthW;
     ma = (t.v[1].x - t.v[0].x) / (t.v[1].y - t.v[0].y);
     mb = (t.v[2].x - t.v[0].x) / (t.v[2].y - t.v[0].y);
@@ -250,9 +256,6 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
             depthW = ((w0 * (1 - barycentric)) + (w1 * barycentric));
 
             if ( depthW > depth_buffer[(int)y][(int)x] ) {
-                pix.Blue = model.objColor.x;
-                pix.Green = model.objColor.y;
-                pix .Red = model.objColor.z;
 
                 if (SHADOWS) {
                     Vector shadow = shadowTest(model, x, y, depthZ, depthW);
@@ -299,9 +302,6 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
             depthW = ((w2 * (1 - barycentric)) + (w1 * barycentric));
 
             if ( depthW > depth_buffer[(int)y][(int)x] ) {
-                pix.Blue = model.objColor.x;
-                pix.Green = model.objColor.y;
-                pix .Red = model.objColor.z;
 
                 if (SHADOWS) {
                     Vector shadow = shadowTest(model, x, y, depthZ, depthW);

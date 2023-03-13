@@ -436,21 +436,21 @@ const static void move_down(Global *g) {
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_xmat(angle);
+    Mat4x4 m = rotate_xmat(radians(angle));
     Mesh cache = *c;
     *c = meshxm(cache, m);
     free(cache.t);
 }
 /* Rotates object according to World Y axis. */
 const static void rotate_y(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_ymat(angle);
+    Mat4x4 m = rotate_ymat(radians(angle));
     Mesh cache = *c;
     *c = meshxm(cache, m);
     free(cache.t);
 }
 /* Rotates object according to World Z axis. */
 const static void rotate_z(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_zmat(angle);
+    Mat4x4 m = rotate_zmat(radians(angle));
     Mesh cache = *c;
     *c = meshxm(cache, m);
     free(cache.t);
@@ -505,11 +505,12 @@ const static void initMeshes(Scene *s) {
     s->m[1] = meshxm(earth, PosMat);
     free(earth.t);
 
-    cube_create(&cube);
+    // cube_create(&cube);
+    triangle_create(&cube);
     memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&cube);
 
-    ScaleMat = scale_mat(8.0);
+    ScaleMat = scale_mat(1.0);
     TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[2] = meshxm(cube, PosMat);
