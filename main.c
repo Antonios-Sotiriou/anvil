@@ -267,7 +267,7 @@ const static void keypress(XEvent *event) {
             break;
         case 121 : rotate_y(&scene.m[0], Angle);       /* y */
             break;
-        case 122 : rotate_z(&scene.m[0], Angle);       /* z */
+        case 122 : rotate_z(&scene.m[2], Angle);       /* z */
             break;
         case 112 :
             if (PROJECTBUFFER == 3)
@@ -478,8 +478,10 @@ const static void initBuffers(void) {
     for (int y = 0; y < wa.height; y++){
         memset(pixels[y], 0, sizeof(Pixel) * wa.width);
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
-        for (int x = 0; x < wa.width; x++)
+        for (int x = 0; x < wa.width; x++) {
             shadow_buffer[y][x] = 1.0;
+            // depth_buffer[y][x] = 1.0;
+        }
     }
 }
 /* Initializes the meshes from which the Scene consists. */
@@ -724,7 +726,7 @@ const static Mesh viewtoscreen(const Mesh c) {
             w = c.t[i].v[j].w;
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            c.t[i].v[j].z -= 1.0;
+            c.t[i].v[j].z -= 1;// / c.t[i].v[j].z; //1.0 / ((c.t[i].v[j].z - 0.01) / (1000.0 - 0.01));
             c.t[i].v[j].w = 1 / w;
 
             c.t[i].tex[j].u /= w;
@@ -762,9 +764,9 @@ const static void rasterize(const Mesh c) {
     for (int i = 0; i < c.indexes; i++) {
 
         if (DEBUG == 1) {
-            drawLine(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
-            drawLine(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
-            drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
+            // drawLine(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
+            // drawLine(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
+            // drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
             fillTriangle(pixels, depth_buffer, shadow_buffer, &c.t[i], model, 1, 1);
@@ -837,8 +839,10 @@ const static void clearBuffers(const int height, const int width) {
     for (int y = 0; y < height; y++) {
         memset(pixels[y], 0, sizeof(Pixel) * width);
         memset(depth_buffer[y], 0, sizeof(float) * width);
-        for (int x = 0; x < wa.width; x++)
+        for (int x = 0; x < wa.width; x++) {
             shadow_buffer[y][x] = 1.0;
+            // depth_buffer[y][x] = 1.0;
+        }
     }
 }
 /* Exports displayed Scene in bmp format. */
