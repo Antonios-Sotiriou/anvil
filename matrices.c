@@ -99,31 +99,35 @@ const Mat4x4 reorthographic_mat(const float fov, const float aspectratio) {
 }
 /* Multiplies a Mesh c with the given Matrix and returns a new Mesh, leaving the original unmodified. */
 const Mesh meshxm(const Mesh c, const Mat4x4 m) {
-
     Mesh r = c;
-
-    r.t = malloc(sizeof(Triangle) * c.indexes);
+    r.t = malloc(sizeof(Triangle) * c.t_indexes);
     if (!r.t)
         fprintf(stderr, "Could not allocate memory for Cache Mesh. meshxm() -- malloc().\n");
 
-    if (!memcpy(r.t, c.t, sizeof(Triangle) * c.indexes))
+    if (!memcpy(r.t, c.t, sizeof(Triangle) * c.t_indexes))
         fprintf(stderr, "Could not copy memory for Cache Mesh. meshxm() -- memcpy().\n");
-    
-    for (int i = 0; i < c.indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-            
-            r.t[i].v[j].x = c.t[i].v[j].x * m.m[0][0] + c.t[i].v[j].y * m.m[1][0] + c.t[i].v[j].z * m.m[2][0] + c.t[i].v[j].w * m.m[3][0];
-            r.t[i].v[j].y = c.t[i].v[j].x * m.m[0][1] + c.t[i].v[j].y * m.m[1][1] + c.t[i].v[j].z * m.m[2][1] + c.t[i].v[j].w * m.m[3][1];
-            r.t[i].v[j].z = c.t[i].v[j].x * m.m[0][2] + c.t[i].v[j].y * m.m[1][2] + c.t[i].v[j].z * m.m[2][2] + c.t[i].v[j].w * m.m[3][2];
-            r.t[i].v[j].w = c.t[i].v[j].x * m.m[0][3] + c.t[i].v[j].y * m.m[1][3] + c.t[i].v[j].z * m.m[2][3] + c.t[i].v[j].w * m.m[3][3];
-        }
+
+    r.v = malloc(sizeof(Vector) * c.v_indexes);
+    if (!r.v)
+        fprintf(stderr, "Could not allocate memory for Cache Mesh. meshxm() -- malloc().\n");
+
+    for (int i = 0; i < c.v_indexes; i++) {
+
+        r.v[i].x = c.v[i].x * m.m[0][0] + c.v[i].y * m.m[1][0] + c.v[i].z * m.m[2][0] + c.v[i].w * m.m[3][0];
+        r.v[i].y = c.v[i].x * m.m[0][1] + c.v[i].y * m.m[1][1] + c.v[i].z * m.m[2][1] + c.v[i].w * m.m[3][1];
+        r.v[i].z = c.v[i].x * m.m[0][2] + c.v[i].y * m.m[1][2] + c.v[i].z * m.m[2][2] + c.v[i].w * m.m[3][2];
+        r.v[i].w = c.v[i].x * m.m[0][3] + c.v[i].y * m.m[1][3] + c.v[i].z * m.m[2][3] + c.v[i].w * m.m[3][3];
     }
-    r.indexes = c.indexes;
+    for (int i = 0; i < c.t_indexes; i++) {
+        r.t[i].v[0] = r.v[c.t[i].a];
+        r.t[i].v[1] = r.v[c.t[i].b];
+        r.t[i].v[2] = r.v[c.t[i].c];
+    }
+    r.t_indexes = c.t_indexes;
     return r;
 }
 /* Multiplies a Vector with the given Matrix and returns a new Vector, leaving the original unmodified. */
 const Vector vecxm(const Vector v, const Mat4x4 m) {
-    
     Vector r = { 0 };
     r.x = v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + v.w * m.m[3][0];
     r.y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + v.w * m.m[3][1];

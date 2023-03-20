@@ -46,7 +46,7 @@ const void cube_create(Mesh *c) {
             },
     };
     memcpy(c->t, t, sizeof(Triangle) * indexes);
-    c->indexes = indexes;
+    c->t_indexes = indexes;
 }
 
 void triangle_create(Mesh *c) {
@@ -68,6 +68,6 @@ void triangle_create(Mesh *c) {
             // { {{ 0.00, 0.00, 1.00, 1.0 }, { 1.00, 0.00, 0.00, 1.0 }, { 0.00, 0.00, 0.00, 1.0 }}, {{ 0.0, 1.0, 1.0 }, {1.0, 0.0, 1.0}, {1.0, 1.0, 1.0}} },  // Camera test
     };
     memcpy(c->t, t, sizeof(Triangle) * indexes);
-    c->indexes = indexes;
+    c->t_indexes = indexes;
 }
 

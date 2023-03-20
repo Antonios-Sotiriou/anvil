@@ -3,13 +3,13 @@
 const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
 
     Mesh r = c;
-    r.t = malloc(sizeof(Triangle) * c.indexes);
+    r.t = malloc(sizeof(Triangle) * c.t_indexes);
     int index = 0;
     int dynamic_inc = 1;
 
     int clipped_count = 0;
     Triangle clipped[2];
-    for (int i = 0; i < c.indexes; i++) {
+    for (int i = 0; i < c.t_indexes; i++) {
 
         clipped_count = clipp_triangle(plane_p, plane_n, c.t[i], &clipped[0], &clipped[1]);
 
@@ -20,7 +20,7 @@ const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
                 r.t[index].clipped = True;
                 index++;
             } else if (clipped_count == 2) {
-                r.t = realloc(r.t, sizeof(Triangle) * (c.indexes + dynamic_inc));
+                r.t = realloc(r.t, sizeof(Triangle) * (c.t_indexes + dynamic_inc));
                 r.t[index] = clipped[0];
                 r.t[index].clipped = True;
 
@@ -34,7 +34,7 @@ const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
             }
         }
     }
-    r.indexes = index;
+    r.t_indexes = index;
     free(c.t);
     return r;
 }
@@ -112,30 +112,31 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
 
         if ( len_vec(inside_points[0]) == len_vec(in_t.v[1]) ) {
             out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1], &t);
-            out_t1->v[1].w = (inside_points[0].w * (1 - t)) + (outside_points[1].w * t);
-            out_t1->tex[1].u = (inside_tex[0].u * (1 - t)) + (outside_tex[1].u * t);
-            out_t1->tex[1].v = (inside_tex[0].v * (1 - t)) + (outside_tex[1].v * t);
-            out_t1->tex[1].w = (inside_tex[0].w * (1 - t)) + (outside_tex[1].w * t);
+            out_t1->v[1].w = inside_points[0].w + (t * (outside_points[1].w - inside_points[0].w));
+            out_t1->tex[1].u = inside_tex[0].u + (t * (outside_tex[1].u - inside_tex[0].u));
+            out_t1->tex[1].v = inside_tex[0].v + (t * (outside_tex[1].v - inside_tex[0].v));
+            out_t1->tex[1].w = inside_tex[0].w + (t * (outside_tex[1].w - inside_tex[0].w));
 
             out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
-            out_t1->v[2].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
-            out_t1->tex[2].u = (inside_tex[0].u * (1 - t)) + (outside_tex[0].u * t);
-            out_t1->tex[2].v = (inside_tex[0].v * (1 - t)) + (outside_tex[0].v * t);
-            out_t1->tex[2].w = (inside_tex[0].w * (1 - t)) + (outside_tex[0].w * t);
+            out_t1->v[2].w = inside_points[0].w + (t * (outside_points[0].w - inside_points[0].w));
+            out_t1->tex[2].u = inside_tex[0].u + (t * (outside_tex[0].u - inside_tex[0].u));
+            out_t1->tex[2].v = inside_tex[0].v + (t * (outside_tex[0].v - inside_tex[0].v));
+            out_t1->tex[2].w = inside_tex[0].w + (t * (outside_tex[0].w - inside_tex[0].w));
         } else {
             out_t1->v[1] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
-            out_t1->v[1].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
-            out_t1->tex[1].u = (inside_tex[0].u * (1 - t)) + (outside_tex[0].u * t);
-            out_t1->tex[1].v = (inside_tex[0].v * (1 - t)) + (outside_tex[0].v * t);
-            out_t1->tex[1].w = (inside_tex[0].w * (1 - t)) + (outside_tex[0].w * t);
+            out_t1->v[1].w = inside_points[0].w + (t * (outside_points[0].w - inside_points[0].w));
+            out_t1->tex[1].u = inside_tex[0].u + (t * (outside_tex[0].u - inside_tex[0].u));
+            out_t1->tex[1].v = inside_tex[0].v + (t * (outside_tex[0].v - inside_tex[0].v));
+            out_t1->tex[1].w = inside_tex[0].w + (t * (outside_tex[0].w - inside_tex[0].w));
 
             out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[1], &t);
-            out_t1->v[2].w = (inside_points[0].w * (1 - t)) + (outside_points[1].w * t);
-            out_t1->tex[2].u = (inside_tex[0].u * (1 - t)) + (outside_tex[1].u * t);
-            out_t1->tex[2].v = (inside_tex[0].v * (1 - t)) + (outside_tex[1].v * t);
-            out_t1->tex[2].w = (inside_tex[0].w * (1 - t)) + (outside_tex[1].w * t);
+            out_t1->v[2].w = inside_points[0].w + (t * (outside_points[1].w - inside_points[0].w));
+            out_t1->tex[2].u = inside_tex[0].u + (t * (outside_tex[1].u - inside_tex[0].u));
+            out_t1->tex[2].v = inside_tex[0].v + (t * (outside_tex[1].v - inside_tex[0].v));
+            out_t1->tex[2].w = inside_tex[0].w + (t * (outside_tex[1].w - inside_tex[0].w));
         }
-        out_t1->normal = in_t.normal;
+        // out_t1->normal = in_t.normal;
+        // out_t1->a = in_t.a, out_t1->b = in_t.b, out_t1->c = in_t.c;
         return 1; /* A new Triangle is created. */
     } else if (inside_count == 2 && outside_count == 1) {
         if ( len_vec(outside_points[0]) == len_vec(in_t.v[1]) ) {
@@ -146,16 +147,16 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
             out_t1->tex[1] = inside_tex[0];
 
             out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
-            out_t1->v[2].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
-            out_t1->tex[2].u = (inside_tex[0].u * (1 - t)) + (outside_tex[0].u * t);
-            out_t1->tex[2].v = (inside_tex[0].v * (1 - t)) + (outside_tex[0].v * t);
-            out_t1->tex[2].w = (inside_tex[0].w * (1 - t)) + (outside_tex[0].w * t);
+            out_t1->v[2].w = inside_points[0].w + (t * (outside_points[0].w - inside_points[0].w));
+            out_t1->tex[2].u = inside_tex[0].u + (t * (outside_tex[0].u - inside_tex[0].u));
+            out_t1->tex[2].v = inside_tex[0].v + (t * (outside_tex[0].v - inside_tex[0].v));
+            out_t1->tex[2].w = inside_tex[0].w + (t * (outside_tex[0].w - inside_tex[0].w));
 
             out_t2->v[0] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0], &t);
-            out_t2->v[0].w = (inside_points[1].w * (1 - t)) + (outside_points[0].w * t);
-            out_t2->tex[0].u = (inside_tex[1].u * (1 - t)) + (outside_tex[0].u * t);
-            out_t2->tex[0].v = (inside_tex[1].v * (1 - t)) + (outside_tex[0].v * t);
-            out_t2->tex[0].w = (inside_tex[1].w * (1 - t)) + (outside_tex[0].w * t);
+            out_t2->v[0].w = inside_points[1].w + (t * (outside_points[0].w - inside_points[1].w));
+            out_t2->tex[0].u = inside_tex[1].u + (t * (outside_tex[0].u - inside_tex[1].u));
+            out_t2->tex[0].v = inside_tex[1].v + (t * (outside_tex[0].v - inside_tex[1].v));
+            out_t2->tex[0].w = inside_tex[1].w + (t * (outside_tex[0].w - inside_tex[1].w));
 
             out_t2->v[1] = inside_points[1];
             out_t2->tex[1] = inside_tex[1];
@@ -170,16 +171,16 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
             out_t1->tex[1] = inside_tex[1];
 
             out_t1->v[2] = plane_intersect(plane_p, plane_n, inside_points[1], outside_points[0], &t);
-            out_t1->v[2].w = (inside_points[1].w * (1 - t)) + (outside_points[0].w * t);
-            out_t1->tex[2].u = (inside_tex[1].u * (1 - t)) + (outside_tex[0].u * t);
-            out_t1->tex[2].v = (inside_tex[1].v * (1 - t)) + (outside_tex[0].v * t);
-            out_t1->tex[2].w = (inside_tex[1].w * (1 - t)) + (outside_tex[0].w * t);
+            out_t1->v[2].w = inside_points[1].w + (t * (outside_points[0].w - inside_points[1].w));
+            out_t1->tex[2].u = inside_tex[1].u + (t * (outside_tex[0].u - inside_tex[1].u));
+            out_t1->tex[2].v = inside_tex[1].v + (t * (outside_tex[0].v - inside_tex[1].v));
+            out_t1->tex[2].w = inside_tex[1].w + (t * (outside_tex[0].w - inside_tex[1].w));
 
             out_t2->v[0] = plane_intersect(plane_p, plane_n, inside_points[0], outside_points[0], &t);
-            out_t2->v[0].w = (inside_points[0].w * (1 - t)) + (outside_points[0].w * t);
-            out_t2->tex[0].u = (inside_tex[0].u * (1 - t)) + (outside_tex[0].u * t);
-            out_t2->tex[0].v = (inside_tex[0].v * (1 - t)) + (outside_tex[0].v * t);
-            out_t2->tex[0].w = (inside_tex[0].w * (1 - t)) + (outside_tex[0].w * t);
+            out_t2->v[0].w = inside_points[0].w + (t * (outside_points[0].w - inside_points[0].w));
+            out_t2->tex[0].u = inside_tex[0].u + (t * (outside_tex[0].u - inside_tex[0].u));
+            out_t2->tex[0].v = inside_tex[0].v + (t * (outside_tex[0].v - inside_tex[0].v));
+            out_t2->tex[0].w = inside_tex[0].w + (t * (outside_tex[0].w - inside_tex[0].w));
 
             out_t2->v[1] = inside_points[0];
             out_t2->tex[1] = inside_tex[0];
@@ -187,8 +188,10 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
             out_t2->v[2] = out_t1->v[2];
             out_t2->tex[2] = out_t1->tex[2];
         }
-        out_t1->normal = in_t.normal;
-        out_t2->normal = in_t.normal;
+        // out_t1->normal = in_t.normal;
+        // out_t2->normal = in_t.normal;
+        // out_t1->a = in_t.a, out_t1->b = in_t.b, out_t1->c = in_t.c;
+        // out_t2->a = in_t.a, out_t2->b = in_t.b, out_t2->c = in_t.c;
         return 2; /* Two new Triangles are created. */
     }
     return 0;

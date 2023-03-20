@@ -26,6 +26,7 @@ typedef struct {
 
 /* World Triangle */
 typedef struct {
+    int a, b, c;
     Vector v[LastVector];
     Textor tex[LastVector];
     Vector normal;
@@ -35,7 +36,9 @@ typedef struct {
 /* World Mesh */
 typedef struct {
     Triangle *t;
-    int indexes;
+    Vector *v;
+    int v_indexes;
+    int t_indexes;
     char texture_file[50];
     signed int texture_height;
     signed int texture_width;
