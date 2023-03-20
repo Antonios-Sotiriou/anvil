@@ -480,7 +480,6 @@ const static void initBuffers(void) {
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
         for (int x = 0; x < wa.width; x++) {
             shadow_buffer[y][x] = 1.0;
-            // depth_buffer[y][x] = 1.0;
         }
     }
 }
@@ -489,7 +488,7 @@ const static void initMeshes(Scene *s) {
     Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
     Mat4x4 ScaleMat, TransMat, PosMat;
 
-    terrain = load_obj("objects/smallterrain.obj");
+    terrain = load_obj("objects/terrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
@@ -537,7 +536,7 @@ const static void loadTexture(Mesh *c) {
         fread(&texture, sizeof(BMP_Info), 1, fp);
         fseek(fp, (14 + texture.Size), SEEK_SET);
 
-        c->texture_height = texture.Height - 1;
+        c->texture_height = texture.Height;
         c->texture_width = texture.Width;
         c->texels = create2darray((void*)c->texels, sizeof(Pixel), texture.Height, texture.Width);
 
@@ -760,7 +759,8 @@ const static Mesh viewtoscreen(const Mesh c) {
 }
 /* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
 const static void rasterize(const Mesh c) {
-
+    signed int tex_h = c.texture_height - 1;
+    signed int tex_w = c.texture_width - 1;
     for (int i = 0; i < c.indexes; i++) {
 
         if (DEBUG == 1) {
@@ -773,7 +773,7 @@ const static void rasterize(const Mesh c) {
             // end(start_time);
         } else {
             // clock_t start_time = start();
-            texTriangle(pixels, depth_buffer, &c.t[i], c.texels, c.texture_height, c.texture_width);
+            texTriangle(pixels, depth_buffer, &c.t[i], c.texels, tex_h, tex_w);
             // end(start_time);
         }
     }
@@ -841,7 +841,6 @@ const static void clearBuffers(const int height, const int width) {
         memset(depth_buffer[y], 0, sizeof(float) * width);
         for (int x = 0; x < wa.width; x++) {
             shadow_buffer[y][x] = 1.0;
-            // depth_buffer[y][x] = 1.0;
         }
     }
 }
