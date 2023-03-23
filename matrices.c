@@ -112,7 +112,6 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
         fprintf(stderr, "Could not allocate memory for Cache Mesh. meshxm() -- malloc().\n");
 
     for (int i = 0; i < c.v_indexes; i++) {
-
         r.v[i].x = c.v[i].x * m.m[0][0] + c.v[i].y * m.m[1][0] + c.v[i].z * m.m[2][0] + c.v[i].w * m.m[3][0];
         r.v[i].y = c.v[i].x * m.m[0][1] + c.v[i].y * m.m[1][1] + c.v[i].z * m.m[2][1] + c.v[i].w * m.m[3][1];
         r.v[i].z = c.v[i].x * m.m[0][2] + c.v[i].y * m.m[1][2] + c.v[i].z * m.m[2][2] + c.v[i].w * m.m[3][2];
@@ -123,7 +122,6 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
         r.t[i].v[1] = r.v[c.t[i].b];
         r.t[i].v[2] = r.v[c.t[i].c];
     }
-    r.t_indexes = c.t_indexes;
     return r;
 }
 /* Multiplies a Vector with the given Matrix and returns a new Vector, leaving the original unmodified. */

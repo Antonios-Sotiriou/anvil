@@ -30,7 +30,6 @@ typedef struct {
     Vector v[LastVector];
     Textor tex[LastVector];
     Vector normal;
-    Bool clipped;
 } Triangle;
 
 /* World Mesh */

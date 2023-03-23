@@ -17,15 +17,12 @@ const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
             
             if (clipped_count == 1) {
                 r.t[index] = clipped[0];
-                r.t[index].clipped = True;
                 index++;
             } else if (clipped_count == 2) {
                 r.t = realloc(r.t, sizeof(Triangle) * (c.t_indexes + dynamic_inc));
                 r.t[index] = clipped[0];
-                r.t[index].clipped = True;
 
                 r.t[index + 1] = clipped[1];
-                r.t[index + 1].clipped = True;
                 index += 2;
                 dynamic_inc++;
             } else if (clipped_count == 3) {
@@ -135,8 +132,7 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
             out_t1->tex[2].v = inside_tex[0].v + (t * (outside_tex[1].v - inside_tex[0].v));
             out_t1->tex[2].w = inside_tex[0].w + (t * (outside_tex[1].w - inside_tex[0].w));
         }
-        // out_t1->normal = in_t.normal;
-        // out_t1->a = in_t.a, out_t1->b = in_t.b, out_t1->c = in_t.c;
+        out_t1->normal = in_t.normal;
         return 1; /* A new Triangle is created. */
     } else if (inside_count == 2 && outside_count == 1) {
         if ( len_vec(outside_points[0]) == len_vec(in_t.v[1]) ) {
@@ -188,10 +184,8 @@ int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_
             out_t2->v[2] = out_t1->v[2];
             out_t2->tex[2] = out_t1->tex[2];
         }
-        // out_t1->normal = in_t.normal;
-        // out_t2->normal = in_t.normal;
-        // out_t1->a = in_t.a, out_t1->b = in_t.b, out_t1->c = in_t.c;
-        // out_t2->a = in_t.a, out_t2->b = in_t.b, out_t2->c = in_t.c;
+        out_t1->normal = in_t.normal;
+        out_t2->normal = in_t.normal;
         return 2; /* Two new Triangles are created. */
     }
     return 0;

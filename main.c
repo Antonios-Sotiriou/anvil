@@ -58,16 +58,16 @@ float **shadow_buffer;
 
 /* Project Global Structures. */
 Global camera = {
-    .Pos = { 0.0, 0.0, 498.0, 1.0 },
-    .U   = { 1.0, 0.0, 0.0, 1.0 },
-    .V   = { 0.0, 1.0, 0.0, 1.0 },
-    .N   = { 0.0, 0.0, 1.0, 1.0 }
+    .Pos = { 0.0, 0.0, 498.0, 0.0 },
+    .U   = { 1.0, 0.0, 0.0, 0.0 },
+    .V   = { 0.0, 1.0, 0.0, 0.0 },
+    .N   = { 0.0, 0.0, 1.0, 0.0 }
 };
 Global light = {
-    .Pos = { -9.648195, -16.342173, 517.552246, 1.0 },
-    .U   = { -0.883299, -0.006683, -0.468767, 1.0 },
-    .V   = { -0.330613, 0.717806, 0.612739, 1.0 },
-    .N   = { 0.332388, 0.696211, -0.636246, 1.0 },
+    .Pos = { -9.648195, -16.342173, 517.552246, 0.0 },
+    .U   = { -0.883299, -0.006683, -0.468767, 0.0 },
+    .V   = { -0.330613, 0.717806, 0.612739, 0.0 },
+    .N   = { 0.332388, 0.696211, -0.636246, 0.0 },
     .C   = { 1.0, 1.0, 1.0}
 };
 Scene scene = { 0 };
@@ -614,7 +614,7 @@ const static void project(Scene s) {
     clearBuffers(wa.height, wa.width);
 }
 static void *applyShadows(void *c) {
-    Mat4x4 lm = lookat(light.Pos, light.U, light.V, light.N);
+    Mat4x4 lm = lookat(model.lightPos, light.U, light.V, light.N);
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
 
@@ -630,10 +630,7 @@ static void *applyShadows(void *c) {
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
            plane_near_n = { 0.0, 0.0, 1.0 };
-
-    clock_t start_time = start();
     Mesh nf = clipp(cache, plane_near_p, plane_near_n);
-    end(start_time);
 
     if (nf.t_indexes) {
         /* Applying Backface culling before we proceed to full frustum clipping. */
@@ -796,11 +793,11 @@ const static void rasterize(const Mesh c) {
             drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
-            fillTriangle(pixels, depth_buffer, shadow_buffer, &c.t[i], model, 1, 1);
+            fillTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model, 1, 1);
             // end(start_time);
         } else {
             // clock_t start_time = start();
-            texTriangle(pixels, depth_buffer, &c.t[i], c.texels, tex_h, tex_w);
+            texTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model, c.texels, tex_h, tex_w);
             // end(start_time);
         }
     }
@@ -813,7 +810,7 @@ const static Phong initLightModel(void) {
     r.LightColor = LightColor;
     r.objColor = objColor;
 
-    r.lightPos = vecxm(light.Pos, WorldMat);
+    r.lightPos = light.Pos;//vecxm(light.Pos, OrthoMat);
     r.CameraPos = vecxm(camera.Pos, OrthoMat);
 
     r.AmbientStrength = 0.3;
