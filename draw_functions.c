@@ -72,7 +72,7 @@ const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buf
     Textor temp_t;
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
-            if (t.v[i].y <= t.v[j].y) {
+            if (t.v[i].y < t.v[j].y) {
 
                 temp_v = t.v[i];
                 temp_t = t.tex[i];
@@ -229,9 +229,7 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
     const float ma = x10 / y10,    mb = x20 / y20,    mc = x21 / y21;
     float za = z10 / y10,    zb = z20 / y20,    zc = z21 / y21;
     float wa = w10 / y10,    wb = w20 / y20,    wc = w21 / y21;
-    // printf("t.v[0].x: %f,    t.v[0].y: %f,    t.v[0].z: %f\n", t.v[0].x, t.v[0].y, t.v[0].z);
-    // printf("t.v[1].x: %f,    t.v[1].y: %f,    t.v[1].z: %f\n", t.v[1].x, t.v[1].y, t.v[1].z);
-    // printf("t.v[2].x: %f,    t.v[2].y: %f,    t.v[2].z: %f\n", t.v[2].x, t.v[2].y, t.v[2].z);
+
     if (winding > 0) {
         swap(&za, &zb, sizeof(float));
         swap(&wa, &wb, sizeof(float));
@@ -283,9 +281,8 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
             }
             xxs += 1.0;
         }
-        // printf("y: %f,    y_start: %f,    y_end: %f,    x_start: %f,    x_end: %f\n", y, y_start, y_end1, x_start, x_end);
     }
-    // exit(0);
+
     for (float y = y_end1; y < y_end2; y += 1.0) {
         const float yA = y - y_start;
         const float yB = y - y_end1;
@@ -344,7 +341,7 @@ const void texTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buff
     Textor temp_t;
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
-            if (t.v[i].y <= t.v[j].y) {
+            if (t.v[i].y < t.v[j].y) {
 
                 temp_v = t.v[i];
                 temp_t = t.tex[i];
