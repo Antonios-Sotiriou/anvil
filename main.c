@@ -792,9 +792,9 @@ const static void rasterize(const Mesh c) {
             drawLine(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
             drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
-            // clock_t start_time = start();
+            clock_t start_time = start();
             fillTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model, 1, 1);
-            // end(start_time);
+            end(start_time);
         } else {
             // clock_t start_time = start();
             texTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model, c.texels, tex_h, tex_w);
@@ -808,7 +808,7 @@ const static Phong initLightModel(void) {
     Vector LightColor = { 1.0, 1.0, 1.0 };
     Vector objColor = { 0.129, 0.478, 0.615 };
     r.LightColor = LightColor;
-    r.objColor = objColor;
+    r.objColor = multiply_vec(objColor, 255);
 
     r.lightPos = light.Pos;//vecxm(light.Pos, OrthoMat);
     r.CameraPos = vecxm(camera.Pos, OrthoMat);
