@@ -1,5 +1,5 @@
 #include "header_files/shadowmap.h"
-#include "header_files/exec_time.h"
+
 const void createShadowmap(float **shadow_buffer, Mesh c) {
 
     for (int i = 0; i < c.t_indexes; i++)
@@ -17,14 +17,12 @@ const void shadowTriangle(float **shadow_buffer, Triangle t) {
 
     float winding = winding3D(t);
 
-    // if ( (t.v[1].y - t.v[2].y) == 0 )
-    //     shadowNorthway(shadow_buffer, t, winding);
-    // else if ( (t.v[0].y - t.v[1].y) == 0 )
-    //     shadowSouthway(shadow_buffer, t, winding);
-    // else
-        // clock_t start_time = start();
+    if ( (t.v[1].y - t.v[2].y) == 0 )
+        shadowNorthway(shadow_buffer, t, winding);
+    else if ( (t.v[0].y - t.v[1].y) == 0 )
+        shadowSouthway(shadow_buffer, t, winding);
+    else
         shadowGeneral(shadow_buffer, t, winding);
-        // end(start_time);
 }
 const void shadowNorthway(float **shadow_buffer, const Triangle t, const float winding) {
     const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x;
@@ -99,20 +97,16 @@ const void shadowSouthway(float **shadow_buffer, const Triangle t, const float w
             }
             xxs += 1.0;
         }
-        yys += 1;
+        yys += 1.0;
     }
 }
 const void shadowGeneral(float **shadow_buffer, const Triangle t, const float winding) {
-    const float y_start = t.v[0].y;
-    const float y_end1 = t.v[1].y;
-    const float y_end2 = t.v[2].y;
-
-    const float barycentric = (t.v[1].y - y_start) / (y_end2 - y_start);
+    const float barycentric = (t.v[1].y - t.v[0].y) / (t.v[2].y - t.v[0].y);
     Vector newVec = {
         .x = t.v[0].x + (barycentric * (t.v[2].x - t.v[0].x)),
         .y = t.v[1].y,
         .z = t.v[0].z + (barycentric * (t.v[2].z - t.v[0].z)),
-        .w = t.v[0].w + (barycentric * (t.v[2].w - t.v[0].w))
+        .w = 1.0,
     };
     Triangle up = {
         .v[0] = t.v[0],

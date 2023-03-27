@@ -492,7 +492,7 @@ const static void initMeshes(Scene *s) {
     Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
     Mat4x4 ScaleMat, TransMat, PosMat;
 
-    terrain = load_obj("objects/terrain.obj");
+    terrain = load_obj("objects/smallterrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
@@ -638,6 +638,7 @@ static void *applyShadows(void *c) {
 
         /* Sending to translation from NDC to Screen Coordinates. */
         Mesh uf = viewtoscreen(bf);
+
         createShadowmap(shadow_buffer, uf);
         free(uf.t);
         free(uf.v);
@@ -806,9 +807,11 @@ const static void rasterize(const Mesh c) {
 const static Phong initLightModel(void) {
     Phong r = { 0 };
     Vector LightColor = { 1.0, 1.0, 1.0 };
-    Vector objColor = { 0.129, 0.478, 0.615 };
+
     r.LightColor = LightColor;
-    r.objColor = multiply_vec(objColor, 255);
+    r.objColor.Blue = 0.129 * 255;
+    r.objColor.Green = 0.478 * 255;
+    r.objColor.Red = 0.615 * 255;
 
     r.lightPos = light.Pos;//vecxm(light.Pos, OrthoMat);
     r.CameraPos = vecxm(camera.Pos, OrthoMat);
