@@ -5,10 +5,6 @@
     #include "objects.h"
 #endif
 
-#ifndef _VECTORS_MATH_H
-    #include "vectors_math.h"
-#endif
-
 #ifndef _GENERAL_FUNCTIONS_H
     #include "general_functions.h"
 #endif
@@ -21,9 +17,8 @@
     #include "math.h"
 #endif
 
-
 const void createShadowmap(float **shadowBuffer, Mesh c);
-const void shadowTriangle(float **shadow_buffer, Triangle *t);
+const void shadowTriangle(float **shadow_buffer, Triangle t);
 const void shadowNorthway(float **shadow_buffer, const Triangle t, const float winding);
 const void shadowSouthway(float **shadow_buffer, const Triangle t, const float winding);
 const void shadowGeneral(float **shadow_buffer, const Triangle t, const float winding);
