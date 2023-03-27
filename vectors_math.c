@@ -13,9 +13,9 @@ Mesh sort_triangles(Mesh *c) {
     Triangle temp = { 0 };
     int pos = 0;
 
-    for (int i = 0; i < c->indexes; i++) {
+    for (int i = 0; i < c->t_indexes; i++) {
         
-        for (int j = pos; j < c->indexes; j++) {
+        for (int j = pos; j < c->t_indexes; j++) {
 
             if (depth(c->t[i]) > depth(c->t[j])) {
                 temp = c->t[i];

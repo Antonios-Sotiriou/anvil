@@ -7,6 +7,8 @@ static Vector *get_normals(const char path[]);
 
 /* Face array indexes */
 static int f_indexes = 0;
+/* Vector array indexes */
+static int v_indexes = 0;
 
 const Mesh load_obj(const char path[]) {
 
@@ -17,7 +19,12 @@ const Mesh load_obj(const char path[]) {
 
     Vector *v = get_vectors(path);
     if (!v)
-        fprintf(stderr, "Could not create Vectors array. load_obj() - get_vectors()\n");
+        fprintf(stderr, "Could not reallocate Vectors array. load_obj() - get_vectors()\n");
+
+    r.v_indexes = v_indexes;
+    r.v = realloc(v, sizeof(Vector) * v_indexes);
+    if (!r.v)
+        fprintf(stderr, "Could not reallocate Vectors array. load_obj() - relloc()\n");
 
     Textor *tex = get_textors(path);
     if (!tex)
@@ -27,16 +34,19 @@ const Mesh load_obj(const char path[]) {
     if (!n)
         fprintf(stderr, "Could not create Vectors array. load_obj() - get_normals()\n");
 
-    r.indexes = f_indexes;
+    r.t_indexes = f_indexes;
     r.t = malloc(sizeof(Triangle) * f_indexes);
     if (!r.t)
         fprintf(stderr, "Could not allocate memory for Triangles array. load_obj()\n");
 
     /* Assign the Faces of the Vectors to the Mesh triangle array creating the final object. */
-    for (int i = 0; i < r.indexes; i++) {
-        r.t[i].v[0] = v[f[i].va - 1];
-        r.t[i].v[1] = v[f[i].vb - 1];
-        r.t[i].v[2] = v[f[i].vc - 1];
+    for (int i = 0; i < r.t_indexes; i++) {
+        r.t[i].v[0] = r.v[f[i].va - 1];
+        r.t[i].v[1] = r.v[f[i].vb - 1];
+        r.t[i].v[2] = r.v[f[i].vc - 1];
+        r.t[i].a = f[i].va - 1;
+        r.t[i].b = f[i].vb - 1;
+        r.t[i].c = f[i].vc - 1;
 
         if (tex != NULL) {
             r.t[i].tex[0] = tex[f[i].ta - 1];
@@ -48,8 +58,7 @@ const Mesh load_obj(const char path[]) {
             r.t[i].normal = n[f[i].na - 1];
     }
     
-    /* Free The Vectors and Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */
-    free(v);
+    /* Free The Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */
     free(tex);
     free(n);
     free(f);
@@ -152,7 +161,7 @@ static Vector *get_vectors(const char path[]) {
                     dynamic_inc++;
                 }
     }
-
+    v_indexes = index;
     fclose(fp);
     return v;
 }
