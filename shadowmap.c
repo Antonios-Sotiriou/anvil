@@ -40,8 +40,8 @@ const void shadowNorthway(float **shadow_buffer, const Triangle t, const float w
 
         float x_start = ceilf(((ma * yys) + t.v[0].x) - 0.5);
         float x_end = ceilf(((mb * yys) + t.v[0].x) - 0.5);
-        // if (x_start > x_end)
-        //     swap(&x_start, &x_end, sizeof(float));
+        if (x_start > x_end)
+            swap(&x_start, &x_end, sizeof(float));
 
         float z0 = (za * yys) + t.v[0].z;
         float z1 = (zb * yys) + t.v[0].z;
@@ -78,8 +78,8 @@ const void shadowSouthway(float **shadow_buffer, const Triangle t, const float w
 
         float x_start = ceilf(((mb * yys) + t.v[0].x) - 0.5);
         float x_end = ceilf(((mc * yys) + t.v[1].x) - 0.5);
-        // if (x_start > x_end)
-        //     swap(&x_start, &x_end, sizeof(float));
+        if (x_start > x_end)
+            swap(&x_start, &x_end, sizeof(float));
 
         float z1 = (zb * yys) + t.v[0].z;
         float z2 = (zc * yys) + t.v[1].z;
@@ -103,17 +103,6 @@ const void shadowSouthway(float **shadow_buffer, const Triangle t, const float w
     }
 }
 const void shadowGeneral(float **shadow_buffer, const Triangle t, const float winding) {
-    // const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x;
-    // const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y;
-    // const float z10 = t.v[1].z - t.v[0].z,    z20 = t.v[2].z - t.v[0].z,    z21 = t.v[2].z - t.v[1].z;
-    // const float w10 = t.v[1].w - t.v[0].w,    w20 = t.v[2].w - t.v[0].w,    w21 = t.v[2].w - t.v[1].w;
-    // const float ma = x10 / y10,    mb = x20 / y20,    mc = x21 / y21;
-    // float za = z10 / y10,    zb = z20 / y20,    zc = z21 / y21;
-    // float wa = w10 / y10,    wb = w20 / y20,    wc = w21 / y21;
-
-    // if (winding > 0)
-    //     swap(&za, &zb, sizeof(float));
-
     const float y_start = t.v[0].y;
     const float y_end1 = t.v[1].y;
     const float y_end2 = t.v[2].y;
@@ -130,18 +119,26 @@ const void shadowGeneral(float **shadow_buffer, const Triangle t, const float wi
         .v[1] = newVec,
         .v[2] = t.v[1],
     };
-    if (up.v[1].x > up.v[2].x)
-        swap(&up.v[1], &up.v[2], sizeof(Vector));
     Triangle down = {
         .v[0] = t.v[1],
         .v[1] = newVec,
         .v[2] = t.v[2],
     };
-    if (down.v[0].x > down.v[1].x)
-        swap(&down.v[0], &down.v[1], sizeof(Vector));
 
     shadowNorthway(shadow_buffer, up, winding3D(up));
     shadowSouthway(shadow_buffer, down, winding3D(down));
+
+
+    // const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x;
+    // const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y;
+    // const float z10 = t.v[1].z - t.v[0].z,    z20 = t.v[2].z - t.v[0].z,    z21 = t.v[2].z - t.v[1].z;
+    // const float w10 = t.v[1].w - t.v[0].w,    w20 = t.v[2].w - t.v[0].w,    w21 = t.v[2].w - t.v[1].w;
+    // const float ma = x10 / y10,    mb = x20 / y20,    mc = x21 / y21;
+    // float za = z10 / y10,    zb = z20 / y20,    zc = z21 / y21;
+    // float wa = w10 / y10,    wb = w20 / y20,    wc = w21 / y21;
+
+    // if (winding > 0)
+    //     swap(&za, &zb, sizeof(float));
 
     // const float y_start = ceilf(t.v[0].y - 0.5);
     // const float y_end1 = ceilf(t.v[1].y - 0.5);
