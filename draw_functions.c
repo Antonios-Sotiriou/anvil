@@ -135,21 +135,21 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
 
             if (depthW > depth_buffer[(int)y][(int)x]) {
 
-                // if (SHADOWS) {
-                //     Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                //     if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 0.0);
-                //     } else {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 1.0);
-                //     }
-                // }
-                pixels[(int)y][(int)x].Red = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Green = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
+                if (SHADOWS) {
+                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    } else {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    }
+                }
+                // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
 
-                // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depthW;
             }
             xxs += 1.0;
@@ -198,21 +198,21 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
 
             if (depthW > depth_buffer[(int)y][(int)x]) {
 
-                // if (SHADOWS) {
-                //     Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                //     if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 0.0);
-                //     } else {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 1.0);
-                //     }
-                // }
-                pixels[(int)y][(int)x].Red = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Green = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
+                if (SHADOWS) {
+                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    } else {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    }
+                }
+                // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
 
-                // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depthW;
             }
             xxs += 1.0;
@@ -288,21 +288,21 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
             const float depthW = w0 + (barycentric * w1w0);
             if ( depthW > depth_buffer[(int)y][(int)x] ) {
 
-                // if (SHADOWS) {
-                //     Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                //     if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 0.0);
-                //     } else {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 1.0);
-                //     }
-                // }
-                pixels[(int)y][(int)x].Red = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Green = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
+                if (SHADOWS) {
+                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    } else {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    }
+                }
+                // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
 
-                // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depthW;
             }
             xxs += 1.0;
@@ -341,21 +341,21 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
             const float depthW = w2 + (barycentric * w1w2);
             if ( depthW > depth_buffer[(int)y][(int)x] ) {
 
-                // if (SHADOWS) {
-                //     Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                //     if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 0.0);
-                //     } else {
-                //         if (LIGHTS)
-                //             pix = phong(model, x, y, depthZ, depthW, 1.0);
-                //     }
-                // }
-                pixels[(int)y][(int)x].Red = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Green = depthW * 70 * 255;
-                pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
+                if (SHADOWS) {
+                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    } else {
+                        if (LIGHTS)
+                            pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    }
+                }
+                // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
+                // pixels[(int)y][(int)x].Blue = depthW * 70 * 255;
 
-                // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
                 depth_buffer[(int)y][(int)x] = depthW;
             }
             xxs += 1.0;
