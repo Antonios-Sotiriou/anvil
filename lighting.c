@@ -24,13 +24,13 @@ const Pixel phong(Phong model, const float pixX, const float pixY, const float p
 
     Pixel result;
     if (shadow) {
-        result.Blue = (model.Specular.x + diffuse.x + model.Ambient.x) * model.objColor.Blue;
+        result.Red = (model.Specular.x + diffuse.x + model.Ambient.x) * model.objColor.Blue;
         result.Green = (model.Specular.y + diffuse.y + model.Ambient.y) * model.objColor.Green;
-        result.Red = (model.Specular.z + diffuse.z + model.Ambient.z) * model.objColor.Red;
+        result.Blue = (model.Specular.z + diffuse.z + model.Ambient.z) * model.objColor.Red;
     } else {
-        result.Blue = model.Ambient.x * model.objColor.Blue;
+        result.Red = model.Ambient.x * model.objColor.Blue;
         result.Green = model.Ambient.y * model.objColor.Green;
-        result.Red = model.Ambient.z * model.objColor.Red;
+        result.Blue = model.Ambient.z * model.objColor.Red;
     }
 
     return result;
