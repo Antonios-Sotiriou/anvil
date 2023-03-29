@@ -95,48 +95,60 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
     // Vector B = { 0, 0, 1 };
 
     const float area = edjeFunction(t.v[0], t.v[1], t.v[2]);
+    Vector p = { minX, minY, 0, 0};
+    float ya = edjeFunction(p, t.v[0], t.v[1]);
+    float yb = edjeFunction(p, t.v[1], t.v[2]);
+    float yc = edjeFunction(p, t.v[2], t.v[0]);
 
     for (float y = minY; y < maxY; y += 1.0) {
-        float ya = (y - t.v[0].y) * x10;
-        float yb = (y - t.v[1].y) * x21;
-        float yc = (y - t.v[2].y) * x02;
+        float xa = ya;
+        float xb = yb;
+        float xc = yc;
+
         for (float x = minX; x < maxX; x += 1.0) {
 
-            float a = ((x - t.v[0].x) * y10) - ya;
-            float b = ((x - t.v[1].x) * y21) - yb;
-            float c = ((x - t.v[2].x) * y02) - yc;
-            // printf("a_step: %f,    b_step: %f,    c_step: %f\n", ((x - t.v[0].x) * y10), ((x - t.v[1].x) * y21), ((x - t.v[2].x) * y02));
-            if ( a <= 0 && b <= 0 && c <= 0 ) {
-                a /= area;
-                b /= area;
-                c /= area;
+            if ( xa <= 0 && xb <= 0 && xc <= 0 ) {
+                const float a = xa / area;
+                const float b = xb / area;
+                const float c = xc / area;
 
                 const float depthZ = a * z2 + b * z0 + c * z1;
                 const float depthW = a * w2 + b * w0 + c * w1;
 
                 if (depthW > depth_buffer[(int)y][(int)x]) {
 
-                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                    // Vector shadow = shadowTest(model, x, y, depthZ, depthW);
 
-                    if ( shadow.z < (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                        pix = phong(model, x, y, depthZ, depthW, 0.0);
-                    } else {
-                        pix = phong(model, x, y, depthZ, depthW, 1.0);
-                    }
+                    // if ( shadow.z < (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                    //     pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    // } else {
+                    //     pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    // }
 
                     // float r = a * R.x + b * G.x + c * B.x;
                     // float g = a * R.y + b * G.y + c * B.y;
                     // float b = a * R.z + b * G.z + c * B.z;
-                    // pixels[(int)y][(int)x].Red = r * 255;
-                    // pixels[(int)y][(int)x].Green = g * 255;
-                    // pixels[(int)y][(int)x].Blue = b * 255;
+                    pixels[(int)y][(int)x].Red = depthW * 10 * 255;
+                    pixels[(int)y][(int)x].Green = depthW * 10 * 255;
+                    pixels[(int)y][(int)x].Blue = depthW * 10 * 255;
 
-                    memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                    // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
                     depth_buffer[(int)y][(int)x] = depthW;
                 }
             }
+            xa += y10,    xb += y21,    xc += y02;
         }
+        ya += -x10,    yb += -x21,    yc += -x02;
     }
+    // if (winding3D(t) < 0) {
+    //     drawLine(pixels, t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
+    //     drawLine(pixels, t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 255, 0, 0);
+    //     drawLine(pixels, t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 255, 0, 0);
+    // } else {
+    //     drawLine(pixels, t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 0, 0, 255);
+    //     drawLine(pixels, t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 0, 255);
+    //     drawLine(pixels, t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 0, 255);
+    // }
 }
 const void texTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model, Pixel **texture, const int tex_height, const int tex_width) {
     /* Creating 2Arrays for X and Y values to sort them. */
@@ -173,22 +185,23 @@ const void texGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffe
     const float tv0 = t.tex[0].v,  tv1 = t.tex[1].v,  tv2 = t.tex[2].v;
     const float tw0 = t.tex[0].w,  tw1 = t.tex[1].w,  tw2 = t.tex[2].w;
 
-    float area = edjeFunction(t.v[0], t.v[1], t.v[2]);
+    const float area = edjeFunction(t.v[0], t.v[1], t.v[2]);
+    Vector p = { minX, minY, 0, 0};
+    float ya = edjeFunction(p, t.v[0], t.v[1]);
+    float yb = edjeFunction(p, t.v[1], t.v[2]);
+    float yc = edjeFunction(p, t.v[2], t.v[0]);
 
     for (float y = minY; y < maxY; y += 1.0) {
-        float ya = -(y - t.v[0].y) * x10;
-        float yb = -(y - t.v[1].y) * x21;
-        float yc = -(y - t.v[2].y) * x02;
+        float xa = ya;
+        float xb = yb;
+        float xc = yc;
+
         for (float x = minX; x < maxX; x += 1.0) {
 
-            float a = ((x - t.v[0].x) * y10) + ya;
-            float b = ((x - t.v[1].x) * y21) + yb;
-            float c = ((x - t.v[2].x) * y02) + yc;
-
-            if ( a <= 0 && b <= 0 && c <= 0 ) {
-                a /= area;
-                b /= area;
-                c /= area;
+            if ( xa <= 0 && xb <= 0 && xc <= 0 ) {
+                const float a = xa / area;
+                const float b = xb / area;
+                const float c = xc / area;
 
                 float tex_w = a * tw2 + b * tw0 + c * tw1;
                 int tex_u = ((a * tu2 + b * tu0 + c * tu1) * tex_width) / tex_w;
@@ -211,7 +224,9 @@ const void texGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffe
                     depth_buffer[(int)y][(int)x] = depthW;
                 }
             }
+            xa += y10,    xb += y21,    xc += y02;
         }
+        ya += -x10,    yb += -x21,    yc += -x02;
     }
 }
 
