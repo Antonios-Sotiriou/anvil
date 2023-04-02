@@ -748,8 +748,8 @@ const static Mesh viewtoscreen(const Mesh c) {
     for (int i = 0; i < c.t_indexes; i++) {
         for (int j = 0; j < 3; j++) {
             w = c.t[i].v[j].w;
-            c.t[i].v[j].x = XWorldToScreen;
-            c.t[i].v[j].y = YWorldToScreen;
+            c.t[i].v[j].x = ceilf(XWorldToScreen - 0.5);
+            c.t[i].v[j].y = ceilf(YWorldToScreen - 0.5);
             c.t[i].v[j].z -= 1;
             c.t[i].v[j].w = 1 / w;
 
