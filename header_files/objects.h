@@ -65,7 +65,7 @@ typedef struct {
     Vector CameraPos;
     Vector lightPos;
     Vector LightColor;
-    Vector objColor;
+    Pixel objColor;
     Vector normal;
     float AmbientStrength;
     Vector Ambient;
