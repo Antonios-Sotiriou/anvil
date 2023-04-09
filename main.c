@@ -263,11 +263,11 @@ const static void keypress(XEvent *event) {
             break;
         case 65364 : move_down(eye);          /* down arrow */
             break;
-        case 120 : rotate_x(&scene.m[1], Angle);       /* x */
+        case 120 : rotate_x(&scene.m[0], Angle);       /* x */
             break;
-        case 121 : rotate_y(&scene.m[1], Angle);       /* y */
+        case 121 : rotate_y(&scene.m[0], Angle);       /* y */
             break;
-        case 122 : rotate_z(&scene.m[1], Angle);       /* z */
+        case 122 : rotate_z(&scene.m[0], Angle);       /* z */
             break;
         case 112 :
             if (PROJECTBUFFER == 3)
@@ -337,6 +337,7 @@ const static void keypress(XEvent *event) {
             return;
     }
     LookAt = lookat(eye->Pos, eye->U, eye->V, eye->N);
+    project(scene);
 }
 /* Rotates the camera to look left. */
 const static void look_left(Global *g, const float angle) {
@@ -492,37 +493,38 @@ const static void initMeshes(Scene *s) {
     Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
     Mat4x4 ScaleMat, TransMat, PosMat;
 
-    terrain = load_obj("objects/smallterrain.obj");
+    terrain = load_obj("objects/triangle.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(0.0, 0.5, 500.0);
+    ScaleMat = scale_mat(1.0);
+    rotate_y(&terrain, 90);
+    TransMat = translation_mat(0.0, 0.0, 501.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
     free(terrain.t);
 
-    earth = load_obj("objects/earth.obj");
-    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    loadTexture(&earth);
-    ScaleMat = scale_mat(1.0);
-    TransMat = translation_mat(1.0, -1.0, 510.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[1] = meshxm(earth, PosMat);
-    free(earth.v);
-    free(earth.t);
+    // earth = load_obj("objects/earth.obj");
+    // memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    // loadTexture(&earth);
+    // ScaleMat = scale_mat(1.0);
+    // TransMat = translation_mat(1.0, -1.0, 510.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[1] = meshxm(earth, PosMat);
+    // free(earth.v);
+    // free(earth.t);
 
     // cube_create(&cube);
     // triangle_create(&cube);
-    cube = load_obj("objects/earth.obj");
-    memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    loadTexture(&cube);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, 0.0, 580.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[2] = meshxm(cube, PosMat);
-    free(cube.v);
-    free(cube.t);
+    // cube = load_obj("objects/earth.obj");
+    // memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    // loadTexture(&cube);
+    // ScaleMat = scale_mat(10.0);
+    // TransMat = translation_mat(-10.0, 0.0, 580.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[2] = meshxm(cube, PosMat);
+    // free(cube.v);
+    // free(cube.t);
 
     LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
@@ -557,8 +559,8 @@ const static void loadTexture(Mesh *c) {
 }
 /* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
 const static void createScene(Scene *s) {
-    s->m = malloc(sizeof(Mesh) * 3);
-    s->indexes = 3;
+    s->m = malloc(sizeof(Mesh) * 1);
+    s->indexes = 1;
 }
 const static void releaseScene(Scene *s) {
     for (int i = 0; i < s->indexes; i++) {
@@ -1011,7 +1013,7 @@ const static int board(void) {
     while (RUNNING) {
 
         // clock_t start_time = start();
-        project(scene);
+        // project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);

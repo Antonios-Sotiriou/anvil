@@ -17,16 +17,28 @@ const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
             
             if (clipped_count == 1) {
                 r.t[index] = clipped[0];
+                r.t[index].color.Red = 255.0;
+                r.t[index].color.Green = 0.0;
+                r.t[index].color.Blue = 0.0;
                 index++;
             } else if (clipped_count == 2) {
                 r.t = realloc(r.t, sizeof(Triangle) * (c.t_indexes + dynamic_inc));
                 r.t[index] = clipped[0];
+                r.t[index].color.Red = 0.0;
+                r.t[index].color.Green = 255.0;
+                r.t[index].color.Blue = 0.0;
 
                 r.t[index + 1] = clipped[1];
+                r.t[index + 1].color.Red = 0.0;
+                r.t[index + 1].color.Green = 0.0;
+                r.t[index + 1].color.Blue = 255.0;
                 index += 2;
                 dynamic_inc++;
             } else if (clipped_count == 3) {
                 r.t[index] = clipped[0];
+                r.t[index].color.Red = 0.129 * 255;
+                r.t[index].color.Green = 0.478 * 255;
+                r.t[index].color.Blue = 0.615 * 255;
                 index++;
             }
         }

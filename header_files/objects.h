@@ -30,6 +30,7 @@ typedef struct {
     Vector v[LastVector];
     Textor tex[LastVector];
     Vector normal;
+    Pixel color;
 } Triangle;
 
 /* World Mesh */

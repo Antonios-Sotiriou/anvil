@@ -57,8 +57,8 @@ const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, cons
 }
 const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model) {
     /* Creating 2Arrays for X and Y values to sort them. */
-    float Ys[3] = { ceilf(t.v[0].y), ceilf(t.v[1].y), ceilf(t.v[2].y) };
-    float Xs[3] = { ceilf(t.v[0].x), ceilf(t.v[1].x), ceilf(t.v[2].x) };
+    float Ys[3] = { t.v[0].y, t.v[1].y, t.v[2].y };
+    float Xs[3] = { t.v[0].x, t.v[1].x, t.v[2].x };
     /* Sorting the values from smaller to larger. Those values are the triangle bounding box. */
     float temp;
     for (int i = 0; i < 3; i++)
@@ -82,45 +82,115 @@ const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buf
 const float edjeFunction(Vector p, Vector a, Vector b) {
     return ( (p.x - a.x) * (b.y - a.y)) - ((p.y - a.y) * (b.x - a.x) );
 }
-const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model, const float minX, const float maxX, const float minY, const float maxY) {
+const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model, float minX, float maxX, float minY, float maxY) {
     Pixel pix = { 0 };
-    const float x10 = t.v[1].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x,    x02 = t.v[0].x - t.v[2].x;
-    const float y10 = t.v[1].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y,    y02 = t.v[0].y - t.v[2].y;
+    model.normal = t.normal;
+    model.objColor = t.color;
+    printf("winding: %f\n", winding3D(t));
+    float x10 = t.v[1].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x,    x02 = t.v[0].x - t.v[2].x;
+    float y10 = t.v[1].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y,    y02 = t.v[0].y - t.v[2].y;
     const float z0 = t.v[0].z,    z1 = t.v[1].z,     z2 = t.v[2].z;
     const float w0 = t.v[0].w,    w1 = t.v[1].w,     w2 = t.v[2].w;
     // Vector R = { 1, 0, 0 };
     // Vector G = { 0, 1, 0 };
     // Vector B = { 0, 0, 1 };
+    int top = 0, left = 0; 
+    if (y10 == 0) {
+        // drawLine(pixels, t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
+        if ( (t.v[2].y > t.v[1].y)) {
+            top = 1;
+        }
+    } else if (y10 > 0) {
+        // drawLine(pixels, t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
+        left = 1;
+    }
+    if (y21 == 0) {
+        // drawLine(pixels, t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 255, 0, 0);
+        if ( (t.v[0].y > t.v[1].y)) {
+            top = 1;
+        }
+    } else if (y21 > 0) {
+        // drawLine(pixels, t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 255, 0, 0);
+        left = 1;
+    }
+    if (y02 == 0) {
+        // drawLine(pixels, t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 255, 0, 0);
+        if ( (t.v[1].y > t.v[0].y)) {
+            top = 1;
+        }
+    } else if (y02 > 0) {
+        // drawLine(pixels, t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 255, 0, 0);
+        left = 1;
+    }
 
-    const float area = edjeFunction(t.v[0], t.v[1], t.v[2]);
-    Vector p = { minX, minY, 0, 0};
-    float ya = edjeFunction(p, t.v[0], t.v[1]);
-    float yb = edjeFunction(p, t.v[1], t.v[2]);
-    float yc = edjeFunction(p, t.v[2], t.v[0]);
-    // printf("ya: %f,    yb: %f,    yc: %f\n", ya, yb, yc);
+    // Vector edgea = sub_vecs(t.v[1], t.v[0]),
+    //        edgeb = sub_vecs(t.v[2], t.v[1]),
+    //        edgec = sub_vecs(t.v[0], t.v[2]);
+
+    // const float area = edjeFunction(t.v[0], t.v[1], t.v[2]);
+    // Vector p = { minX, minY, 0, 0};
+    // float ya = edjeFunction(p, t.v[0], t.v[1]);
+    // float yb = edjeFunction(p, t.v[1], t.v[2]);
+    // float yc = edjeFunction(p, t.v[2], t.v[0]);
+    const float area = ((t.v[0].x - t.v[1].x) * y21) - ((t.v[0].y - t.v[1].y) * x21);
+    float ya = ((minX - t.v[0].x) * y10) - ((minY - t.v[0].y) * x10);
+    float yb = ((minX - t.v[1].x) * y21) - ((minY - t.v[1].y) * x21);
+    float yc = ((minX - t.v[2].x) * y02) - ((minY - t.v[2].y) * x02);
+
+    #include "header_files/logging.h"
+    logTriangle(t, 1, 0, 0);
+    printf("y10: %f,    y21: %f,    y02: %f\n", y10, y21, y02);
+    printf("x10: %f,    x21: %f,    x02: %f\n", x10, x21, x02);
+
+    printf("ya: %f,    yb: %f,    yc: %f\n", ya, yb, yc);
+
     for (float y = minY; y < maxY; y += 1.0) {
         float xa = ya;
         float xb = yb;
         float xc = yc;
-        // printf("xa: %f,    xb: %f,    xc: %f\n", xa, xb, xc);
+
         for (float x = minX; x < maxX; x += 1.0) {
-            // printf("y: %f,    x: %f\n", y, x);
+            // int overlap;
+            // // overlap = 1 ? ( (xa == 0) && ( (y10 == 0) && (t.v[2].y > t.v[1].y)) ) || ( (xa == 0) && y10 > 0) : 0;
+            // // overlap = 1 ? ( (xb == 0) && ( (y21 == 0) && (t.v[0].y > t.v[2].y)) ) || ( (xb == 0) && y21 > 0) : 0;
+            // // overlap = 1 ? ( (xc == 0) && ( (y02 == 0) && (t.v[1].y > t.v[0].y)) ) || ( (xc == 0) && y02 > 0) : 0;
+            // if ( ((xa == 0) && ((y10 == 0) && (t.v[2].y > t.v[1].y))) || ((xa == 0) && (y10 > 0)) )
+            //     // printf("First Clause\n");
+            //     overlap = 1;
+            // if ( ((xb == 0) && ((y21 == 0) && (t.v[0].y > t.v[2].y))) || ((xb == 0) && (y21 > 0)) )
+            //     // printf("Second Clause\n");
+            //     overlap = 1;
+            // if ( ((xc == 0) && ((y02 == 0) && (t.v[1].y > t.v[0].y))) || ((xc == 0) && (y02 > 0)) )
+            //     // printf("Third Clause\n");
+            //     overlap = 1;
+
             if ( xa <= 0 && xb <= 0 && xc <= 0 ) {
+
+                // if (overlap) {
+                //     // y = ceilf(y - 0.5);
+                //     // x = ceilf(x - 0.5);
+                //     drawLine(pixels, x, y, x, y, 255, 255, 255);
+                // } else {
+                //     // y = floorf(y);
+                //     // x = floorf(x);
+                //     drawLine(pixels, x, y, x, y, 255, 0, 255);
+                // }
+
                 const float a = xa / area;
                 const float b = xb / area;
                 const float c = xc / area;
-                // printf("a: %f,    b: %f,    c: %f\n", a, b, c);
+
                 const float depthZ = a * z2 + b * z0 + c * z1;
                 const float depthW = a * w2 + b * w0 + c * w1;
 
                 if (depthW > depth_buffer[(int)y][(int)x]) {
 
-                    // Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                    // if ( shadow.z < (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                    //     pix = phong(model, x, y, depthZ, depthW, 0.0);
-                    // } else {
-                    //     pix = phong(model, x, y, depthZ, depthW, 1.0);
-                    // }
+                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                        pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    } else {
+                        pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    }
 
                     // float r = a * R.x + b * G.x + c * B.x;
                     // float g = a * R.y + b * G.y + c * B.y;
@@ -128,35 +198,24 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                     // pixels[(int)y][(int)x].Red = r * 255;
                     // pixels[(int)y][(int)x].Green = g * 255;
                     // pixels[(int)y][(int)x].Blue = b * 255;
+                    // pixels[(int)y][(int)x].Red = depthW * 10 * 255;
+                    // pixels[(int)y][(int)x].Green = depthW * 10 * 255;
+                    // pixels[(int)y][(int)x].Blue = depthW * 10 * 255;
 
-                    pixels[(int)y][(int)x].Red = depthW * 10 * 255;
-                    pixels[(int)y][(int)x].Green = depthW * 10 * 255;
-                    pixels[(int)y][(int)x].Blue = depthW * 10 * 255;
-
-                    // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                    memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
                     depth_buffer[(int)y][(int)x] = depthW;
                 }
             }
+
             xa += y10,    xb += y21,    xc += y02;
         }
         ya += -x10,    yb += -x21,    yc += -x02;
     }
-    // exit(0);
-    // if (winding3D(t) < 0) {
-    //     drawLine(pixels, t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
-    //     drawLine(pixels, t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 255, 0, 0);
-    //     drawLine(pixels, t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 255, 0, 0);
-    // } else {
-    //     drawLine(pixels, t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 0, 0, 255);
-    //     drawLine(pixels, t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 0, 255);
-    //     drawLine(pixels, t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 0, 255);
-    // }
 }
 const void texTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model, Pixel **texture, const int tex_height, const int tex_width) {
     /* Creating 2Arrays for X and Y values to sort them. */
     float Ys[3] = { ceilf(t.v[0].y), ceilf(t.v[1].y), ceilf(t.v[2].y) };
     float Xs[3] = { ceilf(t.v[0].x), ceilf(t.v[1].x), ceilf(t.v[2].x) };
-
     /* Sorting the values from smaller to larger. Those values are the triangle bounding box. */
     float temp;
     for (int i = 0; i < 3; i++)
