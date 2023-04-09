@@ -55,7 +55,7 @@ const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, cons
         exit(EXIT_FAILURE);
     }
 }
-const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model, const int SHADOWS, const int LIGHTS) {
+const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model) {
     // t->normal = vecxm(t->normal, model.ViewSpace);
     // t->normal = vecxm(t->normal, model.ModelSpace);
     // t->normal = vecxm(t->normal, model.LightSpace);
@@ -88,13 +88,13 @@ const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buf
     float winding = winding3D(t);
 
     if ( (t.v[1].y - t.v[2].y) == 0 )
-        fillNorthway(pixels, depth_buffer, shadow_buffer, t, model, winding, SHADOWS, LIGHTS);
+        fillNorthway(pixels, depth_buffer, shadow_buffer, t, model, winding);
     else if ( (t.v[0].y - t.v[1].y) == 0 )
-        fillSouthway(pixels, depth_buffer, shadow_buffer, t, model, winding, SHADOWS, LIGHTS);
+        fillSouthway(pixels, depth_buffer, shadow_buffer, t, model, winding);
     else
-        fillGeneral(pixels, depth_buffer, shadow_buffer, t, model, winding, SHADOWS, LIGHTS);
+        fillGeneral(pixels, depth_buffer, shadow_buffer, t, model, winding);
 }
-const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS) {
+const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding) {
     Pixel pix = { 0 };
     const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x;
     const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y;
@@ -134,15 +134,11 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
 
             if (depthW > depth_buffer[(int)y][(int)x]) {
 
-                if (SHADOWS) {
-                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                        if (LIGHTS)
-                            pix = phong(model, x, y, depthZ, depthW, 0.0);
-                    } else {
-                        if (LIGHTS)
-                            pix = phong(model, x, y, depthZ, depthW, 1.0);
-                    }
+                Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                    pix = phong(model, x, y, depthZ, depthW, 0.0);
+                } else {
+                    pix = phong(model, x, y, depthZ, depthW, 1.0);
                 }
                 // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
                 // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
@@ -156,7 +152,7 @@ const void fillNorthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
         yys += 1.0;
     }
 }
-const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS) {
+const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding) {
     Pixel pix = { 0 };
     const float x20 = t.v[2].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x;
     const float y20 = t.v[2].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y;
@@ -196,15 +192,11 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
 
             if (depthW > depth_buffer[(int)y][(int)x]) {
 
-                if (SHADOWS) {
-                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                        if (LIGHTS)
-                            pix = phong(model, x, y, depthZ, depthW, 0.0);
-                    } else {
-                        if (LIGHTS)
-                            pix = phong(model, x, y, depthZ, depthW, 1.0);
-                    }
+                Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                    pix = phong(model, x, y, depthZ, depthW, 0.0);
+                } else {
+                    pix = phong(model, x, y, depthZ, depthW, 1.0);
                 }
                 // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
                 // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
@@ -218,7 +210,7 @@ const void fillSouthway(Pixel **pixels, float **depth_buffer, float **shadow_buf
         yys += 1.0;
     }
 }
-const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding, const int SHADOWS, const int LIGHTS) {
+const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, const float winding) {
     const float barycentric = (t.v[1].y - t.v[0].y) / (t.v[2].y - t.v[0].y);
     Vector newVec = {
         .x = t.v[0].x + (barycentric * (t.v[2].x - t.v[0].x)),
@@ -237,8 +229,8 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
         .v[2] = t.v[2],
     };
 
-    fillNorthway(pixels, depth_buffer, shadow_buffer, up, model, winding3D(up), 1, 1);
-    fillSouthway(pixels, depth_buffer, shadow_buffer, down, model, winding3D(down), 1, 1);
+    fillNorthway(pixels, depth_buffer, shadow_buffer, up, model, winding3D(up));
+    fillSouthway(pixels, depth_buffer, shadow_buffer, down, model, winding3D(down));
 
 
     // Pixel pix = { 0 };
@@ -282,15 +274,11 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
     //         const float depthW = w0 + (barycentric * w1w0);
     //         if ( depthW > depth_buffer[(int)y][(int)x] ) {
 
-    //             if (SHADOWS) {
-    //                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-    //                 if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-    //                     if (LIGHTS)
-    //                         pix = phong(model, x, y, depthZ, depthW, 0.0);
-    //                 } else {
-    //                     if (LIGHTS)
-    //                         pix = phong(model, x, y, depthZ, depthW, 1.0);
-    //                 }
+    //             Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+    //             if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+    //                 pix = phong(model, x, y, depthZ, depthW, 0.0);
+    //             } else {
+    //                 pix = phong(model, x, y, depthZ, depthW, 1.0);
     //             }
     //             // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
     //             // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
@@ -335,15 +323,11 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
     //         const float depthW = w2 + (barycentric * w1w2);
     //         if ( depthW > depth_buffer[(int)y][(int)x] ) {
 
-    //             if (SHADOWS) {
-    //                 Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-    //                 if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-    //                     if (LIGHTS)
-    //                         pix = phong(model, x, y, depthZ, depthW, 0.0);
-    //                 } else {
-    //                     if (LIGHTS)
-    //                         pix = phong(model, x, y, depthZ, depthW, 1.0);
-    //                 }
+    //             Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+    //             if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+    //                 pix = phong(model, x, y, depthZ, depthW, 0.0);
+    //             } else {
+    //                 pix = phong(model, x, y, depthZ, depthW, 1.0);
     //             }
     //             // pixels[(int)y][(int)x].Red = depthW * 70 * 255;
     //             // pixels[(int)y][(int)x].Green = depthW * 70 * 255;
