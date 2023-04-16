@@ -493,7 +493,7 @@ const static void initMeshes(Scene *s) {
     Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
     Mat4x4 ScaleMat, TransMat, PosMat;
 
-    terrain = load_obj("objects/triangle.obj");
+    terrain = load_obj("objects/triangles_overlap.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(1.0);
@@ -504,27 +504,25 @@ const static void initMeshes(Scene *s) {
     free(terrain.v);
     free(terrain.t);
 
-    // earth = load_obj("objects/earth.obj");
-    // memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    // loadTexture(&earth);
-    // ScaleMat = scale_mat(1.0);
-    // TransMat = translation_mat(1.0, -1.0, 510.0);
-    // PosMat = mxm(ScaleMat, TransMat);
-    // s->m[1] = meshxm(earth, PosMat);
-    // free(earth.v);
-    // free(earth.t);
+    earth = load_obj("objects/earth.obj");
+    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    loadTexture(&earth);
+    ScaleMat = scale_mat(1.0);
+    TransMat = translation_mat(1.0, -1.0, 510.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    s->m[1] = meshxm(earth, PosMat);
+    free(earth.v);
+    free(earth.t);
 
-    // cube_create(&cube);
-    // triangle_create(&cube);
-    // cube = load_obj("objects/earth.obj");
-    // memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    // loadTexture(&cube);
-    // ScaleMat = scale_mat(10.0);
-    // TransMat = translation_mat(-10.0, 0.0, 580.0);
-    // PosMat = mxm(ScaleMat, TransMat);
-    // s->m[2] = meshxm(cube, PosMat);
-    // free(cube.v);
-    // free(cube.t);
+    cube = load_obj("objects/earth.obj");
+    memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    loadTexture(&cube);
+    ScaleMat = scale_mat(10.0);
+    TransMat = translation_mat(-10.0, 0.0, 580.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    s->m[2] = meshxm(cube, PosMat);
+    free(cube.v);
+    free(cube.t);
 
     LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
@@ -559,8 +557,8 @@ const static void loadTexture(Mesh *c) {
 }
 /* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
 const static void createScene(Scene *s) {
-    s->m = malloc(sizeof(Mesh) * 1);
-    s->indexes = 1;
+    s->m = malloc(sizeof(Mesh) * 3);
+    s->indexes = 3;
 }
 const static void releaseScene(Scene *s) {
     for (int i = 0; i < s->indexes; i++) {
@@ -748,6 +746,7 @@ const static Mesh bfculling(const Mesh c, const int bfculling_flip) {
 const static Mesh viewtoscreen(const Mesh c) {
     float w = 0.0;
     for (int i = 0; i < c.t_indexes; i++) {
+        c.t[i].color = model.objColor;
         for (int j = 0; j < 3; j++) {
             w = c.t[i].v[j].w;
             c.t[i].v[j].x = XWorldToScreen;
