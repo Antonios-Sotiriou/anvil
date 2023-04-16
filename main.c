@@ -496,6 +496,7 @@ const static void initMeshes(Scene *s) {
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
+    // rotate_y(&terrain, radians(90));
     TransMat = translation_mat(0.0, 0.5, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
@@ -1010,12 +1011,12 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        // clock_t start_time = start();
+        clock_t start_time = start();
         project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        // end_time = end(start_time);
+        end_time = end(start_time);
 
         while(XPending(displ)) {
 
