@@ -129,58 +129,64 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
         float xb = yb;
         float xc = yc;
 
-        // if (y >= 397 && y <= 402) {
-        //     printf("Y: %f\n", y);
-        //     // printf("ya: %f,    yb: %f,    yc: %f\n", ya, yb, yc);
-        //     // printf("xa: %f,    xb: %f,    xc: %f\n", xa, xb, xc);
-        // }
+        if (y >= maxY - 2.0 && y <= maxY) {
+            printf("Y: %f\n", y);
+            // printf("ya: %f,    yb: %f,    yc: %f\n", ya, yb, yc);
+            // printf("xa: %f,    xb: %f,    xc: %f\n", xa, xb, xc);
+        }
 
         for (float x = minX; x <= maxX; x += 1.0) {
+            // if (x >= maxX - 2.0 && x <= maxX) {
+            //     printf("X: %f\n", x);
+            //     // printf("ya: %f,    yb: %f,    yc: %f\n", ya, yb, yc);
+            //     // printf("xa: %f,    xb: %f,    xc: %f\n", xa, xb, xc);
+            // }
             int py = y, px = x;
             int overlap;
-            float biasa = 0, biasb = 0, biasc = 0;
-            // biasa = 1 ? ( (xa == 0) && ((y10 == 0) && (t.v[2].y > t.v[1].y)) ) || (y10 < 0) : 0;
-            // biasb = 1 ? ( (xb == 0) && ((y21 == 0) && (t.v[0].y > t.v[2].y)) ) || (y21 < 0) : 0;
-            // biasc = 1 ? ( (xc == 0) && ((y02 == 0) && (t.v[1].y > t.v[0].y)) ) || (y02 < 0) : 0;
-            if ( ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) ) {
-                if (xa >= 0 && xa < 1.0) {
-                    // drawLine(pixels, px, py, px, py, 255, 0, 0);
-                    biasa = 1.0;
-                    xa -= biasa;
-                }
-            }
-            if ( ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ) {
-                if (xb >= 0 && xb < 1.0) {
-                    // drawLine(pixels, px, py, px, py, 255, 0, 0);
-                    biasb = 1.0;
-                    xb -= biasb;
-                }
-            }
-            if ( ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) ) {
-                if (xc >= 0 && xc < 1.0) {
-                    // drawLine(pixels, px, py, px, py, 255, 0, 0);
-                    biasc = 1.0;
-                    xc -= biasc;
-                }
-            }
+            overlap = 1 ? ( (xa >= 0 || xa <= 1.0) && ((y10 == 0) && (t.v[2].y < t.v[1].y)) ) || (y10 > 0) : 0;
+            overlap = 1 ? ( (xb >= 0 || xa <= 1.0) && ((y21 == 0) && (t.v[0].y < t.v[2].y)) ) || (y21 > 0) : 0;
+            overlap = 1 ? ( (xc >= 0 || xa <= 1.0) && ((y02 == 0) && (t.v[1].y < t.v[0].y)) ) || (y02 > 0) : 0;
+            // if ( ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) ) {
+            //     if (xa >= 0 && xa < 1.0) {
+            //         // drawLine(pixels, px, py, px, py, 255, 0, 0);
+            //         biasa = 1.0;
+            //         xa -= biasa;
+            //     }
+            // }
+            // if ( ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ) {
+            //     if (xb >= 0 && xb < 1.0) {
+            //         // drawLine(pixels, px, py, px, py, 255, 0, 0);
+            //         biasb = 1.0;
+            //         xb -= biasb;
+            //     }
+            // }
+            // if ( ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) ) {
+            //     if (xc >= 0 && xc < 1.0) {
+            //         // drawLine(pixels, px, py, px, py, 255, 0, 0);
+            //         biasc = 1.0;
+            //         xc -= biasc;
+            //     }
+            // }
 
-            if ( xa < 0 && xb < 0 && xc < 0 ) {
+            if ( xa <= 0 && xb <= 0 && xc <= 0 ) {
+                if (overlap)
+                    py = ceilf(y), px = ceilf(x);
 
-                const float a = (xa + biasa) / area;
-                const float b = (xb + biasb) / area;
-                const float c = (xc + biasc) / area;
+                const float a = xa / area;
+                const float b = xb / area;
+                const float c = xc / area;
 
                 const float depthZ = a * z2 + b * z0 + c * z1;
                 const float depthW = a * w2 + b * w0 + c * w1;
 
                 if (depthW > depth_buffer[py][px]) {
 
-                    // Vector shadow = shadowTest(model, x, y, depthZ, depthW);
-                    // if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                    //     pix = phong(model, x, y, depthZ, depthW, 0.0);
-                    // } else {
-                    //     pix = phong(model, x, y, depthZ, depthW, 1.0);
-                    // }
+                    Vector shadow = shadowTest(model, x, y, depthZ, depthW);
+                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                        pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    } else {
+                        pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    }
 
                     // float r = a * R.x + b * G.x + c * B.x;
                     // float g = a * R.y + b * G.y + c * B.y;
