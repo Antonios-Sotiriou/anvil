@@ -267,7 +267,7 @@ const static void keypress(XEvent *event) {
             break;
         case 121 : rotate_y(&scene.m[1], Angle);       /* y */
             break;
-        case 122 : rotate_z(&scene.m[1], Angle);       /* z */
+        case 122 : rotate_z(&scene.m[0], Angle);       /* z */
             break;
         case 112 :
             if (PROJECTBUFFER == 3)
@@ -492,12 +492,12 @@ const static void initMeshes(Scene *s) {
     Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
     Mat4x4 ScaleMat, TransMat, PosMat;
 
-    terrain = load_obj("objects/smallterrain.obj");
+    terrain = load_obj("objects/triangles_overlap.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
-    ScaleMat = scale_mat(10.0);
-    // rotate_y(&terrain, radians(90));
-    TransMat = translation_mat(0.0, 0.5, 500.0);
+    ScaleMat = scale_mat(1.0);
+    rotate_y(&terrain, 90);
+    TransMat = translation_mat(0.0, 0.5, 501.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
