@@ -56,6 +56,8 @@ const void drawLine(Pixel **pixels, float x1, float y1, float x2, float y2, cons
     }
 }
 const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model) {
+    // if (winding3D(t) < 0)
+    //     swap(&t.v[1], &t.v[2], sizeof(Vector));
     /* Creating 2Arrays for X and Y values to sort them. */
     float Ys[3] = { t.v[0].y, t.v[1].y, t.v[2].y };
     float Xs[3] = { t.v[0].x, t.v[1].x, t.v[2].x };
@@ -95,15 +97,6 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
     Vector G = { 0, 1, 0 };
     Vector B = { 0, 0, 1 };
 
-    // Vector edgea = sub_vecs(t.v[1], t.v[0]),
-    //        edgeb = sub_vecs(t.v[2], t.v[1]),
-    //        edgec = sub_vecs(t.v[0], t.v[2]);
-
-    // const float area = edjeFunction(t.v[0], t.v[1], t.v[2]);
-    // Vector p = { minX, minY, 0, 0};
-    // float ya = edjeFunction(p, t.v[0], t.v[1]);
-    // float yb = edjeFunction(p, t.v[1], t.v[2]);
-    // float yc = edjeFunction(p, t.v[2], t.v[0]);
     const float area = ((t.v[0].x - t.v[1].x) * y21) - ((t.v[0].y - t.v[1].y) * x21);
     float ya = ((minX - t.v[0].x) * y10) - ((minY - t.v[0].y) * x10);
     float yb = ((minX - t.v[1].x) * y21) - ((minY - t.v[1].y) * x21);
@@ -111,56 +104,42 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
 
     // #include "header_files/logging.h"
     // logTriangle(t, 1, 0, 0);
-    // printf("y10: %f,    y21: %f,    y02: %f\n", y10, y21, y02);
-    // printf("x10: %f,    x21: %f,    x02: %f\n", x10, x21, x02);
+    // printf("int Y: %d,    ceilf Y: %f,    roundf Y: %f,    floorf Y: %f\n", (int)1.000000, ceilf(1.000001), roundf(1.000001), floorf(1.000001));
 
-    // printf("ya: %f,    yb: %f,    yc: %f\n", ya, yb, yc);
-    // printf("xa: %f,    xb: %f,    xc: %f\n", xa, xb, xc);
-    // drawLine(pixels, minX, minY, maxX, minY, 255, 0, 0);
-    // drawLine(pixels, minX, minY, minX, maxY, 255, 0, 0);
     for (int y = minY; y <= maxY; y++) {
-        float xa = ya;
-        float xb = yb;
-        float xc = yc;
-        // if (y >= 399 && y <= 401) {
-        //     printf("float Y: %f,    int Y: %d,    ceilf Y: %f,    roundf Y: %f,    floorf Y: %f\n", y, (int)y, ceilf(y), roundf(y), floorf(y));
-        //     // drawLine(pixels, minX, y, maxX, y, 255, 0, 0);
-        // }
+        float ga = ya;
+        float gb = yb;
+        float gc = yc;
+
         for (int x = minX; x <= maxX; x++) {
-            float biasa = 0.0, biasb = 0.0, biasc = 0;
-            // int overlap;
-            // overlap = 1 ? ( (xa >= 0 || xa <= 1.0) && ((y10 == 0) && (t.v[2].y < t.v[1].y)) ) || (y10 > 0) : 0;
-            // overlap = 1 ? ( (xb >= 0 || xa <= 1.0) && ((y21 == 0) && (t.v[0].y < t.v[2].y)) ) || (y21 > 0) : 0;
-            // overlap = 1 ? ( (xc >= 0 || xa <= 1.0) && ((y02 == 0) && (t.v[1].y < t.v[0].y)) ) || (y02 > 0) : 0;
-            if ( ((y10 == 0) && (t.v[2].y < t.v[1].y)) || (y10 > 0) ) {
-                if (xa >= 0 && xa < 1.0) {
-                    // drawLin1els, px, py, px, py, 255, 0, 0);
-                    biasa = 0.009;
-                    xa -= biasa;
+            float xa = ((x - t.v[0].x) * y10) - ((y - t.v[0].y) * x10);
+            float xb = ((x - t.v[1].x) * y21) - ((y - t.v[1].y) * x21);
+            float xc = ((x - t.v[2].x) * y02) - ((y - t.v[2].y) * x02);
+            // printf("xa: %f,    xb: %f,    xc: %f\n", xa, xb, xc);
+            // printf("ga: %f,    gb: %f,    gc: %f\n", ga, gb, gc);
+            if ( ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) ) {
+                if (xa == 0) {
+                    // drawLine(pixels, x, y, x, y, 255, 0, 0);
+                    xa = 1;
                 }
             }
-            if ( ((y21 == 0) && (t.v[0].y < t.v[2].y)) || (y21 > 0) ) {
-                if (xb >= 0 && xb < 1.0) {
-                    // drawLine(pixels, px, py, px, py, 255, 0, 0);
-                    biasb = 0.009;
-                    xb -= biasb;
+            if ( ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ) {
+                if (xb == 0) {
+                    // drawLine(pixels, x, y, x, y, 255, 0, 0);
+                    xb = 1;
                 }
             }
-            if ( ((y02 == 0) && (t.v[1].y < t.v[0].y)) || (y02 > 0) ) {
-                if (xc >= 0 && xc < 1.0) {
-                    // drawLine(pixels, px, py, px, py, 255, 0, 0);
-                    biasc = 0.009;
-                    xc -= biasc;
+            if ( ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) ) {
+                if (xc == 0) {
+                    // drawLine(pixels, x, y, x, y, 255, 0, 0);
+                    xc = 1;
                 }
             }
 
-            if ( xa < 0 && xb < 0 && xc < 0 ) {
-                // if (!overlap)
-                //     py = ceilf(y), px = ceilf(x);
-
-                const float a = (xa + biasa) / area;
-                const float b = (xb + biasb) / area;
-                const float c = (xc + biasc) / area;
+            if ( xa <= 0 && xb <= 0 && xc <= 0 ) {
+                const float a = xa / area;
+                const float b = xb / area;
+                const float c = xc / area;
 
                 const float depthZ = a * z2 + b * z0 + c * z1;
                 const float depthW = a * w2 + b * w0 + c * w1;
@@ -180,15 +159,15 @@ const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buff
                     // pixels[y][x].Red = r * 255;
                     // pixels[y][x].Green = g * 255;
                     // pixels[y][x].Blue = b * 255;
-                    // pixels[y][x].Red = depthW * 10 * 255;
-                    // pixels[y][x].Green = depthW * 10 * 255;
-                    // pixels[y][x].Blue = depthW * 10 * 255;
+                    pixels[y][x].Red = depthW * 10 * 255;
+                    pixels[y][x].Green = depthW * 10 * 255;
+                    pixels[y][x].Blue = depthW * 10 * 255;
 
-                    memcpy(&pixels[y][x], &pix, sizeof(Pixel));
+                    // memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                     depth_buffer[y][x] = depthW;
                 }
             }
-            xa += y10,    xb += y21,    xc += y02;
+            ga += y10,    gb += y21,    gc += y02;
         }
         ya += -x10,    yb += -x21,    yc += -x02;
     }

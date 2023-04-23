@@ -504,25 +504,25 @@ const static void initMeshes(Scene *s) {
     free(terrain.v);
     free(terrain.t);
 
-    earth = load_obj("objects/earth.obj");
-    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    loadTexture(&earth);
-    ScaleMat = scale_mat(1.0);
-    TransMat = translation_mat(1.0, -1.0, 510.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[1] = meshxm(earth, PosMat);
-    free(earth.v);
-    free(earth.t);
+    // earth = load_obj("objects/earth.obj");
+    // memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    // loadTexture(&earth);
+    // ScaleMat = scale_mat(1.0);
+    // TransMat = translation_mat(1.0, -1.0, 510.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[1] = meshxm(earth, PosMat);
+    // free(earth.v);
+    // free(earth.t);
 
-    cube = load_obj("objects/earth.obj");
-    memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    loadTexture(&cube);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, 0.0, 580.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[2] = meshxm(cube, PosMat);
-    free(cube.v);
-    free(cube.t);
+    // cube = load_obj("objects/earth.obj");
+    // memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    // loadTexture(&cube);
+    // ScaleMat = scale_mat(10.0);
+    // TransMat = translation_mat(-10.0, 0.0, 580.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[2] = meshxm(cube, PosMat);
+    // free(cube.v);
+    // free(cube.t);
 
     LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
