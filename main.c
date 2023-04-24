@@ -493,36 +493,36 @@ const static void initMeshes(Scene *s) {
     Mesh terrain = { 0 }, earth = { 0 }, cube = { 0 };
     Mat4x4 ScaleMat, TransMat, PosMat;
 
-    terrain = load_obj("objects/triangles_overlap.obj");
+    terrain = load_obj("objects/smallterrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
-    ScaleMat = scale_mat(1.0);
-    rotate_y(&terrain, 90);
-    TransMat = translation_mat(0.0, 0.0, 501.0);
+    ScaleMat = scale_mat(10.0);
+    // rotate_y(&terrain, 90);
+    TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
     free(terrain.t);
 
-    // earth = load_obj("objects/earth.obj");
-    // memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    // loadTexture(&earth);
-    // ScaleMat = scale_mat(1.0);
-    // TransMat = translation_mat(1.0, -1.0, 510.0);
-    // PosMat = mxm(ScaleMat, TransMat);
-    // s->m[1] = meshxm(earth, PosMat);
-    // free(earth.v);
-    // free(earth.t);
+    earth = load_obj("objects/earth.obj");
+    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    loadTexture(&earth);
+    ScaleMat = scale_mat(1.0);
+    TransMat = translation_mat(1.0, -1.0, 510.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    s->m[1] = meshxm(earth, PosMat);
+    free(earth.v);
+    free(earth.t);
 
-    // cube = load_obj("objects/earth.obj");
-    // memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    // loadTexture(&cube);
-    // ScaleMat = scale_mat(10.0);
-    // TransMat = translation_mat(-10.0, 0.0, 580.0);
-    // PosMat = mxm(ScaleMat, TransMat);
-    // s->m[2] = meshxm(cube, PosMat);
-    // free(cube.v);
-    // free(cube.t);
+    cube = load_obj("objects/earth.obj");
+    memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    loadTexture(&cube);
+    ScaleMat = scale_mat(10.0);
+    TransMat = translation_mat(-10.0, 0.0, 580.0);
+    PosMat = mxm(ScaleMat, TransMat);
+    s->m[2] = meshxm(cube, PosMat);
+    free(cube.v);
+    free(cube.t);
 
     LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
 }
@@ -790,16 +790,16 @@ const static void rasterize(const Mesh c) {
     for (int i = 0; i < c.t_indexes; i++) {
 
         if (DEBUG == 1) {
-            drawLine(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
-            drawLine(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
-            drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
+            drawLine(c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
+            drawLine(c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
+            drawLine(c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
-            fillTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model);
+            fillTriangle(c.t[i]);
             // end(start_time);
         } else {
             // clock_t start_time = start();
-            texTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model, c.texels, tex_h, tex_w);
+            texTriangle(c.t[i], c.texels, tex_h, tex_w);
             // end(start_time);
         }
     }

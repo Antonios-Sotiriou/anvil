@@ -41,13 +41,13 @@
     #include <stdlib.h>
 #endif
 
-const void drawLine(Pixel **buffer, float x1, float y1, float x2, float y2, const float red, const float green, const float blue);
+const void drawLine(float x1, float y1, float x2, float y2, const float red, const float green, const float blue);
 
-const void fillTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model);
-const void fillGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, float minX, float maxX, float minY, float maxY);
+const void fillTriangle(const Triangle t);
+const void fillGeneral(const Triangle t, float minX, float maxX, float minY, float maxY);
 
-const void texTriangle(Pixel **pixels, float **depth_buffer, float **shadow_buffer, Triangle t, Phong model, Pixel **texels, const int tex_height, const int tex_width);
-const void texGeneral(Pixel **pixels, float **depth_buffer, float **shadow_buffer, const Triangle t, Phong model, Pixel **texels, const int tex_height, const int tex_width, const float minX, const float maxX, const float minY, const float maxY);
+const void texTriangle(const Triangle t, Pixel **texels, const int tex_height, const int tex_width);
+const void texGeneral(const Triangle t, Pixel **texels, const int tex_height, const int tex_width, const float minX, const float maxX, const float minY, const float maxY);
 
 #endif /* _DRAW_FUNCTIONS_H */
 
