@@ -54,8 +54,10 @@ const Mesh load_obj(const char path[]) {
             r.t[i].tex[2] = tex[f[i].tc - 1];
         }
 
-        if (n != NULL)
+        if (n != NULL) {
             r.t[i].normal = n[f[i].na - 1];
+            r.t[i].normal.w = 0.0;
+        }
     }
     
     /* Free The Faces arrays here cause they are not gonna be used anywhere else.Mesh must be freed some levels above.When program quits. */

@@ -17,11 +17,11 @@
     #include "math.h"
 #endif
 
-const void createShadowmap(float **shadowBuffer, Mesh c);
-const void shadowTriangle(float **shadow_buffer, Triangle t);
-const void shadowNorthway(float **shadow_buffer, const Triangle t, const float winding);
-const void shadowSouthway(float **shadow_buffer, const Triangle t, const float winding);
-const void shadowGeneral(float **shadow_buffer, const Triangle t, const float winding);
-const Vector shadowTest(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW);
+const void createShadowmap(Mesh c);
+const void shadowTriangle(Triangle t);
+const void shadowNorthway(const Triangle t, const float winding);
+const void shadowSouthway(const Triangle t, const float winding);
+const void shadowGeneral(const Triangle t, const float winding);
+const Vector shadowTest( float pixX, const float pixY, const float pixZ, const float pixW);
 
 #endif /* _SHADOWMAP_H */

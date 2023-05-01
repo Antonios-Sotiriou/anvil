@@ -63,13 +63,28 @@ Global camera = {
     .V   = { 0.0, 1.0, 0.0, 0.0 },
     .N   = { 0.0, 0.0, 1.0, 0.0 }
 };
+// Global light = {
+//     .Pos = { -9.648195, -16.342173, 517.552246, 0.0 },
+//     .U   = { -0.883299, -0.006683, -0.468767, 0.0 },
+//     .V   = { -0.330613, 0.717806, 0.612739, 0.0 },
+//     .N   = { 0.332388, 0.696211, -0.636246, 0.0 },
+//     .C   = { 1.0, 1.0, 1.0}
+// };
+// Global light = {
+//     .Pos = { 0, 0, 1, 0.0 },
+//     .U   = { 1, 0, 0, 0.0 },
+//     .V   = { 0, 1, 0, 0.0 },
+//     .N   = { 0, 0, 1, 0.0 },
+//     .C   = { 1.0, 1.0, 1.0}
+// };
 Global light = {
-    .Pos = { -9.648195, -16.342173, 517.552246, 0.0 },
-    .U   = { -0.883299, -0.006683, -0.468767, 0.0 },
-    .V   = { -0.330613, 0.717806, 0.612739, 0.0 },
-    .N   = { 0.332388, 0.696211, -0.636246, 0.0 },
+    .Pos = { -56.215076, -47.867058, 670.036438 },
+    .U   = { -0.907780, -0.069064, -0.413726 },
+    .V   = { -0.178108, 0.956481, 0.231131 },
+    .N   = { 0.379759, 0.283504, -0.880576 },
     .C   = { 1.0, 1.0, 1.0}
 };
+
 Scene scene = { 0 };
 Mat4x4 WorldMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
 Phong model = { 0 };
@@ -91,7 +106,7 @@ static float bias = 0.000120; //0.000440;
 // static float Roll = 0.0;
 static float NPlane = 1.0;
 static float FPlane = 0.0001;
-static float Scale = 0.1;
+static float Scale = 0.03;
 static int DEBUG = 0;
 pthread_mutex_t mutex;
 
@@ -132,7 +147,8 @@ const static void project(Scene s);
 static void *applyShadows(void *c);
 static void *pipeLine(void *c);
 const static void ppdiv(Mesh *c);
-const static Mesh bfculling(const Mesh c, const int bfculling_flip);
+const static Mesh shadowcull(const Mesh c);
+const static Mesh bfculling(const Mesh c);
 const static Mesh viewtoscreen(const Mesh c);
 const static void rasterize(const Mesh sc);
 const static Phong initLightModel(void);
@@ -267,7 +283,7 @@ const static void keypress(XEvent *event) {
             break;
         case 121 : rotate_y(&scene.m[1], Angle);       /* y */
             break;
-        case 122 : rotate_z(&scene.m[1], Angle);       /* z */
+        case 122 : rotate_z(&scene.m[0], Angle);       /* z */
             break;
         case 112 :
             if (PROJECTBUFFER == 3)
@@ -305,7 +321,7 @@ const static void keypress(XEvent *event) {
         case 65455 : NPlane -= 0.01;             /* / */
             printf("NPlane: %f\n", NPlane);
             break;
-        case 99 : rotate_origin(&scene.m[1], Angle, 1.0, 0.0, 0.0);        /* c */
+        case 99 : rotate_origin(&scene.m[0], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
         case 108 :                                    /* l */
             if (EYEPOINT == 0)
@@ -337,6 +353,7 @@ const static void keypress(XEvent *event) {
             return;
     }
     LookAt = lookat(eye->Pos, eye->U, eye->V, eye->N);
+    // project(scene);
 }
 /* Rotates the camera to look left. */
 const static void look_left(Global *g, const float angle) {
@@ -496,8 +513,8 @@ const static void initMeshes(Scene *s) {
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
-    // rotate_y(&terrain, radians(90));
-    TransMat = translation_mat(0.0, 0.5, 500.0);
+    // rotate_y(&terrain, 90);
+    TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
@@ -513,8 +530,6 @@ const static void initMeshes(Scene *s) {
     free(earth.v);
     free(earth.t);
 
-    // cube_create(&cube);
-    // triangle_create(&cube);
     cube = load_obj("objects/earth.obj");
     memcpy(cube.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&cube);
@@ -635,12 +650,12 @@ static void *applyShadows(void *c) {
 
     if (nf.t_indexes) {
         /* Applying Backface culling before we proceed to full frustum clipping. */
-        Mesh bf = bfculling(nf, 1);
+        Mesh bf = shadowcull(nf);
 
         /* Sending to translation from NDC to Screen Coordinates. */
         Mesh uf = viewtoscreen(bf);
 
-        createShadowmap(shadow_buffer, uf);
+        createShadowmap(uf);
         free(uf.t);
         free(uf.v);
     } else {
@@ -666,7 +681,7 @@ static void *pipeLine(void *c) {
         ppdiv(&nf);
 
         /* Applying Backface culling before we proceed to full frustum clipping. */
-        Mesh bf = bfculling(nf, 0);
+        Mesh bf = bfculling(nf);
 
         /* Sending to translation from NDC to Screen Coordinates. */
         Mesh uf = viewtoscreen(bf);
@@ -708,7 +723,39 @@ const static void ppdiv(Mesh *c) {
     // }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
-const static Mesh bfculling(const Mesh c, const int bfculling_flip) {
+const static Mesh shadowcull(const Mesh c) {
+    Mesh r = c;
+    Vector cp;
+    float dpc;
+    int counter = 1;
+    int index = 0;
+    r.t = malloc(sizeof(Triangle));
+    if (!r.t)
+        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
+
+    for (int i = 0; i < c.t_indexes; i++) {
+        // cp = norm_vec(triangle_cp(c.t[i]));
+        dpc = winding3D(c.t[i]);//dot_product(norm_vec(light.Pos), cp);
+        bias = (dpc <= 0.005 && dpc >= 0.0) ? 0.000450 : 0.000038;
+
+        if (dpc > 0.00) {
+            r.t = realloc(r.t, sizeof(Triangle) * counter);
+
+            if (!r.t)
+                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
+
+            r.t[index] = c.t[i];
+
+            counter++;
+            index++;
+        }
+    }
+    r.t_indexes = index;
+    free(c.t);
+    return r;
+}
+/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
+const static Mesh bfculling(const Mesh c) {
     Mesh r = c;
     Vector cp;
     float dpc;
@@ -720,11 +767,7 @@ const static Mesh bfculling(const Mesh c, const int bfculling_flip) {
 
     for (int i = 0; i < c.t_indexes; i++) {
         cp = norm_vec(triangle_cp(c.t[i]));
-
-        if (bfculling_flip)
-            dpc = dot_product(norm_vec(light.Pos), cp);
-        else
-            dpc = dot_product(norm_vec(camera.Pos), cp);
+        dpc = winding3D(c.t[i]);//dot_product(norm_vec(camera.Pos), cp);
 
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -734,6 +777,7 @@ const static Mesh bfculling(const Mesh c, const int bfculling_flip) {
 
             r.t[index] = c.t[i];
             r.t[index].normal = cp;
+            // logVector(cp);
 
             counter++;
             index++;
@@ -749,8 +793,8 @@ const static Mesh viewtoscreen(const Mesh c) {
     for (int i = 0; i < c.t_indexes; i++) {
         for (int j = 0; j < 3; j++) {
             w = c.t[i].v[j].w;
-            c.t[i].v[j].x = XWorldToScreen;
-            c.t[i].v[j].y = YWorldToScreen;
+            c.t[i].v[j].x = roundf(XWorldToScreen);
+            c.t[i].v[j].y = roundf(YWorldToScreen);
             c.t[i].v[j].z -= 1;
             c.t[i].v[j].w = 1 / w;
 
@@ -787,19 +831,20 @@ const static Mesh viewtoscreen(const Mesh c) {
 const static void rasterize(const Mesh c) {
     signed int tex_h = c.texture_height - 1;
     signed int tex_w = c.texture_width - 1;
+    model.CameraPos = vecxm(camera.Pos, OrthoMat);
     for (int i = 0; i < c.t_indexes; i++) {
 
         if (DEBUG == 1) {
-            drawLine(pixels, c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
-            drawLine(pixels, c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
-            drawLine(pixels, c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
+            drawLine(c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
+            drawLine(c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
+            drawLine(c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
-            fillTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model);
+            fillTriangle(c.t[i]);
             // end(start_time);
         } else {
             // clock_t start_time = start();
-            texTriangle(pixels, depth_buffer, shadow_buffer, c.t[i], model, c.texels, tex_h, tex_w);
+            texTriangle(c.t[i], c.texels, tex_h, tex_w);
             // end(start_time);
         }
     }
@@ -814,13 +859,13 @@ const static Phong initLightModel(void) {
     r.objColor.Green = 0.478 * 255;
     r.objColor.Red = 0.615 * 255;
 
-    r.lightPos = light.Pos;//vecxm(light.Pos, OrthoMat);
-    r.CameraPos = vecxm(camera.Pos, OrthoMat);
+    r.lightPos = light.Pos;
+    r.CameraPos = camera.Pos;
 
-    r.AmbientStrength = 0.3;
+    r.AmbientStrength = 0.5;
     r.Ambient = multiply_vec(r.LightColor, r.AmbientStrength);
 
-    r.SpecularStrength = 0.5;
+    r.SpecularStrength = 0.7;
     r.Specular = multiply_vec(r.LightColor, r.SpecularStrength);
 
     r.width = wa.width;
@@ -1011,12 +1056,12 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        clock_t start_time = start();
+        // clock_t start_time = start();
         project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        end_time = end(start_time);
+        // end_time = end(start_time);
 
         while(XPending(displ)) {
 

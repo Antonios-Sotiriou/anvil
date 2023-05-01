@@ -6,27 +6,27 @@ const Pixel phong(Phong model, const float pixX, const float pixY, const float p
     Vector pixel = {
         .x = ((pixX / model.halfWidth) - 1.0),
         .y = ((pixY / model.halfHeight) - 1.0),
-        .z = (1 / pixW),
+        .z = (pixZ + 1.0),
     };
 
-    Vector lightdir = norm_vec(sub_vecs(pixel, model.lightPos));
+    Vector lightdir = norm_vec(sub_vecs(model.lightPos, pixel));
     float diff = dot_product(model.normal, lightdir);
     if ( diff < 0 )
         diff = 0;
 
-    Vector diffuse = multiply_vec(model.LightColor, diff);
+    Vector diffuse = norm_vec(multiply_vec(model.LightColor, diff));
 
-    Vector viewdir = norm_vec(sub_vecs(pixel, model.CameraPos));
+    Vector viewdir = norm_vec(sub_vecs(model.CameraPos, pixel));
 
-    Vector reflectdir = multiply_vec(cross_product(cross_product(model.normal, lightdir), sub_vecs(model.normal, multiply_vec(lightdir, -1.0))), 2.00);
+    Vector reflectdir = multiply_vec(cross_product(cross_product(lightdir, model.normal), sub_vecs(lightdir, model.normal)), 2.00);
     float spec = powf(dot_product(viewdir, norm_vec(reflectdir)), 32.00);
-    model.Specular = multiply_vec(model.Specular, spec);
+    Vector specular = multiply_vec(model.Specular, spec);
 
     Pixel result;
     if (shadow) {
-        result.Blue = (model.Specular.x + diffuse.x + model.Ambient.x) * model.objColor.Blue;
-        result.Green = (model.Specular.y + diffuse.y + model.Ambient.y) * model.objColor.Green;
-        result.Red = (model.Specular.z + diffuse.z + model.Ambient.z) * model.objColor.Red;
+        result.Blue = (specular.x + diffuse.x + model.Ambient.x) * model.objColor.Blue;
+        result.Green = (specular.y + diffuse.y + model.Ambient.y) * model.objColor.Green;
+        result.Red = (specular.z + diffuse.z + model.Ambient.z) * model.objColor.Red;
     } else {
         result.Blue = model.Ambient.x * model.objColor.Blue;
         result.Green = model.Ambient.y * model.objColor.Green;
