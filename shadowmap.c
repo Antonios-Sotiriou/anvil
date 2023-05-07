@@ -39,7 +39,7 @@ const void shadowGeneral(const Triangle t, const float winding) {
 
     if (y10 != 0)
         for (int y = y_start; y < y_end1; y++) {
-            const float yA = y - y_start;
+            const int yA = y - y_start;
 
             int x_start = ((ma * yA) + t.v[0].x);
             int x_end = ((mb * yA) + t.v[0].x);
@@ -66,8 +66,8 @@ const void shadowGeneral(const Triangle t, const float winding) {
     if (y21 == 0)
         return;
     for (int y = y_end1; y < y_end2; y++) {
-        const float yA = y - y_start;
-        const float yB = y - y_end1;
+        const int yA = y - y_start;
+        const int yB = y - y_end1;
 
         int x_start = ((mb * yA) + t.v[0].x);
         int x_end = ((mc * yB) + t.v[1].x);
