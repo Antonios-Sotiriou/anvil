@@ -1,10 +1,12 @@
 #include "header_files/draw_functions.h"
 #include "header_files/exec_time.h"
+#include "header_files/logging.h"
 
 extern Pixel **pixels;
 extern float **depth_buffer;
 extern float **shadow_buffer;
 extern Phong model;
+extern Mat4x4 WorldMat;
 
 const void drawLine(float x1, float y1, float x2, float y2, const float red, const float green, const float blue) {
     Pixel pix = { blue, green, red };
@@ -78,11 +80,15 @@ const void fillTriangle(Triangle t) {
             }
 
     model.normal = t.normal;
-    float winding = winding3D(t);
+    float winding = 1 / winding3D(t);
+    model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     fillGeneral(t, winding);
 }
 const void fillGeneral(const Triangle t, const float winding) {
     Pixel pix = { 0 };
+    // Vector light = divide_vec(model.lightPos, model.lightPos.w);
+    // logVector(light);
+    // const float dot = dot_product(model.lightPos, model.normal);
     const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x;
     const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y;
     const float z10 = t.v[1].z - t.v[0].z,    z20 = t.v[2].z - t.v[0].z,    z21 = t.v[2].z - t.v[1].z;
@@ -102,7 +108,7 @@ const void fillGeneral(const Triangle t, const float winding) {
 
     if (y10 != 0)
         for (int y = y_start; y < y_end1; y++) {
-            const float yA = y - y_start;
+            const int yA = y - y_start;
 
             int x_start = ((ma * yA) + t.v[0].x);
             int x_end = ((mb * yA) + t.v[0].x);
@@ -124,23 +130,30 @@ const void fillGeneral(const Triangle t, const float winding) {
                 const float depthW = w0 + (barycentric * w1w0);
                 if ( depthW > depth_buffer[y][x] ) {
 
-                    // Vector shadow = shadowTest(x, y, depthZ, depthW);
-                    // if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                    //     pix = phong(model, x, y, depthZ, depthW, 0.0);
-                    // } else {
-                    //     pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    Vector shadow = shadowTest(x, y, depthZ, depthW);
+                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias)) {
+                        pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    } else {
+                        pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    }
+                    // if (dot > 0)
+                    //     memcpy(&pixels[y][x], &model.objColor, sizeof(Pixel));
+                    // // pixels[y][x].Red = depthW * 70 * 255;
+                    // // pixels[y][x].Green = depthW * 70 * 255;
+                    // // pixels[y][x].Blue = depthW * 70 * 255;
+                    // else {
+                    //     pixels[y][x].Red = depthW * 70 * 255;
+                    //     pixels[y][x].Green = depthW * 70 * 255;
+                    //     pixels[y][x].Blue = depthW * 70 * 255;
                     // }
-                    pixels[y][x].Red = depthW * 70 * 255;
-                    pixels[y][x].Green = depthW * 70 * 255;
-                    pixels[y][x].Blue = depthW * 70 * 255;
 
-                    // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                    memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                     depth_buffer[y][x] = depthW;
-                } else if (depthW == depth_buffer[y][x]) {
-                    pixels[y][x].Red = 0;
-                    pixels[y][x].Green = 0;
-                    pixels[y][x].Blue = 255;                    
-                }
+                } //else if (depthW == depth_buffer[y][x]) {
+                //     pixels[y][x].Red = 0;
+                //     pixels[y][x].Green = 0;
+                //     pixels[y][x].Blue = 255;                    
+                // }
                 xxs += 1.0;
             }
         }
@@ -148,8 +161,8 @@ const void fillGeneral(const Triangle t, const float winding) {
     if (y21 == 0)
         return;
     for (int y = y_end1; y < y_end2; y++) {
-        const float yA = y - y_start;
-        const float yB = y - y_end1;
+        const int yA = y - y_start;
+        const int yB = y - y_end1;
 
         int x_start = ((mb * yA) + t.v[0].x);
         int x_end = ((mc * yB) + t.v[1].x);
@@ -179,23 +192,29 @@ const void fillGeneral(const Triangle t, const float winding) {
             const float depthW = w2 + (barycentric * w1w2);
             if ( depthW > depth_buffer[y][x] ) {
 
-                // Vector shadow = shadowTest(x, y, depthZ, depthW);
-                // if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                //     pix = phong(model, x, y, depthZ, depthW, 0.0);
-                // } else {
-                //     pix = phong(model, x, y, depthZ, depthW, 1.0);
+                Vector shadow = shadowTest(x, y, depthZ, depthW);
+                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
+                    pix = phong(model, x, y, depthZ, depthW, 0.0);
+                } else {
+                    pix = phong(model, x, y, depthZ, depthW, 1.0);
+                }
+                // if (dot > 0)
+                //     memcpy(&pixels[y][x], &model.objColor, sizeof(Pixel));
+                // // pixels[y][x].Red = depthW * 70 * 255;
+                // // pixels[y][x].Green = depthW * 70 * 255;
+                // // pixels[y][x].Blue = depthW * 70 * 255;
+                // else {
+                //     pixels[y][x].Red = depthW * 70 * 255;
+                //     pixels[y][x].Green = depthW * 70 * 255;
+                //     pixels[y][x].Blue = depthW * 70 * 255;
                 // }
-                pixels[y][x].Red = depthW * 70 * 255;
-                pixels[y][x].Green = depthW * 70 * 255;
-                pixels[y][x].Blue = depthW * 70 * 255;
-
-                // memcpy(&pixels[(int)y][(int)x], &pix, sizeof(Pixel));
+                memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                 depth_buffer[y][x] = depthW;
-            } else if (depthW == depth_buffer[y][x]) {
-                    pixels[y][x].Red = 0;
-                    pixels[y][x].Green = 0;
-                    pixels[y][x].Blue = 255;                    
-            }
+            } //else if (depthW == depth_buffer[y][x]) {
+            //         pixels[y][x].Red = 0;
+            //         pixels[y][x].Green = 0;
+            //         pixels[y][x].Blue = 255;                    
+            // }
             xxs += 1.0;
         }
     }
@@ -218,7 +237,8 @@ const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const i
             }
     
     model.normal = t.normal;
-    float winding = winding3D(t);
+    float winding = 1 / winding3D(t);
+    model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     texGeneral(t, winding, texels, tex_height, tex_width);
 }
 const void texGeneral(const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
@@ -246,7 +266,7 @@ const void texGeneral(const Triangle t, const float winding, Pixel **texels, con
 
     if (y10 != 0)
         for (int y = y_start; y < y_end1; y++) {
-            const float yA = y - y_start;
+            const int yA = y - y_start;
 
             int x_start = ((ma * yA) + t.v[0].x);
             int x_end = ((mb * yA) + t.v[0].x);
@@ -305,8 +325,8 @@ const void texGeneral(const Triangle t, const float winding, Pixel **texels, con
     if (y21 == 0)
         return;
     for (int y = y_end1; y < y_end2; y++) {
-        const float yA = y - y_start;
-        const float yB = y - y_end1;
+        const int yA = y - y_start;
+        const int yB = y - y_end1;
 
         int x_start = ((mb * yA) + t.v[0].x);
         int x_end = ((mc * yB) + t.v[1].x);
