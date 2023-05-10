@@ -28,8 +28,9 @@ typedef struct {
 typedef struct {
     int a, b, c;
     Vector v[LastVector];
-    Textor tex[LastVector];
-    Vector normal;
+    Textor vt[LastVector];
+    Vector vn[LastVector];
+    Vector fn;
 } Triangle;
 
 /* World Mesh */

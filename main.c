@@ -361,8 +361,11 @@ const static void keypress(XEvent *event) {
     }
     LookAt = lookat(eye->Pos, eye->U, eye->V, eye->N);
     ViewMat = inverse_mat(LookAt);
-    logGlobal(camera);
-    logGlobal(light);
+
+    if (!PROJECTIONVIEW)
+        WorldMat = mxm(ViewMat, PerspMat);
+    else
+        WorldMat = mxm(ViewMat, OrthoMat);
     // project(scene);
 }
 /* Rotates the camera to look left. */
@@ -454,12 +457,12 @@ const static void move_right(Global *g) {
 /* Moves camera position Up. */
 const static void move_up(Global *g) {
     // g->Pos = sub_vecs(g->Pos, multiply_vec(g->V, 0.1));
-    g->Pos.y -= 10.1;
+    g->Pos.y -= 0.1;
 }
 /* Moves camera position Down. */
 const static void move_down(Global *g) {
     // g->Pos = add_vecs(g->Pos, multiply_vec(g->V, 0.1));
-    g->Pos.y += 10.1;
+    g->Pos.y += 0.1;
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
@@ -531,8 +534,18 @@ const static void initBuffers(void) {
 }
 /* Initializes the meshes from which the Scene consists. */
 const static void initMeshes(Scene *s) {
-    Mesh terrain = { 0 }, jupiter = { 0 }, earth = { 0 }, sun = { 0 };
+    Mesh space = { 0 }, terrain = { 0 }, jupiter = { 0 }, earth = { 0 }, sun = { 0 };
     Mat4x4 ScaleMat, TransMat, PosMat;
+
+    // space = load_obj("objects/spacedom.obj");
+    // memcpy(space.texture_file, "textures/spacedom_texture.bmp", sizeof(char) * 30);
+    // loadTexture(&space);
+    // ScaleMat = scale_mat(1000.0);
+    // TransMat = translation_mat(0.0, 0.0, 500.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[4] = meshxm(space, PosMat);
+    // free(space.v);
+    // free(space.t);
 
     terrain = load_obj("objects/terrain.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
@@ -624,11 +637,6 @@ const static void releaseScene(Scene *s) {
 /* Starts the Projection Pipeline. */ // ########################################################################################################
 const static void project(Scene s) {
 
-    if (!PROJECTIONVIEW)
-        WorldMat = mxm(ViewMat, PerspMat);
-    else
-        WorldMat = mxm(ViewMat, OrthoMat);
-
     // int THREADS = s.indexes;
     // pthread_t threads[THREADS];
 
@@ -707,6 +715,13 @@ static void *pipeLine(void *c) {
     Mesh *arg = (Mesh*)c;
     Mesh cache = meshxm(*arg, WorldMat);
 
+    /* Transform normals in View Space before clipping and perspective division. */
+    for (int i = 0; i < cache.t_indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+            cache.t[i].vn[j] = vecxm(cache.t[i].vn[j], ViewMat);
+        }
+    }
+
     /* At this Point triangles must be clipped against near plane. */
     Vector plane_near_p = { 0.0, 0.0, NPlane },
         plane_near_n = { 0.0, 0.0, 1.0 };
@@ -736,7 +751,7 @@ static void *pipeLine(void *c) {
 const static void ppdiv(Mesh *c) {
 
     for (int i = 0; i < c->t_indexes; i++) {
-        c->t[i].normal = norm_vec(triangle_cp(c->t[i]));
+        // c->t[i].fn = norm_vec(triangle_cp(c->t[i]));
         for (int j = 0; j < 3; j++) {
             if ( c->t[i].v[j].w > 0.00 ) {
                 c->t[i].v[j].x /= c->t[i].v[j].w;
@@ -770,8 +785,7 @@ const static Mesh shadowcull(const Mesh c) {
         fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
     for (int i = 0; i < c.t_indexes; i++) {
-        // cp = norm_vec(triangle_cp(c.t[i]));
-        dpc = winding3D(c.t[i]);//dot_product(norm_vec(light.Pos), cp);
+        dpc = winding3D(c.t[i]);
 
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -801,8 +815,7 @@ const static Mesh bfculling(const Mesh c) {
         fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
 
     for (int i = 0; i < c.t_indexes; i++) {
-        // cp = norm_vec(triangle_cp(c.t[i]));
-        dpc = winding3D(c.t[i]);//dot_product(norm_vec(camera.Pos), cp);
+        dpc = winding3D(c.t[i]);
 
         if (dpc > 0.00) {
             r.t = realloc(r.t, sizeof(Triangle) * counter);
@@ -811,8 +824,6 @@ const static Mesh bfculling(const Mesh c) {
                 fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
 
             r.t[index] = c.t[i];
-            // r.t[index].normal = cp;
-            // logVector(cp);
 
             counter++;
             index++;
@@ -833,9 +844,9 @@ const static Mesh viewtoscreen(const Mesh c) {
             c.t[i].v[j].z -= 1;
             c.t[i].v[j].w = 1 / w;
 
-            c.t[i].tex[j].u /= w;
-            c.t[i].tex[j].v /= w;
-            c.t[i].tex[j].w = c.t[i].v[j].w;
+            c.t[i].vt[j].u /= w;
+            c.t[i].vt[j].v /= w;
+            c.t[i].vt[j].w = c.t[i].v[j].w;
         }
     }
 
@@ -862,11 +873,11 @@ const static Mesh viewtoscreen(const Mesh c) {
 
     return uf;
 }
-/* Rasterize given Mesh by sorting the triangles by Y, then by X and finally, passing them to the appropriate functions according to their charakteristics. */
+/* Rasterize given Mesh by passing them to the appropriate function. */
 const static void rasterize(const Mesh c) {
     signed int tex_h = c.texture_height - 1;
     signed int tex_w = c.texture_width - 1;
-    model.lightPos = vecxm(light.Pos, WorldMat);
+    model.lightPos = vecxm(light.Pos, ViewMat);
     // model.lightPos = divide_vec(model.lightPos, model.lightPos.w);
     // model.CameraPos = vecxm(camera.Pos, WorldMat);
     // model.CameraPos = divide_vec(model.CameraPos, model.CameraPos.w);
@@ -893,20 +904,18 @@ const static void rasterize(const Mesh c) {
 const static Phong initLightModel(void) {
     Phong r = { 0 };
     Vector LightColor = { 1.0, 1.0, 1.0 };
+    Vector SpecularColor = { 0.0, 1.0, 0.0 };
 
     r.LightColor = LightColor;
     r.objColor.Blue = 0.129 * 255;
     r.objColor.Green = 0.478 * 255;
     r.objColor.Red = 0.615 * 255;
 
-    // r.lightPos = vecxm(light.Pos, WorldMat);
-    // r.lightPos = divide_vec(r.lightPos, r.lightPos.w);
-
-    r.AmbientStrength = 0.2;
+    r.AmbientStrength = 0.1;
     r.Ambient = multiply_vec(r.LightColor, r.AmbientStrength);
 
     r.SpecularStrength = 0.75;
-    r.Specular = multiply_vec(r.LightColor, r.SpecularStrength);
+    r.Specular = multiply_vec(SpecularColor, r.SpecularStrength);
 
     r.width = wa.width;
     r.halfWidth = HALFW;

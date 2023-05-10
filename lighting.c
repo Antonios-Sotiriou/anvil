@@ -3,6 +3,8 @@
 #include <stdlib.h>
 
 #include "header_files/logging.h"
+#include "header_files/exec_time.h"
+#include "header_files/matrices.h"
 
 const Pixel phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW, const float shadow) {
     Pixel result;
@@ -12,10 +14,14 @@ const Pixel phong(Phong model, const float pixX, const float pixY, const float p
         .x = ((pixX / model.halfWidth) - 1.0) * w,
         .y = ((pixY / model.halfHeight) - 1.0) * w,
         .z = (1 + pixZ) * w,
+        .w = w
     };
+    pixel = vecxm(pixel, model.ViewSpace);
+    model.normal = norm_vec(model.normal);
 
     Vector lightdir = norm_vec(sub_vecs(pixel, model.lightPos));
-    float diff = dot_product(lightdir, model.normal);
+    float diff = dot_product(model.normal, lightdir);
+    // printf("diff: %f    \n", diff);
     if ( diff > 0 )
         diffuse = multiply_vec(model.LightColor, diff);
 
@@ -34,7 +40,6 @@ const Pixel phong(Phong model, const float pixX, const float pixY, const float p
     // printf("spec: %f\n", spec);
     specular = multiply_vec(model.Specular, spec);
     // logVector(specular);
-
     if (shadow) {
         result.Blue = (specular.x + diffuse.x + model.Ambient.x) * model.objColor.Blue;
         result.Green = (specular.y + diffuse.y + model.Ambient.y) * model.objColor.Green;

@@ -49,14 +49,15 @@ const Mesh load_obj(const char path[]) {
         r.t[i].c = f[i].vc - 1;
 
         if (tex != NULL) {
-            r.t[i].tex[0] = tex[f[i].ta - 1];
-            r.t[i].tex[1] = tex[f[i].tb - 1];
-            r.t[i].tex[2] = tex[f[i].tc - 1];
+            r.t[i].vt[0] = tex[f[i].ta - 1];
+            r.t[i].vt[1] = tex[f[i].tb - 1];
+            r.t[i].vt[2] = tex[f[i].tc - 1];
         }
 
         if (n != NULL) {
-            r.t[i].normal = n[f[i].na - 1];
-            r.t[i].normal.w = 0.0;
+            r.t[i].vn[0] = n[f[i].na - 1];
+            r.t[i].vn[1] = n[f[i].nb - 1];
+            r.t[i].vn[2] = n[f[i].nc - 1];
         }
     }
     
@@ -252,7 +253,7 @@ static Vector *get_normals(const char path[]) {
                         n[index].x = tempx;
                         n[index].y = tempy;
                         n[index].z = tempz;
-                        n[index].w = 1.00;
+                        n[index].w = 0.00;
 
                         index++;
                         dynamic_inc++;
