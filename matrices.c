@@ -118,7 +118,6 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
         r.v[i].w = c.v[i].x * m.m[0][3] + c.v[i].y * m.m[1][3] + c.v[i].z * m.m[2][3] + c.v[i].w * m.m[3][3];
     }
     for (int i = 0; i < c.t_indexes; i++) {
-        // r.t[i].normal = vecxm(c.t[i].normal, m);
         r.t[i].v[0] = r.v[c.t[i].a];
         r.t[i].v[1] = r.v[c.t[i].b];
         r.t[i].v[2] = r.v[c.t[i].c];
