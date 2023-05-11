@@ -4,4 +4,5 @@ header_files/camera.h
 header_files/bmp.h
 header_files/logging.h
 logging.c
-
+objects/
+textures/

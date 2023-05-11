@@ -114,15 +114,21 @@ const void fillGeneral(Triangle t, float minX, float maxX, float minY, float max
 
         for (int x = minX; x <= maxX; x++) {
 
-            if ( ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) )
-                if (xa == 0)
-                    xa = 1;
-            if ( ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) )
-                if (xb == 0)
-                    xb = 1;
-            if ( ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) )
-                if (xc == 0)
-                    xc = 1;
+            // if ( ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) )
+            //     if (xa >= 0 && xa <= 500)
+                //    if (xa == 0)
+            //         // xa = 1;
+            //         // drawLine(x, y, x, y, 255, 0, 0);
+            // if ( ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) )
+            //     if (xb >= 0 && xb <= 500)
+                //    if (xb == 0)
+            //         // xb = 1;
+            //         // drawLine(x, y, x, y, 255, 0, 0);
+            // if ( ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) )
+            //     if (xc >= 0 && xc <= 500)
+                //    if (xc == 0)
+            //         // xc = 1;
+            //         // drawLine(x, y, x, y, 255, 0, 0);
 
             if ( xa <= 0 && xb <= 0 && xc <= 0 ) {
                 const float a = xa / area;
