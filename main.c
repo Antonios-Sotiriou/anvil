@@ -5,7 +5,6 @@
 #include <X11/Xutil.h>
 #include <math.h>
 #include <unistd.h>
-#include <pthread.h>
 
 /* signal */
 #include <signal.h>
@@ -86,7 +85,7 @@ Global light = {
 };
 
 Scene scene = { 0 };
-Mat4x4 ViewMat = { 0 }, WorldMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
+Mat4x4 ViewMat = { 0 }, WorldMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, rePerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
 Phong model = { 0 };
 
 /* Project Global Variables. */
@@ -101,6 +100,7 @@ static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
 static float bias = 0.000120; //0.000440;
+static int AdjustShadow = 0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
@@ -108,7 +108,6 @@ static float NPlane = 1.0;
 static float FPlane = 0.00001;
 static float Scale = 0.03;
 static int DEBUG = 0;
-pthread_mutex_t mutex;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -145,8 +144,8 @@ const static void loadTexture(Mesh *c);
 const static void createScene(Scene *s);
 const static void releaseScene(Scene *s);
 const static void project(Scene s);
-static void *applyShadows(void *c);
-static void *pipeLine(void *c);
+static void *applyShadows(Scene s);
+static void *pipeLine(Scene s);
 const static void ppdiv(Mesh *c);
 const static Mesh shadowcull(const Mesh c);
 const static Mesh bfculling(const Mesh c);
@@ -288,7 +287,7 @@ const static void keypress(XEvent *event) {
             break;
         case 114 : rotate_light(light, Angle, 0.0, 1.0, 0.0);    /* r */
             break;
-        case 99 : rotate_origin(&scene.m[1], Angle, 1.0, 0.0, 0.0);        /* c */
+        case 99 : rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);        /* c */
             break;
         case 98 : exportScene();                            /* b */
             break;
@@ -304,10 +303,10 @@ const static void keypress(XEvent *event) {
                 fprintf(stderr, "Projecting Shadow buffer -- PROJECTBUFFER: %d\n", PROJECTBUFFER);
             }
             break;
-        case 110 : bias -= 0.01001;               /* n */
+        case 110 : bias -= 0.00001;               /* n */
             printf("Bias: %f\n", bias);
             break;
-        case 117 : bias += 0.01001;              /* u */
+        case 117 : bias += 0.00001;              /* u */
             printf("Bias: %f\n", bias);
             break;
         case 118 :
@@ -361,6 +360,8 @@ const static void keypress(XEvent *event) {
     }
     LookAt = lookat(eye->Pos, eye->U, eye->V, eye->N);
     ViewMat = inverse_mat(LookAt);
+    model.lightPos = vecxm(light.Pos, ViewMat);
+    AdjustShadow = 1;
 
     if (!PROJECTIONVIEW)
         WorldMat = mxm(ViewMat, PerspMat);
@@ -490,7 +491,7 @@ const static void rotate_z(Mesh *c, const float angle) {
 }
 /* Rotates object according to own axis. */
 const static void rotate_origin(Mesh *c, const float angle, float x, float y, float z) {
-    Vector pos = { 0.0, 0.0, 510.0 };
+    Vector pos = { 1.0, -1.0, 510.0 };
     Vector axis = { x, y, z };
     Quat n = setQuat(0, pos);
 
@@ -498,7 +499,9 @@ const static void rotate_origin(Mesh *c, const float angle, float x, float y, fl
     Mat4x4 rm = MatfromQuat(xrot, n.v);
 
     Mesh cache = *c;
+    normalsxm(&cache, rm);
     *c = meshxm(cache, rm);
+    
     free(cache.t);
     free(cache.v);
 }
@@ -564,17 +567,18 @@ const static void initMeshes(Scene *s) {
     ScaleMat = scale_mat(10.0);
     TransMat = translation_mat(-10.0, 0.0, 580.0);
     PosMat = mxm(ScaleMat, TransMat);
-    s->m[2] = meshxm(jupiter, PosMat);
+    s->m[1] = meshxm(jupiter, PosMat);
     free(jupiter.v);
     free(jupiter.t);
 
     earth = load_obj("objects/earth.obj");
     memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
     loadTexture(&earth);
-    ScaleMat = scale_mat(1.0);
+    ScaleMat = scale_mat(0.5);
     TransMat = translation_mat(1.0, -1.0, 510.0);
     PosMat = mxm(ScaleMat, TransMat);
-    s->m[1] = meshxm(earth, PosMat);
+    // normalsxm(&earth, PosMat);
+    s->m[2] = meshxm(earth, PosMat);
     free(earth.v);
     free(earth.t);
 
@@ -587,10 +591,6 @@ const static void initMeshes(Scene *s) {
     s->m[3] = meshxm(sun, PosMat);
     free(sun.v);
     free(sun.t);
-
-    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
-    ViewMat = inverse_mat(LookAt);
-    WorldMat = mxm(ViewMat, PerspMat);
 }
 /* Loads the appropriate Textures and importand Texture infos. */
 const static void loadTexture(Mesh *c) {
@@ -636,122 +636,93 @@ const static void releaseScene(Scene *s) {
 }
 /* Starts the Projection Pipeline. */ // ########################################################################################################
 const static void project(Scene s) {
+    if (AdjustShadow) {
+        for (int y = 0; y < wa.height; y++)
+            for (int x = 0; x < wa.width; x++) {
+                shadow_buffer[y][x] = 1.0;
+            }
 
-    // int THREADS = s.indexes;
-    // pthread_t threads[THREADS];
-
-    // for (int i = 0; i < s.indexes; i++) {
-    //     // pthread_mutex_lock(&mutex);
-    //     if (pthread_create(&threads[i], NULL, &applyShadows, &s.m[i]))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- applyShadows\n");
-    // }
-
-    // for (int i = 0; i < s.indexes; i++) {
-    //     if (pthread_join(threads[i], NULL))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
-    // }
-
-    // for (int i = 0; i < s.indexes; i++) {
-    //     // pthread_mutex_lock(&mutex);
-    //     if (pthread_create(&threads[i], NULL, &pipeLine, &s.m[i]))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_create() -- pipeLine()\n");
-    // }
-
-    // for (int i = 0; i < s.indexes; i++) {
-    //     if (pthread_join(threads[i], NULL))
-    //         fprintf(stderr, "CRITICAL : An error has occured. project() -- pthread_join()\n");
-    // }
-
-    for (int i = 0; i < s.indexes; i++) {
-        applyShadows(&s.m[i]);
+        applyShadows(s);
+        AdjustShadow = 0;
     }
-
-    for (int i = 0; i < s.indexes; i++) {
-        pipeLine(&s.m[i]);
-    }
+    pipeLine(s);
 
     displayScene();
     clearBuffers(wa.height, wa.width);
 }
-static void *applyShadows(void *c) {
+static void *applyShadows(Scene s) {
     Mat4x4 lm = lookat(light.Pos, light.U, light.V, light.N);
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
 
     model.ModelSpace = LookAt;
     model.LightSpace = LightMat;
-    model.ViewSpace = reperspective_mat(FOV, AspectRatio);
+    model.ViewSpace = rePerspMat;
     model.bias = bias;
 
+    for (int i = 0; i < s.indexes; i++) {
 
-    Mesh *arg = (Mesh*)c;
-    Mesh cache = meshxm(*arg, LightMat);
+        Mesh cache = meshxm(s.m[i], LightMat);
 
-    /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = { 0.0, 0.0, NPlane },
-           plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+        /* At this Point triangles must be clipped against near plane. */
+        Vector plane_near_p = { 0.0, 0.0, NPlane },
+            plane_near_n = { 0.0, 0.0, 1.0 };
+        Mesh nf = clipp(cache, plane_near_p, plane_near_n);
 
-    if (nf.t_indexes) {
-        /* Applying Backface culling before we proceed to full frustum clipping. */
-        Mesh bf = shadowcull(nf);
+        if (nf.t_indexes) {
+            /* Applying Backface culling before we proceed to full frustum clipping. */
+            Mesh bf = shadowcull(nf);
 
-        /* Sending to translation from NDC to Screen Coordinates. */
-        Mesh uf = viewtoscreen(bf);
+            /* Sending to translation from NDC to Screen Coordinates. */
+            Mesh uf = viewtoscreen(bf);
 
-        createShadowmap(uf);
-        free(uf.t);
-        free(uf.v);
-    } else {
-        free(nf.t);
-        free(nf.v);
-    }
-
-    // pthread_mutex_unlock(&mutex);
-    return NULL;
-}
-static void *pipeLine(void *c) {
-
-    Mesh *arg = (Mesh*)c;
-    Mesh cache = meshxm(*arg, WorldMat);
-
-    /* Transform normals in View Space before clipping and perspective division. */
-    for (int i = 0; i < cache.t_indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-            cache.t[i].vn[j] = vecxm(cache.t[i].vn[j], ViewMat);
+            createShadowmap(uf);
+            free(uf.t);
+            free(uf.v);
+        } else {
+            free(nf.t);
+            free(nf.v);
         }
     }
+    return NULL;
+}
+static void *pipeLine(Scene s) {
 
-    /* At this Point triangles must be clipped against near plane. */
-    Vector plane_near_p = { 0.0, 0.0, NPlane },
-        plane_near_n = { 0.0, 0.0, 1.0 };
-    Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+    for (int i = 0; i < s.indexes; i++) {
 
-    /* Applying perspective division. */
-    if (nf.t_indexes) {
-        ppdiv(&nf);
+        Mesh cache = meshxm(s.m[i], WorldMat);
 
-        /* Applying Backface culling before we proceed to full frustum clipping. */
-        Mesh bf = bfculling(nf);
+        /* Transform normals in View Space before clipping and perspective division. */
+        normalsxm(&cache, ViewMat);
 
-        /* Sending to translation from NDC to Screen Coordinates. */
-        Mesh uf = viewtoscreen(bf);
-        rasterize(uf);
-        free(uf.t);
-        free(uf.v);
-    } else {
-        free(nf.t);
-        free(nf.v);
+        /* At this Point triangles must be clipped against near plane. */
+        Vector plane_near_p = { 0.0, 0.0, NPlane },
+            plane_near_n = { 0.0, 0.0, 1.0 };
+        Mesh nf = clipp(cache, plane_near_p, plane_near_n);
+
+        /* Applying perspective division. */
+        if (nf.t_indexes) {
+            ppdiv(&nf);
+
+            /* Applying Backface culling before we proceed to full frustum clipping. */
+            Mesh bf = bfculling(nf);
+
+            /* Sending to translation from NDC to Screen Coordinates. */
+            Mesh uf = viewtoscreen(bf);
+            rasterize(uf);
+            free(uf.t);
+            free(uf.v);
+        } else {
+            free(nf.t);
+            free(nf.v);
+        }
     }
-
-    // pthread_mutex_unlock(&mutex);
     return NULL;
 } // ##############################################################################################################################################
 /* Perspective division. */
 const static void ppdiv(Mesh *c) {
 
     for (int i = 0; i < c->t_indexes; i++) {
-        // c->t[i].fn = norm_vec(triangle_cp(c->t[i]));
         for (int j = 0; j < 3; j++) {
             if ( c->t[i].v[j].w > 0.00 ) {
                 c->t[i].v[j].x /= c->t[i].v[j].w;
@@ -760,18 +731,6 @@ const static void ppdiv(Mesh *c) {
             }
         }
     }
-    // for (int i = 0; i < c->v_indexes; i++) {
-    //     if ( c->v[i].w > 0.00 ) {
-    //         c->v[i].x /= c->v[i].w;
-    //         c->v[i].y /= c->v[i].w;
-    //         c->v[i].z /= c->v[i].w;
-    //     }
-    // }
-    // for (int i = 0; i < c->t_indexes; i++) {
-    //     c->t[i].v[0] = c->v[c->t[i].a];
-    //     c->t[i].v[1] = c->v[c->t[i].b];
-    //     c->t[i].v[2] = c->v[c->t[i].c];
-    // }
 }
 /* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
 const static Mesh shadowcull(const Mesh c) {
@@ -877,18 +836,13 @@ const static Mesh viewtoscreen(const Mesh c) {
 const static void rasterize(const Mesh c) {
     signed int tex_h = c.texture_height - 1;
     signed int tex_w = c.texture_width - 1;
-    model.lightPos = vecxm(light.Pos, ViewMat);
-    // model.lightPos = divide_vec(model.lightPos, model.lightPos.w);
-    // model.CameraPos = vecxm(camera.Pos, WorldMat);
-    // model.CameraPos = divide_vec(model.CameraPos, model.CameraPos.w);
-    // logVector(model.lightPos);
-    // logVector(model.CameraPos);
+
     for (int i = 0; i < c.t_indexes; i++) {
 
         if (DEBUG == 1) {
             drawLine(c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
-            drawLine(c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 0, 255, 0);
-            drawLine(c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 0, 0, 255);
+            drawLine(c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 255, 0, 0);
+            drawLine(c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 255, 0, 0);
         } else if (DEBUG == 2) {
             // clock_t start_time = start();
             fillTriangle(c.t[i]);
@@ -903,6 +857,8 @@ const static void rasterize(const Mesh c) {
 /* Initializing the structure which we pass arround for lighting calculations. This way we keep lighting vvariables more orginized. */
 const static Phong initLightModel(void) {
     Phong r = { 0 };
+
+    r.lightPos = vecxm(light.Pos, ViewMat);
     Vector LightColor = { 1.0, 1.0, 1.0 };
     Vector SpecularColor = { 0.0, 1.0, 0.0 };
 
@@ -960,9 +916,6 @@ const static void clearBuffers(const int height, const int width) {
     for (int y = 0; y < height; y++) {
         memset(pixels[y], 0, sizeof(Pixel) * width);
         memset(depth_buffer[y], 0, sizeof(float) * width);
-        for (int x = 0; x < wa.width; x++) {
-            shadow_buffer[y][x] = 1.0;
-        }
     }
 }
 /* Exports displayed Scene in bmp format. */
@@ -1034,7 +987,9 @@ const static void initDependedVariables(void) {
     HALFW = wa.width / 2.00;
     HALFH = wa.height / 2.00;
     PerspMat = perspective_mat(FOV, AspectRatio);
+    rePerspMat = reperspective_mat(FOV, AspectRatio);
     OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
+    AdjustShadow = 1;
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -1079,7 +1034,6 @@ const static int board(void) {
         fprintf(stderr, "Warning: board() -- XInitThreads()\n");
         return EXIT_FAILURE;
     }
-    pthread_mutex_init(&mutex, NULL);
 
     XEvent event;
 
@@ -1092,14 +1046,16 @@ const static int board(void) {
     initMainWindow();
     initGlobalGC();
     pixmapcreate();
+    atomsinit();
+    registerSig(SIGSEGV);
 
     initDependedVariables();
     initBuffers();
+    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
+    ViewMat = inverse_mat(LookAt);
+    WorldMat = mxm(ViewMat, PerspMat);
     createScene(&scene);
     initMeshes(&scene);
-
-    atomsinit();
-    registerSig(SIGSEGV);
     model = initLightModel();
 
     float end_time = 0.0;
@@ -1121,7 +1077,7 @@ const static int board(void) {
         }
         usleep(16667 - (end_time * 1000));
     }
-    pthread_mutex_destroy(&mutex);
+
     return EXIT_SUCCESS;
 }
 const int main(int argc, char *argv[]) {

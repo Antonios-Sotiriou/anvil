@@ -8,37 +8,55 @@ extern float **shadow_buffer;
 extern Phong model;
 extern Mat4x4 WorldMat;
 
+const Pixel antialliasing(const Pixel a, const Pixel b) {
+    Pixel r = { 0 };
+    r.Red = (a.Red + b.Red) * 0.5;
+    r.Green = (a.Green + b.Green) * 0.5;
+    r.Blue = (a.Blue + b.Blue) * 0.5;
+    return r;
+}
+
 const void drawLine(float x1, float y1, float x2, float y2, const float red, const float green, const float blue) {
-    Pixel pix = { blue, green, red };
+    Pixel pix = { blue, green, red }, s1, s2;
+    Pixel test1 = { 255, 255, 255 };
+    Pixel test2 = { 255, 0, 0 };
     float delta_y = y2 - y1;
     float delta_x = x2 - x1;
 
     float fabsdy = fabs(delta_y);
     float fabsdx = fabs(delta_x);
 
-    float start_y = ceilf(y1 - 0.5);
-    float end_y = ceilf(y2 - 0.5);
-    float start_x = ceilf(x1 - 0.5);
-    float end_x = ceilf(x2 - 0.5);
+    int start_y = y1 + 0.5;
+    int end_y = y2 + 0.5;
+    int start_x = x1 + 0.5;
+    int end_x = x2 + 0.5;
 
-    float step_y, step_x;
-
+    int step_y, step_x;
+    int step_cache = start_y;
     if ( (delta_x == 0) && (delta_y == 0) ) {
-        memcpy(&pixels[(int)start_y][(int)start_x], &pix, sizeof(Pixel));
+        memcpy(&pixels[start_y][start_x], &pix, sizeof(Pixel));
     } else if ( fabsdx >= fabsdy ) {
         float slope = delta_y / delta_x;
 
         if (delta_x < 0) {
 
-            for (float x = start_x; x > end_x; x -= 1.0) {
-                step_y = ceilf(((slope * (x - start_x)) + y1) - 0.5);
-                memcpy(&pixels[(int)step_y][(int)x], &pix, sizeof(Pixel));
+            for (int x = start_x; x > end_x; x--) {
+                step_y = (slope * (x - start_x)) + y1;
+                memcpy(&pixels[step_y][x], &pix, sizeof(Pixel));
+                if ( step_cache != step_y) {
+                    s1 = antialliasing(pixels[step_y][x], pixels[step_cache][x]);
+                    s2 = antialliasing(pixels[step_y][x], pixels[step_y][x + 1]);
+                    memcpy(&pixels[step_cache][x], &test1, sizeof(Pixel));
+                    memcpy(&pixels[step_y][x + 1], &test2, sizeof(Pixel));
+                }
+                step_cache = step_y;
             }
         } else {
-
-            for (float x = start_x; x < end_x; x += 1.0) {
-                step_y = ceilf(((slope * (x - start_x)) + y1) - 0.5);
-                memcpy(&pixels[(int)step_y][(int)x], &pix, sizeof(Pixel));
+            int step_cache;
+            for (int x = start_x; x < end_x; x++) {
+                step_y = (slope * (x - start_x)) + y1;
+                memcpy(&pixels[step_y][x], &pix, sizeof(Pixel));
+                step_cache = step_y;
             }
         }
     } else if ( fabsdx < fabsdy ) {
@@ -46,15 +64,15 @@ const void drawLine(float x1, float y1, float x2, float y2, const float red, con
 
         if (delta_y < 0) {
 
-            for (float y = start_y; y > end_y; y -= 1.0) {
-                step_x = ceilf(((slope * (y - start_y)) + x1) - 0.5);
-                memcpy(&pixels[(int)y][(int)step_x], &pix, sizeof(Pixel));
+            for (int y = start_y; y > end_y; y--) {
+                step_x = (slope * (y - start_y)) + x1;
+                memcpy(&pixels[y][step_x], &pix, sizeof(Pixel));
             }
         } else {
 
-            for (float y = start_y; y < end_y; y += 1.0) {
-                step_x = ceilf(((slope * (y - start_y)) + x1) - 0.5);
-                memcpy(&pixels[(int)y][(int)step_x], &pix, sizeof(Pixel));
+            for (int y = start_y; y < end_y; y++) {
+                step_x = (slope * (y - start_y)) + x1;
+                memcpy(&pixels[y][step_x], &pix, sizeof(Pixel));
             }
         }
     } else {
@@ -89,9 +107,6 @@ const void fillTriangle(Triangle t) {
 }
 const void fillGeneral(const Triangle t, const float winding) {
     Pixel pix = { 0 };
-    // Vector light = divide_vec(model.lightPos, model.lightPos.w);
-    // logVector(light);
-    // const float dot = dot_product(model.lightPos, model.fn);
     const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x;
     const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y;
     const float z10 = t.v[1].z - t.v[0].z,    z20 = t.v[2].z - t.v[0].z,    z21 = t.v[2].z - t.v[1].z;
@@ -144,28 +159,22 @@ const void fillGeneral(const Triangle t, const float winding) {
                     model.normal = add_vecs(ny1, multiply_vec(sub_vecs(ny2, ny1), barycentric));
                     Vector shadow = shadowTest(x, y, depthZ, depthW);
                     if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias)) {
-                        pix = phong(model, x, y, depthZ, depthW, 0.0);
+                        pix = phong(model, x, y, depthZ, depthW, 1);
                     } else {
-                        pix = phong(model, x, y, depthZ, depthW, 1.0);
+                        pix = phong(model, x, y, depthZ, depthW, 0);
                     }
-                    // if (dot > 0)
-                    //     memcpy(&pixels[y][x], &model.objColor, sizeof(Pixel));
-                    // // pixels[y][x].Red = depthW * 70 * 255;
-                    // // pixels[y][x].Green = depthW * 70 * 255;
-                    // // pixels[y][x].Blue = depthW * 70 * 255;
-                    // else {
-                    //     pixels[y][x].Red = depthW * 70 * 255;
-                    //     pixels[y][x].Green = depthW * 70 * 255;
-                    //     pixels[y][x].Blue = depthW * 70 * 255;
-                    // }
+
+                    // pixels[y][x].Red = depthW * 70 * 255;
+                    // pixels[y][x].Green = depthW * 70 * 255;
+                    // pixels[y][x].Blue = depthW * 70 * 255;
 
                     memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                     depth_buffer[y][x] = depthW;
-                } //else if (depthW == depth_buffer[y][x]) {
-                //     pixels[y][x].Red = 0;
-                //     pixels[y][x].Green = 0;
-                //     pixels[y][x].Blue = 255;                    
-                // }
+                } else if (depthW == depth_buffer[y][x]) {
+                    pixels[y][x].Red = 0;
+                    pixels[y][x].Green = 0;
+                    pixels[y][x].Blue = 255;                    
+                }
                 xxs += 1.0;
             }
         }
@@ -213,27 +222,22 @@ const void fillGeneral(const Triangle t, const float winding) {
                 model.normal = add_vecs(ny1, multiply_vec(sub_vecs(ny2, ny1), barycentric));
                 Vector shadow = shadowTest(x, y, depthZ, depthW);
                 if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                    pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    pix = phong(model, x, y, depthZ, depthW, 1);
                 } else {
-                    pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    pix = phong(model, x, y, depthZ, depthW, 0);
                 }
-                // if (dot > 0)
-                //     memcpy(&pixels[y][x], &model.objColor, sizeof(Pixel));
-                // // pixels[y][x].Red = depthW * 70 * 255;
-                // // pixels[y][x].Green = depthW * 70 * 255;
-                // // pixels[y][x].Blue = depthW * 70 * 255;
-                // else {
-                //     pixels[y][x].Red = depthW * 70 * 255;
-                //     pixels[y][x].Green = depthW * 70 * 255;
-                //     pixels[y][x].Blue = depthW * 70 * 255;
-                // }
+
+                // pixels[y][x].Red = depthW * 70 * 255;
+                // pixels[y][x].Green = depthW * 70 * 255;
+                // pixels[y][x].Blue = depthW * 70 * 255;
+
                 memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                 depth_buffer[y][x] = depthW;
-            } //else if (depthW == depth_buffer[y][x]) {
-            //         pixels[y][x].Red = 0;
-            //         pixels[y][x].Green = 0;
-            //         pixels[y][x].Blue = 255;                    
-            // }
+            } else if (depthW == depth_buffer[y][x]) {
+                    pixels[y][x].Red = 0;
+                    pixels[y][x].Green = 0;
+                    pixels[y][x].Blue = 255;                    
+            }
             xxs += 1.0;
         }
     }
@@ -343,9 +347,9 @@ const void texGeneral(const Triangle t, const float winding, Pixel **texels, con
                     memcpy(&model.objColor, &texels[tex_y][tex_x], sizeof(Pixel));
                     Vector shadow = shadowTest(x, y, depthZ, depthW);
                     if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                            pix = phong(model, x, y, depthZ, depthW, 0.0);
+                            pix = phong(model, x, y, depthZ, depthW, 1);
                     } else {
-                            pix = phong(model, x, y, depthZ, depthW, 1.0);
+                            pix = phong(model, x, y, depthZ, depthW, 0);
                     }
                     memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                     depth_buffer[y][x] = depthW;
@@ -418,9 +422,9 @@ const void texGeneral(const Triangle t, const float winding, Pixel **texels, con
                 memcpy(&model.objColor, &texels[tex_y][tex_x], sizeof(Pixel));
                 Vector shadow = shadowTest(x, y, depthZ, depthW);
                 if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                    pix = phong(model, x, y, depthZ, depthW, 0.0);
+                    pix = phong(model, x, y, depthZ, depthW, 1);
                 } else {
-                    pix = phong(model, x, y, depthZ, depthW, 1.0);
+                    pix = phong(model, x, y, depthZ, depthW, 0);
                 }
                 memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                 depth_buffer[y][x] = depthW;
