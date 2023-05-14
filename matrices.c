@@ -110,12 +110,13 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
     r.v = malloc(sizeof(Vector) * c.v_indexes);
     if (!r.v)
         fprintf(stderr, "Could not allocate memory for Cache Mesh. meshxm() -- malloc().\n");
-
+    Vector temp_v;
     for (int i = 0; i < c.v_indexes; i++) {
-        r.v[i].x = c.v[i].x * m.m[0][0] + c.v[i].y * m.m[1][0] + c.v[i].z * m.m[2][0] + c.v[i].w * m.m[3][0];
-        r.v[i].y = c.v[i].x * m.m[0][1] + c.v[i].y * m.m[1][1] + c.v[i].z * m.m[2][1] + c.v[i].w * m.m[3][1];
-        r.v[i].z = c.v[i].x * m.m[0][2] + c.v[i].y * m.m[1][2] + c.v[i].z * m.m[2][2] + c.v[i].w * m.m[3][2];
-        r.v[i].w = c.v[i].x * m.m[0][3] + c.v[i].y * m.m[1][3] + c.v[i].z * m.m[2][3] + c.v[i].w * m.m[3][3];
+        temp_v = c.v[i];
+        r.v[i].x = temp_v.x * m.m[0][0] + temp_v.y * m.m[1][0] + temp_v.z * m.m[2][0] + temp_v.w * m.m[3][0];
+        r.v[i].y = temp_v.x * m.m[0][1] + temp_v.y * m.m[1][1] + temp_v.z * m.m[2][1] + temp_v.w * m.m[3][1];
+        r.v[i].z = temp_v.x * m.m[0][2] + temp_v.y * m.m[1][2] + temp_v.z * m.m[2][2] + temp_v.w * m.m[3][2];
+        r.v[i].w = temp_v.x * m.m[0][3] + temp_v.y * m.m[1][3] + temp_v.z * m.m[2][3] + temp_v.w * m.m[3][3];
     }
     for (int i = 0; i < c.t_indexes; i++) {
         r.t[i].v[0] = r.v[c.t[i].a];
@@ -123,6 +124,19 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
         r.t[i].v[2] = r.v[c.t[i].c];
     }
     return r;
+}
+/* Multiplies a Mesh normals with the given Matrix. */
+const void normalsxm(const Mesh *c, const Mat4x4 m) {
+    Vector temp_vn;
+    for (int i = 0; i < c->t_indexes; i++) {
+        for (int j = 0; j < 3; j++) {
+            temp_vn = c->t[i].vn[j];
+            c->t[i].vn[j].x = temp_vn.x * m.m[0][0] + temp_vn.y * m.m[1][0] + temp_vn.z * m.m[2][0] + temp_vn.w * m.m[3][0];
+            c->t[i].vn[j].y = temp_vn.x * m.m[0][1] + temp_vn.y * m.m[1][1] + temp_vn.z * m.m[2][1] + temp_vn.w * m.m[3][1];
+            c->t[i].vn[j].z = temp_vn.x * m.m[0][2] + temp_vn.y * m.m[1][2] + temp_vn.z * m.m[2][2] + temp_vn.w * m.m[3][2];
+            c->t[i].vn[j].w = temp_vn.x * m.m[0][3] + temp_vn.y * m.m[1][3] + temp_vn.z * m.m[2][3] + temp_vn.w * m.m[3][3];
+        }
+    }
 }
 /* Multiplies a Vector with the given Matrix and returns a new Vector, leaving the original unmodified. */
 const Vector vecxm(const Vector v, const Mat4x4 m) {
@@ -165,6 +179,15 @@ const Mat4x4 inverse_mat(const Mat4x4 m) {
     rm.m[3][1] = -(m.m[3][0] * rm.m[0][1] + m.m[3][1] * rm.m[1][1] + m.m[3][2] * rm.m[2][1]);
     rm.m[3][2] = -(m.m[3][0] * rm.m[0][2] + m.m[3][1] * rm.m[1][2] + m.m[3][2] * rm.m[2][2]);
     rm.m[3][3] = 1.0;
+    return rm;
+}
+/* Inverts the given Matrix m returning a new 4x4 Matrix. */
+const Mat4x4 transpose_mat(const Mat4x4 m) {
+    Mat4x4 rm = { 0 };
+    rm.m[0][0] =   m.m[0][0];    rm.m[0][1] = m.m[1][0];    rm.m[0][2] = m.m[2][0];    rm.m[0][3] = m.m[3][0];
+    rm.m[1][0] =   m.m[0][1];    rm.m[1][1] = m.m[1][1];    rm.m[1][2] = m.m[2][1];    rm.m[1][3] = m.m[3][1];
+    rm.m[2][0] =   m.m[0][2];    rm.m[2][1] = m.m[1][2];    rm.m[2][2] = m.m[2][2];    rm.m[2][3] = m.m[3][2];
+    rm.m[3][0] =   m.m[0][3];    rm.m[3][1] = m.m[1][3];    rm.m[3][2] = m.m[2][3];    rm.m[3][3] = m.m[3][3];
     return rm;
 }
 /* Multiplies two given Matrices m1, m2.Returns a new 4x4 Matrix. */

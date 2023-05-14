@@ -4,24 +4,20 @@ extern float **shadow_buffer;
 extern Phong model;
 
 const void createShadowmap(Mesh c) {
-
-    for (int i = 0; i < c.t_indexes; i++)
-        shadowTriangle(c.t[i]);
-}
-const void shadowTriangle(Triangle t) {
     Vector temp_v;
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-            if (t.v[i].y < t.v[j].y) {
-                temp_v = t.v[i];
-                t.v[i] = t.v[j];
-                t.v[j] = temp_v;
-            }
-
-    float winding = winding3D(t);
-    shadowGeneral(t, winding);
+    for (int m = 0; m < c.t_indexes; m++) {
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+                if (c.t[m].v[i].y < c.t[m].v[j].y) {
+                    temp_v = c.t[m].v[i];
+                    c.t[m].v[i] = c.t[m].v[j];
+                    c.t[m].v[j] = temp_v;
+                }
+        shadowTriangle(c.t[m]);
+    }
 }
-const void shadowGeneral(const Triangle t, const float winding) {
+const void shadowTriangle(const Triangle t) {
+    const float winding = winding3D(t);
     const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x;
     const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y;
     const float z10 = t.v[1].z - t.v[0].z,    z20 = t.v[2].z - t.v[0].z,    z21 = t.v[2].z - t.v[1].z;

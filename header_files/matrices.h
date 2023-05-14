@@ -40,10 +40,12 @@ const Mat4x4 reperspective_mat(const float fov, const float aspectratio);
 const Mat4x4 orthographic_mat(const float scaleX, const float scaleY, const float transX, const float transY);
 const Mat4x4 reorthographic_mat(const float fov, const float aspectratio);
 const Mesh meshxm(const Mesh c, const Mat4x4 m);
+const void normalsxm(const Mesh *c, const Mat4x4 m);
 const Vector vecxm(const Vector v, const Mat4x4 m);
 const Mat4x4 pointat(const Vector P, const Vector T, const Vector V);
 const Mat4x4 lookat(const Vector P, const Vector U, const Vector V, const Vector N);
 const Mat4x4 inverse_mat(const Mat4x4 m);
+const Mat4x4 transpose_mat(const Mat4x4 m);
 const Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2);
 
 #endif /* _MATRICES_H */
