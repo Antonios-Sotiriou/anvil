@@ -6,17 +6,21 @@
 #include "header_files/exec_time.h"
 #include "header_files/matrices.h"
 
+extern int HALFW;
+extern int HALFH;
+extern Mat4x4 rePerspMat;
+
 const Pixel phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW, const int shadow) {
     Pixel result;
     Vector diffuse = { 0 }, specular = { 0 };
     float w = 1 / pixW;
     Vector pixel = {
-        .x = ((pixX / model.halfWidth) - 1.0) * w,
-        .y = ((pixY / model.halfHeight) - 1.0) * w,
+        .x = ((pixX / HALFW) - 1.0) * w,
+        .y = ((pixY / HALFH) - 1.0) * w,
         .z = (1 + pixZ) * w,
         .w = w
     };
-    pixel = vecxm(pixel, model.ViewSpace);
+    pixel = vecxm(pixel, rePerspMat);
     model.normal = norm_vec(model.normal);
 
     Vector lightdir = norm_vec(sub_vecs(pixel, model.lightPos));

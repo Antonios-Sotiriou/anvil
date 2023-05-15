@@ -119,9 +119,9 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
         r.v[i].w = temp_v.x * m.m[0][3] + temp_v.y * m.m[1][3] + temp_v.z * m.m[2][3] + temp_v.w * m.m[3][3];
     }
     for (int i = 0; i < c.t_indexes; i++) {
-        r.t[i].v[0] = r.v[c.t[i].a];
-        r.t[i].v[1] = r.v[c.t[i].b];
-        r.t[i].v[2] = r.v[c.t[i].c];
+        r.t[i].v[0] = r.v[c.t[i].va];
+        r.t[i].v[1] = r.v[c.t[i].vb];
+        r.t[i].v[2] = r.v[c.t[i].vc];
     }
     return r;
 }

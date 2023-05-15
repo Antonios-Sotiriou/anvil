@@ -6,7 +6,6 @@ extern Pixel **pixels;
 extern float **depth_buffer;
 extern float **shadow_buffer;
 extern Phong model;
-extern Mat4x4 WorldMat;
 
 const Pixel antialliasing(const Pixel a, const Pixel b) {
     Pixel r = { 0 };
@@ -120,9 +119,9 @@ const void fillGeneral(const Triangle t, const float winding) {
         swap(&wa, &wb, sizeof(float));
     }
 
-    const int y_start = t.v[0].y;
-    const int y_end1 = t.v[1].y;
-    const int y_end2 = t.v[2].y;
+    const int y_start = t.v[0].y + 0.5;
+    const int y_end1 = t.v[1].y + 0.5;
+    const int y_end2 = t.v[2].y + 0.5;
 
     if (y10 != 0)
         for (int y = y_start; y < y_end1; y++) {
@@ -136,8 +135,8 @@ const void fillGeneral(const Triangle t, const float winding) {
                 swap(&ny1, &ny2, sizeof(Vector));
             }
 
-            int x_start = ((ma * yA) + t.v[0].x);
-            int x_end = ((mb * yA) + t.v[0].x);
+            int x_start = ((ma * yA) + t.v[0].x) + 0.5;
+            int x_end = ((mb * yA) + t.v[0].x) + 0.5;
             if (x_start > x_end)
                 swap(&x_start, &x_end, sizeof(int));
 
@@ -190,8 +189,8 @@ const void fillGeneral(const Triangle t, const float winding) {
         Vector ny1 = add_vecs(t.vn[1], multiply_vec(sub_vecs(t.vn[2], t.vn[1]), nt));
         Vector ny2 = add_vecs(t.vn[0], multiply_vec(sub_vecs(t.vn[2], t.vn[0]), nc));
 
-        int x_start = ((mb * yA) + t.v[0].x);
-        int x_end = ((mc * yB) + t.v[1].x);
+        int x_start = ((mb * yA) + t.v[0].x) + 0.5;
+        int x_end = ((mc * yB) + t.v[1].x) + 0.5;
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(int));
 
