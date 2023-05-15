@@ -44,9 +44,9 @@ const Mesh load_obj(const char path[]) {
         r.t[i].v[0] = r.v[f[i].va - 1];
         r.t[i].v[1] = r.v[f[i].vb - 1];
         r.t[i].v[2] = r.v[f[i].vc - 1];
-        r.t[i].a = f[i].va - 1;
-        r.t[i].b = f[i].vb - 1;
-        r.t[i].c = f[i].vc - 1;
+        r.t[i].va = f[i].va - 1;
+        r.t[i].vb = f[i].vb - 1;
+        r.t[i].vc = f[i].vc - 1;
 
         if (tex != NULL) {
             r.t[i].vt[0] = tex[f[i].ta - 1];

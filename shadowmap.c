@@ -1,7 +1,11 @@
 #include "header_files/shadowmap.h"
 
+extern XWindowAttributes wa;
+extern int HALFW;
+extern int HALFH;
 extern float **shadow_buffer;
 extern Phong model;
+extern Mat4x4 LookAt, LightMat, rePerspMat;
 
 const void createShadowmap(Mesh c) {
     Vector temp_v;
@@ -96,8 +100,8 @@ const void shadowTriangle(const Triangle t) {
 }
 const Vector shadowTest(const float pixX, const float pixY, const float pixZ, const float pixW) {
     /* Transform to NDC space coordinates. */
-    float ndcx = (pixX / model.halfWidth) - 1.0;
-    float ndcy = (pixY / model.halfHeight) - 1.0;
+    float ndcx = (pixX / HALFW) - 1.0;
+    float ndcy = (pixY / HALFH) - 1.0;
     float ndcz = pixZ + 1.0;
     float ndcw = 1 / pixW;
     
@@ -108,25 +112,25 @@ const Vector shadowTest(const float pixX, const float pixY, const float pixZ, co
 
     /* Transform to View space coordinates. */
     Vector r = { ndcx, ndcy, ndcz, ndcw };
-    r = vecxm(r, model.ViewSpace);
+    r = vecxm(r, rePerspMat);
 
     /* Transform to Model space coordinates. */
     r.w = 1.0;
-    r = vecxm(r, model.ModelSpace);
+    r = vecxm(r, LookAt);
 
     /* Transform to Light space coordinates. */
-    r = vecxm(r, model.LightSpace);
+    r = vecxm(r, LightMat);
 
     /* Transform to Screen space coordinates. */
-    r.x = (1.0 + r.x) * model.halfWidth;
-    if (r.x >= model.width)
-        r.x = model.width - 1;
+    r.x = (1.0 + r.x) * HALFW;
+    if (r.x >= wa.width)
+        r.x = wa.width - 1;
     else if (r.x < 0)
         r.x = 0;
 
-    r.y = (1.0 + r.y) * model.halfHeight;
-    if (r.y >= model.height)
-        r.y = model.height - 1;
+    r.y = (1.0 + r.y) * HALFH;
+    if (r.y >= wa.height)
+        r.y = wa.height - 1;
     else if (r.y < 0)
         r.y = 0;
 

@@ -85,14 +85,14 @@ Global light = {
 };
 
 Scene scene = { 0 };
-Mat4x4 ViewMat = { 0 }, WorldMat = { 0 }, LookAt = { 0 }, PerspMat = { 0 }, rePerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
+Mat4x4 WorldMat = { 0 }, LookAt = { 0 }, ViewMat = { 0 }, PerspMat = { 0 }, rePerspMat = { 0 }, OrthoMat = { 0 }, LightMat = { 0 };
 Phong model = { 0 };
 
 /* Project Global Variables. */
 static int INIT = 0;
 static int RUNNING = 1;
-static int HALFW = 0; // Half width of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
-static int HALFH = 0; // Half height of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
+int HALFW = 0; // Half width of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
+int HALFH = 0; // Half height of the screen; This variable is initialized in configurenotify function.Help us decrease the number of divisions.
 static int EYEPOINT = 0;
 static int PROJECTIONVIEW = 0;
 static int PROJECTBUFFER = 1;
@@ -231,7 +231,6 @@ const static void configurenotify(XEvent *event) {
 
             pixmapcreate();
             initBuffers();
-            initLightModel();
         }
         initDependedVariables();
 
@@ -550,47 +549,47 @@ const static void initMeshes(Scene *s) {
     // free(space.v);
     // free(space.t);
 
-    terrain = load_obj("objects/terrain.obj");
+    terrain = load_obj("objects/triangles_overlap.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
-    ScaleMat = scale_mat(10.0);
-    // rotate_y(&terrain, 90);
+    ScaleMat = scale_mat(1.0);
+    rotate_y(&terrain, 90);
     TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
     free(terrain.t);
 
-    jupiter = load_obj("objects/earth.obj");
-    memcpy(jupiter.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    loadTexture(&jupiter);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, 0.0, 580.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[1] = meshxm(jupiter, PosMat);
-    free(jupiter.v);
-    free(jupiter.t);
+    // jupiter = load_obj("objects/earth.obj");
+    // memcpy(jupiter.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    // loadTexture(&jupiter);
+    // ScaleMat = scale_mat(10.0);
+    // TransMat = translation_mat(-10.0, 0.0, 580.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[1] = meshxm(jupiter, PosMat);
+    // free(jupiter.v);
+    // free(jupiter.t);
 
-    earth = load_obj("objects/earth.obj");
-    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    loadTexture(&earth);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(1.0, -1.0, 510.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    // normalsxm(&earth, PosMat);
-    s->m[2] = meshxm(earth, PosMat);
-    free(earth.v);
-    free(earth.t);
+    // earth = load_obj("objects/earth.obj");
+    // memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    // loadTexture(&earth);
+    // ScaleMat = scale_mat(0.5);
+    // TransMat = translation_mat(1.0, -1.0, 510.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // // normalsxm(&earth, PosMat);
+    // s->m[2] = meshxm(earth, PosMat);
+    // free(earth.v);
+    // free(earth.t);
 
-    sun = load_obj("objects/spacedom.obj");
-    memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
-    loadTexture(&sun);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(light.Pos.x, light.Pos.y, light.Pos.z);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[3] = meshxm(sun, PosMat);
-    free(sun.v);
-    free(sun.t);
+    // sun = load_obj("objects/spacedom.obj");
+    // memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
+    // loadTexture(&sun);
+    // ScaleMat = scale_mat(0.5);
+    // TransMat = translation_mat(light.Pos.x, light.Pos.y, light.Pos.z);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[3] = meshxm(sun, PosMat);
+    // free(sun.v);
+    // free(sun.t);
 }
 /* Loads the appropriate Textures and importand Texture infos. */
 const static void loadTexture(Mesh *c) {
@@ -654,11 +653,6 @@ static void *applyShadows(Scene s) {
     Mat4x4 lm = lookat(light.Pos, light.U, light.V, light.N);
     Mat4x4 Lview = inverse_mat(lm);
     LightMat = mxm(Lview, OrthoMat);
-
-    model.ModelSpace = LookAt;
-    model.LightSpace = LightMat;
-    model.ViewSpace = rePerspMat;
-    model.bias = bias;
 
     for (int i = 0; i < s.indexes; i++) {
 
@@ -873,11 +867,6 @@ const static Phong initLightModel(void) {
     r.SpecularStrength = 0.75;
     r.Specular = multiply_vec(SpecularColor, r.SpecularStrength);
 
-    r.width = wa.width;
-    r.halfWidth = HALFW;
-    r.height = wa.height;
-    r.halfHeight = HALFH;
-
     return r;
 }
 /* Writes the final Pixel values on screen. */
@@ -989,6 +978,11 @@ const static void initDependedVariables(void) {
     PerspMat = perspective_mat(FOV, AspectRatio);
     rePerspMat = reperspective_mat(FOV, AspectRatio);
     OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
+
+    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
+    ViewMat = inverse_mat(LookAt);
+    WorldMat = mxm(ViewMat, PerspMat);
+
     AdjustShadow = 1;
 }
 const static void pixmapcreate(void) {
@@ -1051,9 +1045,6 @@ const static int board(void) {
 
     initDependedVariables();
     initBuffers();
-    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
-    ViewMat = inverse_mat(LookAt);
-    WorldMat = mxm(ViewMat, PerspMat);
     createScene(&scene);
     initMeshes(&scene);
     model = initLightModel();

@@ -26,7 +26,7 @@ typedef struct {
 
 /* World Triangle */
 typedef struct {
-    int a, b, c;
+    int va, vb, vc;
     Vector v[LastVector];
     Textor vt[LastVector];
     Vector vn[LastVector];
@@ -63,7 +63,6 @@ typedef struct {
 
 /* structure for lighting models. Helps to keep orginized the lighting values that we need to pass arround. */
 typedef struct {
-    Vector CameraPos;
     Vector lightPos;
     Vector LightColor;
     Pixel objColor;
@@ -72,14 +71,6 @@ typedef struct {
     Vector Ambient;
     float SpecularStrength;
     Vector Specular;
-    int width;
-    int halfWidth;
-    int height;
-    int halfHeight;
-    float dot;
-    Mat4x4 ModelSpace;
-    Mat4x4 LightSpace;
-    Mat4x4 ViewSpace;
     float bias;
 } Phong;
 
