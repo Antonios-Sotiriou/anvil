@@ -366,7 +366,7 @@ const static void keypress(XEvent *event) {
         WorldMat = mxm(ViewMat, PerspMat);
     else
         WorldMat = mxm(ViewMat, OrthoMat);
-    // project(scene);
+    project(scene);
 }
 /* Rotates the camera to look left. */
 const static void look_left(Global *g, const float angle) {
@@ -549,12 +549,12 @@ const static void initMeshes(Scene *s) {
     // free(space.v);
     // free(space.t);
 
-    terrain = load_obj("objects/triangles_overlap.obj");
+    terrain = load_obj("objects/triangle.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(1.0);
     rotate_y(&terrain, 90);
-    TransMat = translation_mat(0.0, 0.0, 500.0);
+    TransMat = translation_mat(0.0, 0.5, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
@@ -794,7 +794,7 @@ const static Mesh viewtoscreen(const Mesh c) {
             w = c.t[i].v[j].w;
             c.t[i].v[j].x = XWorldToScreen;
             c.t[i].v[j].y = YWorldToScreen;
-            c.t[i].v[j].z -= 1;
+            c.t[i].v[j].z *= 0.5;//( (1 / c.t[i].v[j].z) - (1 / ZNear) ) / ( (1 / ZFar) - (1 / ZNear) );//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
             c.t[i].v[j].w = 1 / w;
 
             c.t[i].vt[j].u /= w;
@@ -1053,7 +1053,7 @@ const static int board(void) {
     while (RUNNING) {
 
         // clock_t start_time = start();
-        project(scene);
+        // project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
