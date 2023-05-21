@@ -17,7 +17,7 @@ const Pixel phong(Phong model, const float pixX, const float pixY, const float p
     Vector pixel = {
         .x = ((pixX / HALFW) - 1.0) * w,
         .y = ((pixY / HALFH) - 1.0) * w,
-        .z = (1 + pixZ) * w,
+        .z = (pixZ / 0.5) * w,
         .w = w
     };
     pixel = vecxm(pixel, rePerspMat);

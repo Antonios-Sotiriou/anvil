@@ -4,7 +4,6 @@ extern XWindowAttributes wa;
 extern int HALFW;
 extern int HALFH;
 extern float **shadow_buffer;
-extern Phong model;
 extern Mat4x4 LookAt, LightMat, rePerspMat;
 
 const void createShadowmap(Mesh c) {
@@ -102,7 +101,7 @@ const Vector shadowTest(const float pixX, const float pixY, const float pixZ, co
     /* Transform to NDC space coordinates. */
     float ndcx = (pixX / HALFW) - 1.0;
     float ndcy = (pixY / HALFH) - 1.0;
-    float ndcz = pixZ + 1.0;
+    float ndcz = pixZ / 0.5;
     float ndcw = 1 / pixW;
     
     /* Transform to Homogeneus / Clipp coordinates. */
@@ -134,7 +133,7 @@ const Vector shadowTest(const float pixX, const float pixY, const float pixZ, co
     else if (r.y < 0)
         r.y = 0;
 
-    r.z -= 1.0;
+    r.z *= 0.5;
 
     return r;
 }
