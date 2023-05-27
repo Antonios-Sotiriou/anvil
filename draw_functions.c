@@ -103,61 +103,25 @@ const void fillTriangle(Triangle t) {
     float winding = 1 / winding3D(t);
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     fillGeneral(t, winding);
-    if (winding < 0) {
-        drawLine(t.v[1].x, t.v[1].y, t.v[0].x, t.v[0].y, 255, 0, 0);
-        drawLine(t.v[2].x, t.v[2].y, t.v[1].x, t.v[1].y, 255, 0, 0);
-        drawLine(t.v[0].x, t.v[0].y, t.v[2].x, t.v[2].y, 255, 0, 0);
-    } else {
-        drawLine(t.v[1].x, t.v[1].y, t.v[0].x, t.v[0].y, 0, 0, 255);
-        drawLine(t.v[2].x, t.v[2].y, t.v[1].x, t.v[1].y, 0, 0, 255);
-        drawLine(t.v[0].x, t.v[0].y, t.v[2].x, t.v[2].y, 0, 0, 255);     
-    }
 }
 const static void fillGeneral(const Triangle t, const float winding) {
     Pixel pix = { 0 };
-    const int x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x02 = t.v[0].x - t.v[2].x,    x21 = t.v[2].x - t.v[1].x;
-    const int y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y02 = t.v[0].y - t.v[2].y,    y21 = t.v[2].y - t.v[1].y;
+    const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x02 = t.v[0].x - t.v[2].x,    x21 = t.v[2].x - t.v[1].x;
+    const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y02 = t.v[0].y - t.v[2].y,    y21 = t.v[2].y - t.v[1].y;
+
+    const float ma = x10 / y10,    mb = x02 / y02,    mc = x21 / y21;
     const float z0 = t.v[0].z,    z1 = t.v[1].z,     z2 = t.v[2].z;
     const float w0 = t.v[0].w,    w1 = t.v[1].w,     w2 = t.v[2].w;
 
-    int ma = 0, mb = 0, mc = 0;
-    // const float mb = x20 / y20,    mb = x20 / y20,    mc = x21 / y21;
-    if (x10 != 0 && y10 != 0)
-        ma = x10 / y10;
-    if (x20 != 0 && y20 != 0)
-        mb = x20 / y20;
-    if (x21 != 0 && y21 != 0)
-        mc = x21 / y21;
-        
-    
-    // if (t.v[1].x > t.v[2].x) {
-    //     // printf("winding: %f\n", winding3D(t));
-    //     swap(&ma, &mb, sizeof(float));
-    // }
 
     const int y_start = t.v[0].y + 0.5;
     const int y_end1 = t.v[1].y + 0.5;
     const int y_end2 = t.v[2].y + 0.5;
 
-    int x_s = t.v[0].x + 0.5;
-    int x_e = t.v[0].x + 0.5;
-    // logTriangle(t, 1, 0, 0);
-    // printf("ma : %d    ---->    mb : %d\n", ma, mb);
-    // printf("x10 : %d   ---->    y10: %d\n", x10, y10);
-    // printf("x20 : %d   ---->    y20: %d\n", x20, y20);
-    // printf("x21: %d    ---->    y21: %d\n", x21, y21);
-    // printf("x_s: %d    ---->    x_e: %d\n", x_s, x_e);
-    if ( (x_s + ma) > (x_e + mb) )
-        swap(&x_s, &x_e, sizeof(int));
-
     const float area = ((t.v[0].x - t.v[1].x) * y21) - ((t.v[0].y - t.v[1].y) * x21);
-    // float ya = ((x_s - t.v[0].x) * y10) - ((y_start - t.v[0].y) * x10);
-    // float yb = ((x_s - t.v[1].x) * y21) - ((y_start - t.v[1].y) * x21);
-    // float yc = ((x_s - t.v[2].x) * y02) - ((y_start - t.v[2].y) * x02);
-
-    int ya = -((y_start - t.v[0].y) * x10);
-    int yb = -((y_start - t.v[1].y) * x21);
-    int yc = -((y_start - t.v[2].y) * x02);
+    float ya = -(y_start - t.v[0].y) * x10;
+    float yb = -(y_start - t.v[1].y) * x21;
+    float yc = -(y_start - t.v[2].y) * x02;
 
     if (y10 != 0)
         for (int y = y_start; y < y_end1; y++) {
@@ -167,24 +131,19 @@ const static void fillGeneral(const Triangle t, const float winding) {
             int x_end = ((mb * yA) + t.v[0].x) + 0.5;
             if (x_start > x_end)
                 swap(&x_start, &x_end, sizeof(int));
-            // printf("x_start : %4d     ---->    x_end   : %4d\n", x_start, x_end);
-            // float xa = ya;
-            // float xb = yb;
-            // float xc = yc;
-            // printf("Before xa: %f,    xb: %f,    xc: %f\n", xa, xb, xc);
-            int xa = ((x_s - t.v[0].x) * y10) + ya;
-            int xb = ((x_s - t.v[1].x) * y21) + yb;
-            int xc = ((x_s - t.v[2].x) * y02) + yc;
-            printf("Before xa: %d,    xb: %d,    xc: %d\n", xa, xb, xc);
 
-            for (int x = x_s; x < x_e; x++) {
+            float xa = ((x_start - t.v[0].x) * y10) + ya;
+            float xb = ((x_start - t.v[1].x) * y21) + yb;
+            float xc = ((x_start - t.v[2].x) * y02) + yc;
+
+            for (int x = x_start; x < x_end; x++) {
                 const float a = xa / area;
                 const float b = xb / area;
                 const float c = xc / area;
 
                 const float depthZ = a * z2 + b * z0 + c * z1;
                 const float depthW = a * w2 + b * w0 + c * w1;
-                
+
                 if ( depthW > depth_buffer[y][x] ) {
 
                     model.normal.x = a * t.vn[2].x + b * t.vn[0].x + c * t.vn[1].x;
@@ -198,20 +157,14 @@ const static void fillGeneral(const Triangle t, const float winding) {
                         pix = phong(model, x, y, depthZ, depthW, 0);
                     }
 
-                    // pixels[y][x].Red = depthW * 70 * 255;
-                    // pixels[y][x].Green = depthW * 70 * 255;
-                    // pixels[y][x].Blue = depthW * 70 * 255;
-
                     memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                     depth_buffer[y][x] = depthW;
                 }
                 xa += y10, xb += y21, xc += y02;
             }
             ya += -x10, yb += -x21, yc += -x02;
-            x_s += ma, x_e += mb;
-            // printf("x_s_test: %4d     ---->    x_e_test: %4d\n", x_s, x_e);
         }
-    printf("\n\n");
+
     if (y21 == 0)
         return;
     for (int y = y_end1; y < y_end2; y++) {
@@ -223,9 +176,6 @@ const static void fillGeneral(const Triangle t, const float winding) {
         if (x_start > x_end)
             swap(&x_start, &x_end, sizeof(int));
 
-        // float xa = ya;
-        // float xb = yb;
-        // float xc = yc;
         float xa = ((x_start - t.v[0].x) * y10) + ya;
         float xb = ((x_start - t.v[1].x) * y21) + yb;
         float xc = ((x_start - t.v[2].x) * y02) + yc;
@@ -250,10 +200,6 @@ const static void fillGeneral(const Triangle t, const float winding) {
                 } else {
                     pix = phong(model, x, y, depthZ, depthW, 0);
                 }
-
-                // pixels[y][x].Red = depthW * 70 * 255;
-                // pixels[y][x].Green = depthW * 70 * 255;
-                // pixels[y][x].Blue = depthW * 70 * 255;
 
                 memcpy(&pixels[y][x], &pix, sizeof(Pixel));
                 depth_buffer[y][x] = depthW;
