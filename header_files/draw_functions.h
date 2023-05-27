@@ -47,6 +47,7 @@ const void fillTriangle(Triangle t);
 const static void fillNorthway(const Triangle t, const float winding);
 const static void fillSouthway(const Triangle t, const float winding);
 const static void fillGeneral(const Triangle t, const float winding);
+// const void fillGeneral(Triangle t, int minX, int maxX, int minY, int maxY);
 
 const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const int tex_width);
 const static void texNorthway(const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width);
