@@ -553,7 +553,7 @@ const static void initMeshes(Scene *s) {
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
-    rotate_y(&terrain, 90);
+    // rotate_y(&terrain, 90);
     TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
@@ -703,6 +703,7 @@ static void *pipeLine(Scene s) {
 
             /* Sending to translation from NDC to Screen Coordinates. */
             Mesh uf = viewtoscreen(bf);
+
             rasterize(uf);
             free(uf.t);
             free(uf.v);
@@ -808,23 +809,25 @@ const static Mesh viewtoscreen(const Mesh c) {
            plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(c, plane_far_p, plane_far_n);
 
-    Vector plane_right_p = { (float)wa.width - 1.0, 0.0, 0.0 },
-           plane_right_n = { -1.0, 0.0, 0.0 };
-    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    if (DEBUG == 1) {
+        Vector plane_right_p = { (float)wa.width - 1.0, 0.0, 0.0 },
+            plane_right_n = { -1.0, 0.0, 0.0 };
+        Mesh rf = clipp(ff, plane_right_p, plane_right_n);
 
-    Vector plane_down_p = { 0.0, (float)wa.height - 1.0, 0.0 },
-           plane_down_n = { 0.0, -1.0, 0.0 };
-    Mesh df = clipp(rf, plane_down_p, plane_down_n);
+        Vector plane_down_p = { 0.0, (float)wa.height - 1.0, 0.0 },
+            plane_down_n = { 0.0, -1.0, 0.0 };
+        Mesh df = clipp(rf, plane_down_p, plane_down_n);
 
-    Vector plane_left_p = { 0.0, 0.0, 0.0 },
-           plane_left_n = { 1.0, 0.0, 0.0 };
-    Mesh lf = clipp(df, plane_left_p, plane_left_n);
+        Vector plane_left_p = { 0.0, 0.0, 0.0 },
+            plane_left_n = { 1.0, 0.0, 0.0 };
+        Mesh lf = clipp(df, plane_left_p, plane_left_n);
 
-    Vector plane_up_p = { 0.0, 0.0, 0.0 },
-           plane_up_n = { 0.0, 1.0, 0.0 };
-    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-
-    return uf;
+        Vector plane_up_p = { 0.0, 0.0, 0.0 },
+            plane_up_n = { 0.0, 1.0, 0.0 };
+        Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+        return uf;
+    }
+    return ff;
 }
 /* Rasterize given Mesh by passing them to the appropriate function. */
 const static void rasterize(const Mesh c) {
@@ -973,8 +976,8 @@ const static void initGlobalGC(void) {
 }
 const static void initDependedVariables(void) {
     AspectRatio = ((float)wa.width / (float)wa.height);
-    HALFW = wa.width / 2.00;
-    HALFH = wa.height / 2.00;
+    HALFW = wa.width >> 1;
+    HALFH = wa.height >> 1;
     PerspMat = perspective_mat(FOV, AspectRatio);
     rePerspMat = reperspective_mat(FOV, AspectRatio);
     OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
@@ -1052,12 +1055,12 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        // clock_t start_time = start();
+        clock_t start_time = start();
         project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
-        // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
+        // rotate_origin(&scene.m[1], 1, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        // end_time = end(start_time);
+        end_time = end(start_time);
 
         while(XPending(displ)) {
 

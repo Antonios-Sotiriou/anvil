@@ -46,13 +46,12 @@ const void drawLine(float x1, float y1, float x2, float y2, const float red, con
 const void fillTriangle(Triangle t);
 const static void fillNorthway(const Triangle t, const float winding);
 const static void fillSouthway(const Triangle t, const float winding);
-const static void fillGeneral(const Triangle t, const float winding);
-// const void fillGeneral(Triangle t, int minX, int maxX, int minY, int maxY);
+// const static void fillGeneral(const Triangle t, const float winding);
+const void fillGeneral(const Triangle t, const int minX, const int maxX, const int minY, const int maxY);
 
 const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const int tex_width);
 const static void texNorthway(const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width);
 const static void texSouthway(const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width);
-const static void texGeneral(const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width);
-
+const void texGeneral(const Triangle t, Pixel **texels, const int tex_height, const int tex_width, int minX, int maxX, int minY, int maxY);
 #endif /* _DRAW_FUNCTIONS_H */
 
