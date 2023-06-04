@@ -7,6 +7,13 @@ extern Pixel **pixels;
 extern float **depth_buffer;
 extern Phong model;
 
+// #include <pthread.h>
+// extern pthread_mutex_t mutexQueue;
+// extern pthread_cond_t condQueue;
+// extern Task TaskQueue[256];
+// extern int TASKCOUNT;
+// extern void submitTask(Task task);
+
 const Pixel antialliasing(const Pixel a, const Pixel b) {
     Pixel r = { 0 };
     r.Red = (a.Red + b.Red) * 0.5;
@@ -154,6 +161,16 @@ const void fillGeneral(const Triangle t, int minX, int maxX, int minY, int maxY)
                     model.normal.x = a * t.vn[2].x + b * t.vn[0].x + c * t.vn[1].x;
                     model.normal.y = a * t.vn[2].y + b * t.vn[0].y + c * t.vn[1].y;
                     model.normal.z = a * t.vn[2].z + b * t.vn[0].z + c * t.vn[1].z;
+
+                    // Task task = {
+                    //     .taskFunction = &phong,
+                    //     .model = model,
+                    //     .arg1 = x,
+                    //     .arg2 = y,
+                    //     .arg3 = depthZ,
+                    //     .arg4 = depthW
+                    // };
+                    // submitTask(task);
 
                     phong(model, x, y, depthZ, depthW);
                     // pixels[y][x].Red = depthW * 10 * 255;

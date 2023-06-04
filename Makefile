@@ -1,10 +1,12 @@
-# Compile all c files to crwindow executable!
+# Compile all c files to anvil executable!
 
 CC = gcc
 CFLAGS = -Werror -g # -O2 -Os -Og -O0
 OBJ = anvil
 RM = rm
 LINKS = -lX11 -lm
+INTRINSICS = -msse4.2
+FILENAME = main.c
 
 install:
 	./install.sh;
@@ -17,6 +19,9 @@ all:
 
 exec:
 	./$(OBJ)
+
+assembly:
+	$(CC) -S $(FILENAME);
 
 clean:
 	sudo apt autoremove -y;

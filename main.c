@@ -8,6 +8,7 @@
 
 /* signal */
 #include <signal.h>
+// #include <immintrin.h>
 
 /* Project specific headers */
 #include "header_files/locale.h"
@@ -21,20 +22,39 @@
 #include "header_files/general_functions.h"
 #include "header_files/quaternions.h"
 #include "header_files/shadowmap.h"
+#include "header_files/lighting.h"
 
 /* testing */
 #include "header_files/test_shapes.h"
 #include "header_files/exec_time.h"
 #include "header_files/logging.h"
 
+/* ############################################## THREAD POOL ################################################################### */
+/* Multithreading, Thread Pool Global variables. */
+#include <pthread.h>
+#define THREADS 4
+pthread_mutex_t mutexQueue;
+pthread_cond_t condQueue;
+
+typedef struct {
+    void (*taskFunction)(Vector, float, float, float, float);
+    float arg1, arg2, arg3, arg4;
+    Vector model;
+} Task;
+
+pthread_t threads[THREADS];
+Task TaskQueue[800 * 800];
+int TASKCOUNT = 0;
+
+void submitTask(Task task);
+void printTask(Vector normal, float a, float b, float c, float d);
+/* ############################################## THREAD POOL ################################################################### */
+
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 enum { Pos, U, V, N, C};
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define XWorldToScreen            ( (1 + c.t[i].v[j].x) * HALFW )
-#define YWorldToScreen            ( (1 + c.t[i].v[j].y) * HALFH )
-
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask )
@@ -62,20 +82,6 @@ Global camera = {
     .V   = { 0.0, 1.0, 0.0, 0.0 },
     .N   = { 0.0, 0.0, 1.0, 0.0 }
 };
-// Global light = {
-//     .Pos = { -9.648195, -16.342173, 517.552246, 0.0 },
-//     .U   = { -0.883299, -0.006683, -0.468767, 0.0 },
-//     .V   = { -0.330613, 0.717806, 0.612739, 0.0 },
-//     .N   = { 0.332388, 0.696211, -0.636246, 0.0 },
-//     .C   = { 1.0, 1.0, 1.0}
-// };
-// Global light = {
-//     .Pos = { 0, -10, 500, 1.0 },
-//     .U   = { 1, 0, 0, 0.0 },
-//     .V   = { 0, 1, 0, 0.0 },
-//     .N   = { 0, 0, 1, 0.0 },
-//     .C   = { 1.0, 1.0, 1.0}
-// };
 Global light = {
     .Pos = { -56.215076, -47.867058, 670.036438, 1.0 },
     .U   = { -0.907780, -0.069064, -0.413726, 0.0 },
@@ -99,8 +105,9 @@ static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
-static float bias = 0.000120; //0.000440;
+static float bias = 0.000120;
 static int AdjustShadow = 0;
+static int AdjustScene = 0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
@@ -166,7 +173,7 @@ const static void pixmapdisplay(void);
 const static void atomsinit(void);
 const static void sigsegv_handler(const int sig);
 const static int registerSig(const int signal);
-const static int board(void);
+static void *board(void  *args);
 static void (*handler[LASTEvent]) (XEvent *event) = {
     [ClientMessage] = clientmessage,
     [ReparentNotify] = reparentnotify,
@@ -200,6 +207,12 @@ const static void clientmessage(XEvent *event) {
         printf("Reached step 7\n");
         XDestroyWindow(displ, win);
         printf("Reached step 8\n");
+
+        int i = 0;
+        for (i = 0; i < THREADS; i++)
+            if (i)
+                if (pthread_cancel(threads[i]));
+                    fprintf(stderr, "Thread Cancelation of thead[%d] returned an error.\n", i);
 
         RUNNING = 0;
     }
@@ -243,6 +256,17 @@ const static void buttonpress(XEvent *event) {
     printf("buttonpress event received\n");
     printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
     printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
+    for (int i = 0; i < 10000; i++) {
+        Task task = {
+            .taskFunction = &printTask,
+            .model = camera.Pos,
+            .arg1 = 1.0,
+            .arg2 = 2.0,
+            .arg3 = 3.0,
+            .arg4 = 4.0
+        };
+        submitTask(task);
+    }
 }
 
 const static void keypress(XEvent *event) {
@@ -361,6 +385,7 @@ const static void keypress(XEvent *event) {
     ViewMat = inverse_mat(LookAt);
     model.lightPos = vecxm(light.Pos, ViewMat);
     AdjustShadow = 1;
+    AdjustScene = 1;
 
     if (!PROJECTIONVIEW)
         WorldMat = mxm(ViewMat, PerspMat);
@@ -644,8 +669,12 @@ const static void project(Scene s) {
         applyShadows(s);
         AdjustShadow = 0;
     }
-    pipeLine(s);
-
+    // if (AdjustScene) {
+    //     clearBuffers(wa.height, wa.width);
+        pipeLine(s);
+    //     displayScene();
+    //     AdjustScene = 0;
+    // }
     displayScene();
     clearBuffers(wa.height, wa.width);
 }
@@ -793,8 +822,8 @@ const static Mesh viewtoscreen(const Mesh c) {
     for (int i = 0; i < c.t_indexes; i++) {
         for (int j = 0; j < 3; j++) {
             w = c.t[i].v[j].w;
-            c.t[i].v[j].x = XWorldToScreen;
-            c.t[i].v[j].y = YWorldToScreen;
+            c.t[i].v[j].x = (++c.t[i].v[j].x) * HALFW;
+            c.t[i].v[j].y = (++c.t[i].v[j].y) * HALFH;
             c.t[i].v[j].z *= 0.5;//( (1 / c.t[i].v[j].z) - (1 / ZNear) ) / ( (1 / ZFar) - (1 / ZNear) );//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
             c.t[i].v[j].w = 1 / w;
 
@@ -810,11 +839,11 @@ const static Mesh viewtoscreen(const Mesh c) {
     Mesh ff = clipp(c, plane_far_p, plane_far_n);
 
     if (DEBUG == 1) {
-        Vector plane_right_p = { (float)wa.width - 1.0, 0.0, 0.0 },
+        Vector plane_right_p = { wa.width - 1.0, 0.0, 0.0 },
             plane_right_n = { -1.0, 0.0, 0.0 };
         Mesh rf = clipp(ff, plane_right_p, plane_right_n);
 
-        Vector plane_down_p = { 0.0, (float)wa.height - 1.0, 0.0 },
+        Vector plane_down_p = { 0.0, wa.height - 1.0, 0.0 },
             plane_down_n = { 0.0, -1.0, 0.0 };
         Mesh df = clipp(rf, plane_down_p, plane_down_n);
 
@@ -987,6 +1016,7 @@ const static void initDependedVariables(void) {
     WorldMat = mxm(ViewMat, PerspMat);
 
     AdjustShadow = 1;
+    AdjustScene = 1;
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -1024,12 +1054,48 @@ const static int registerSig(const int signal) {
     }
     return EXIT_SUCCESS;
 }
+/* ############################################## THREAD POOL ################################################################### */
+const void executeTask(Task *task) {
+    task->taskFunction(task->model, task->arg1, task->arg2, task->arg3, task->arg4);
+}
+void *startThread(void *args) {
+    Task task;
+    while (1) {
+
+        pthread_mutex_lock(&mutexQueue);
+        while (TASKCOUNT == 0) {
+            pthread_cond_wait(&condQueue, &mutexQueue);
+        }
+
+        task = TaskQueue[0];
+        for (int i = 0; i < TASKCOUNT; i++) {
+            TaskQueue[i] = TaskQueue[i + 1];
+        }
+        TASKCOUNT--;
+
+        pthread_mutex_unlock(&mutexQueue);
+
+        executeTask(&task);
+    }
+}
+void submitTask(Task task) {
+    pthread_mutex_lock(&mutexQueue);
+    TaskQueue[TASKCOUNT] = task;
+    TASKCOUNT++;
+    pthread_mutex_unlock(&mutexQueue);
+    pthread_cond_signal(&condQueue);
+}
+void printTask(Vector normal, float a, float b, float c, float d) {
+    logVector(normal);
+    printf("a: %f,    b: %f,    c: %f,    d: %f\n", a, b, c, d);
+}
+/* ############################################## THREAD POOL ################################################################### */
 /* General initialization and event handling. */
-const static int board(void) {
+static void *board(void  *args) {
 
     if (!XInitThreads()) {
         fprintf(stderr, "Warning: board() -- XInitThreads()\n");
-        return EXIT_FAILURE;
+        // return EXIT_FAILURE;
     }
 
     XEvent event;
@@ -1037,7 +1103,7 @@ const static int board(void) {
     displ = XOpenDisplay(NULL);
     if (displ == NULL) {
         fprintf(stderr, "Warning: board() -- XOpenDisplay()\n");
-        return EXIT_FAILURE;
+        // return EXIT_FAILURE;
     }
 
     initMainWindow();
@@ -1072,7 +1138,7 @@ const static int board(void) {
         usleep(16667 - (end_time * 1000));
     }
 
-    return EXIT_SUCCESS;
+    // return EXIT_SUCCESS;
 }
 const int main(int argc, char *argv[]) {
 
@@ -1092,10 +1158,43 @@ const int main(int argc, char *argv[]) {
         }
     }
 
-    if (board()) {
-        fprintf(stderr, "ERROR: main() -- board()\n");
-        return EXIT_FAILURE;
+    /* ############################################## THREAD POOL ################################################################### */
+    pthread_mutex_init(&mutexQueue, NULL);
+    pthread_cond_init(&condQueue, NULL);
+
+    for (int i = 0; i < THREADS; i++) {
+        if (i == 0)
+            if (pthread_create(&threads[i], NULL, &board, NULL) != 0);
+        else 
+            if (pthread_create(&threads[i], NULL, &startThread, NULL) != 0)
+                fprintf(stderr, "Failed to create thread [ %d ]\n", i);
     }
+
+    // for (int i = 0; i < 100; i++) {
+    //     Task task = {
+    //         .taskFunction = &printTask,
+    //         .normal = camera.Pos,
+    //         .arg1 = 1.0,
+    //         .arg2 = 2.0,
+    //         .arg3 = 3.0,
+    //         .arg4 = 4.0
+    //     };
+    //     submitTask(task);
+    // }
+
+    for (int i = 0; i < THREADS; i++) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            fprintf(stderr, "Failed to join thread [ %d ]\n", i);
+        }
+    }
+    pthread_mutex_destroy(&mutexQueue);
+    pthread_cond_destroy(&condQueue);
+    /* ############################################## THREAD POOL ################################################################### */
+
+    // if (board()) {
+    //     fprintf(stderr, "ERROR: main() -- board()\n");
+    //     return EXIT_FAILURE;
+    // }
 
     XCloseDisplay(displ);
     

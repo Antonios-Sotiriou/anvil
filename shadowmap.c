@@ -94,13 +94,13 @@ const Vector shadowTest(Vector pixel) {
     r = vecxm(r, LightMat);
 
     /* Transform to Screen space coordinates. */
-    r.x = (1.0 + r.x) * HALFW;
+    r.x = (1.0 +r.x) * HALFW;
     if (r.x >= wa.width)
         r.x = wa.width - 1;
     else if (r.x < 0)
         r.x = 0;
 
-    r.y = (1.0 + r.y) * HALFH;
+    r.y = (1.0 +r.y) * HALFH;
     if (r.y >= wa.height)
         r.y = wa.height - 1;
     else if (r.y < 0)
