@@ -74,5 +74,11 @@ typedef struct {
     float bias;
 } Phong;
 
+// typedef struct {
+//     void (*taskFunction)(Phong, float, float, float, float);
+//     float arg1, arg2, arg3, arg4;
+//     Phong model;
+// } Task;
+
 #endif /* _OBJECTS_H */
 
