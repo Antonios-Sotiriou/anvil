@@ -13,7 +13,7 @@ extern Mat4x4 rePerspMat;
 extern Pixel **pixels;
 extern float **shadow_buffer;
 
-const void phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW) {
+const float phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW) {
     Pixel r;
     Vector diffuse = { 0 }, specular = { 0 };
 
@@ -56,5 +56,6 @@ const void phong(Phong model, const float pixX, const float pixY, const float pi
     memcpy(&pixels[(int)pixY][(int)pixX], &r, sizeof(Pixel));
     /* Reseting the shadow bias after lighting calculations are done. */
     model.bias = 0.0;
+    return pixW;
 }
 
