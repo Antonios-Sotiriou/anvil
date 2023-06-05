@@ -5,8 +5,6 @@
     #include <X11/Xlib.h>
 #endif
 
-enum { AVector, BVector, CVector, LastVector};
-
 /* Pixels Struct for rgb values 0 - 65535 */
 typedef struct {
     unsigned char Red;
@@ -27,9 +25,9 @@ typedef struct {
 /* World Triangle */
 typedef struct {
     int va, vb, vc;
-    Vector v[LastVector];
-    Textor vt[LastVector];
-    Vector vn[LastVector];
+    Vector v[3];
+    Textor vt[3];
+    Vector vn[3];
     Vector fn;
 } Triangle;
 

@@ -1,11 +1,24 @@
 #include "header_files/draw_functions.h"
 #include "header_files/exec_time.h"
 #include "header_files/logging.h"
+#include "immintrin.h"
 
 extern XWindowAttributes wa;
 extern Pixel **pixels;
 extern float **depth_buffer;
 extern Phong model;
+
+typedef int i32x4 __attribute__((vector_size(16)));
+typedef union {
+    __m128i mm;
+    i32x4 i32;
+} v128i;
+typedef float f32x4 __attribute__((vector_size(16)));
+typedef union {
+    __m128 mm;
+    f32x4 f32;
+} v128f;
+// __mmask32
 
 // #include <pthread.h>
 // extern pthread_mutex_t mutexQueue;
@@ -13,6 +26,90 @@ extern Phong model;
 // extern Task TaskQueue[256];
 // extern int TASKCOUNT;
 // extern void submitTask(Task task);
+
+const int checkQuad(int xa, int xb, int xc, int *y10, int *y21, int *y02) {
+    v128i edge1, edge2, edge3, edge4, step_y, or1, or2, or3, allout;
+    step_y.mm = _mm_setr_epi32(*y10, *y21, *y02, 0);
+    edge1.mm = _mm_setr_epi32(xa, xb, xc, 0);
+    edge2.mm = _mm_add_epi32(edge1.mm, step_y.mm);
+    edge3.mm = _mm_add_epi32(edge2.mm, step_y.mm);
+    edge4.mm = _mm_add_epi32(edge3.mm, step_y.mm);
+
+    // or1.mm = _mm_or_si128(edge1.mm, edge2.mm);
+    // or2.mm = _mm_or_si128(edge3.mm, edge4.mm);
+    // or3.mm = _mm_or_si128(or1.mm, or2.mm);
+
+    int mask1 = (edge1.i32[0] | edge1.i32[1] | edge1.i32[2]) < 0 ? -1 : 1;
+    int mask2 = (edge2.i32[0] | edge2.i32[1] | edge2.i32[2]) < 0 ? -1 : 1;
+    int mask3 = (edge3.i32[0] | edge3.i32[1] | edge3.i32[2]) < 0 ? -1 : 1;
+    int mask4 = (edge4.i32[0] | edge4.i32[1] | edge4.i32[2]) < 0 ? -1 : 1;
+
+    if ( (mask1 | mask2 | mask3 | mask4) >= 0 )
+        return 1;
+    else if ( mask1 < 0 && mask2 < 0 && mask3 < 0 && mask4 < 0 )
+        return -1;
+    else
+        return 1;
+}
+
+const int DrawQuad(int xa, int xb, int xc, int *y10, int *y21, int *y02, float area, float z0, float z1, float z2, float w0, float w1, float w2, int x, int y, int modulo) {
+    v128f edge1, edge2, edge3, edge4, step_y, ar, zdepth, wdepth, az1, az2, az3, az4, aw1, aw2, aw3, aw4;
+    ar.mm = _mm_set1_ps(area);
+    step_y.mm = _mm_setr_ps((float)*y10, (float)*y21, (float)*y02, 0);
+    edge1.mm = _mm_setr_ps((float)xa, (float)xb, (float)xc, 0.0);
+    edge2.mm = _mm_add_ps(edge1.mm, step_y.mm);
+    edge3.mm = _mm_add_ps(edge2.mm, step_y.mm);
+    edge4.mm = _mm_add_ps(edge3.mm, step_y.mm);
+
+    edge1.mm = _mm_div_ps(edge1.mm, ar.mm);
+    edge2.mm = _mm_div_ps(edge2.mm, ar.mm);
+    edge3.mm = _mm_div_ps(edge3.mm, ar.mm);
+    edge4.mm = _mm_div_ps(edge4.mm, ar.mm);
+
+    // xa = ( (!xa) && (tpA) ) ? -1 : xa;
+    // xb = ( (!xb) && (tpB) ) ? -1 : xb;
+    // xc = ( (!xc) && (tpC) ) ? -1 : xc;
+
+    // const float a = (float)xa / area;
+    // const float b = (float)xb / area;
+    // const float c = (float)xc / area;
+
+    zdepth.mm = _mm_setr_ps(z2, z0, z1, 0.0);
+    wdepth.mm = _mm_setr_ps(w2, w0, w1, 0.0);
+
+    az1.mm = _mm_mul_ps(edge1.mm, zdepth.mm);
+    az2.mm = _mm_mul_ps(edge2.mm, zdepth.mm);
+    az3.mm = _mm_mul_ps(edge3.mm, zdepth.mm);
+    az4.mm = _mm_mul_ps(edge4.mm, zdepth.mm);
+
+    aw1.mm = _mm_mul_ps(edge1.mm, wdepth.mm);
+    aw2.mm = _mm_mul_ps(edge2.mm, wdepth.mm);
+    aw3.mm = _mm_mul_ps(edge3.mm, wdepth.mm);
+    aw4.mm = _mm_mul_ps(edge4.mm, wdepth.mm);
+
+    const float depthZ1 = az1.f32[0] + az1.f32[1] + az1.f32[2];
+    const float depthZ2 = az2.f32[0] + az2.f32[1] + az2.f32[2];
+    const float depthZ3 = az3.f32[0] + az3.f32[1] + az3.f32[2];
+    const float depthZ4 = az4.f32[0] + az4.f32[1] + az4.f32[2];
+
+    const float depthW1 = aw1.f32[0] + aw1.f32[1] + aw1.f32[2];
+    const float depthW2 = aw2.f32[0] + aw2.f32[1] + aw2.f32[2];
+    const float depthW3 = aw3.f32[0] + aw3.f32[1] + aw3.f32[2];
+    const float depthW4 = aw4.f32[0] + aw4.f32[1] + aw4.f32[2];
+
+    // const float depthZ = a * z2 + b * z0 + c * z1;
+    // const float depthW = a * w2 + b * w0 + c * w1;
+
+    depth_buffer[y][x] = depthW1 > depth_buffer[y][x] ? phong(model, x, y, depthZ1, depthW1) : depth_buffer[y][x];
+    depth_buffer[y][x + 1] = depthW2 > depth_buffer[y][x + 1] ? phong(model, x + 1, y, depthZ2, depthW2) : depth_buffer[y][x + 1];
+    depth_buffer[y][x + 2] = depthW3 > depth_buffer[y][x + 2] ? phong(model, x + 2, y, depthZ3, depthW3) : depth_buffer[y][x + 2];
+    depth_buffer[y][x + 3] = depthW4 > depth_buffer[y][x + 3] ? phong(model, x + 3, y, depthZ4, depthW4) : depth_buffer[y][x + 3];
+
+    // if (depthW > depth_buffer[y][x]) {
+    //     depth_buffer[y][x] = depthW;
+    // }
+    // *y10 << 2, *y21 << 2, *y02 << 2;
+}
 
 const Pixel antialliasing(const Pixel a, const Pixel b) {
     Pixel r = { 0 };
@@ -120,66 +217,83 @@ const void fillGeneral(const Triangle t, int minX, int maxX, int minY, int maxY)
     const int y0 = t.v[0].y + 0.5,    y1 = t.v[1].y + 0.5,    y2 = t.v[2].y + 0.5;
     const float z0 = t.v[0].z,    z1 = t.v[1].z,     z2 = t.v[2].z;
     const float w0 = t.v[0].w,    w1 = t.v[1].w,     w2 = t.v[2].w;
-    const int x10 = x0 - x1,    x20 = x2 - x0,    x02 = x2 - x0,    x21 = x1 - x2;
-    const int y10 = y0 - y1,    y20 = y2 - y0,    y02 = y2 - y0,    y21 = y1 - y2;
+    int x10 = x0 - x1,    x20 = x2 - x0,    x02 = x2 - x0,    x21 = x1 - x2;
+    int y10 = y0 - y1,    y20 = y2 - y0,    y02 = y2 - y0,    y21 = y1 - y2;
 
     const int tpA = ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) ? 1 : 0;
     const int tpB = ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ? 1 : 0;
     const int tpC = ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) ? 1 : 0;
 
-    minY = minY < 0 ? 0 : minY;
-    maxY = maxY > maxHeight ? maxHeight : maxY;
-    minX = minX < 0 ? 0 : minX;
-    maxX = maxX > maxWidth ? maxWidth : maxX;
+    // minY = minY < 0 ? 0 : minY;
+    // maxY = maxY > maxHeight ? maxHeight : maxY;
+    // minX = minX < 0 ? 0 : minX;
+    // maxX = maxX > maxWidth ? maxWidth : maxX;
 
     const int area = ((x0 - x1) * y21) - ((y0 - y1) * x21);
     int ya = ((minX - x0) * y10) - ((minY - y0) * x10);
     int yb = ((minX - x1) * y21) - ((minY - y1) * x21);
     int yc = ((minX - x2) * y02) - ((minY - y2) * x02);
 
+    const int modulo = maxX % 4;
+    const int limit = maxX - modulo;
     for (int y = minY; y <= maxY; y++) {
         int xa = ya;
         int xb = yb;
         int xc = yc;
         int xflag = 0;
-        for (int x = minX; x <= maxX; x++) {
+        for (int x = minX; x <= maxX; x += 4) {
 
-            xa = ( (!xa) && (tpA) ) ? -1 : xa;
-            xb = ( (!xb) && (tpB) ) ? -1 : xb;
-            xc = ( (!xc) && (tpC) ) ? -1 : xc;
+            if (checkQuad(xa, xb, xc, &y10, &y21, &y02) > 0) {
+                DrawQuad(xa, xb, xc, &y10, &y21, &y02, area, z0, z1, z2, w0, w1, w2, x, y, modulo);
+                // x += 4;
+                // xa += y10 << 2,    xb += y21 << 2,    xc += y02 << 2;
+                // break;
+            }
 
-            if ( (xa | xb | xc) >= 0 ) {
-                const float a = (float)xa / area;
-                const float b = (float)xb / area;
-                const float c = (float)xc / area;
+            // xa = ( (!xa) && (tpA) ) ? -1 : xa;
+            // xb = ( (!xb) && (tpB) ) ? -1 : xb;
+            // xc = ( (!xc) && (tpC) ) ? -1 : xc;
+            
+            
 
-                const float depthZ = a * z2 + b * z0 + c * z1;
-                const float depthW = a * w2 + b * w0 + c * w1;
+            // if ( (xa | xb | xc) > 0 ) {
+            //     const float a = (float)xa / area;
+            //     const float b = (float)xb / area;
+            //     const float c = (float)xc / area;
 
-                if (depthW > depth_buffer[y][x]) {
-                    depth_buffer[y][x] = depthW;
-                    model.normal.x = a * t.vn[2].x + b * t.vn[0].x + c * t.vn[1].x;
-                    model.normal.y = a * t.vn[2].y + b * t.vn[0].y + c * t.vn[1].y;
-                    model.normal.z = a * t.vn[2].z + b * t.vn[0].z + c * t.vn[1].z;
+            //     const float depthZ = a * z2 + b * z0 + c * z1;
+            //     const float depthW = a * w2 + b * w0 + c * w1;
 
-                    // Task task = {
-                    //     .taskFunction = &phong,
-                    //     .model = model,
-                    //     .arg1 = x,
-                    //     .arg2 = y,
-                    //     .arg3 = depthZ,
-                    //     .arg4 = depthW
-                    // };
-                    // submitTask(task);
+            //     if (depthW > depth_buffer[y][x]) {
+            //         depth_buffer[y][x] = depthW;
+            //         model.normal.x = a * t.vn[2].x + b * t.vn[0].x + c * t.vn[1].x;
+            //         model.normal.y = a * t.vn[2].y + b * t.vn[0].y + c * t.vn[1].y;
+            //         model.normal.z = a * t.vn[2].z + b * t.vn[0].z + c * t.vn[1].z;
 
-                    phong(model, x, y, depthZ, depthW);
-                    // pixels[y][x].Red = depthW * 10 * 255;
-                    // pixels[y][x].Green = depthW * 10 * 255;
-                    // pixels[y][x].Blue = depthW * 10 * 255;
-                }
-                xflag++;
-            } else if (xflag) break;
-            xa += y10,    xb += y21,    xc += y02;
+            //         // Task task = {
+            //         //     .taskFunction = &phong,
+            //         //     .model = model,
+            //         //     .arg1 = x,
+            //         //     .arg2 = y,
+            //         //     .arg3 = depthZ,
+            //         //     .arg4 = depthW
+            //         // };
+            //         // submitTask(task);
+
+            //         phong(model, x, y, depthZ, depthW);
+            //         // pixels[y][x].Red = depthW * 10 * 255;
+            //         // pixels[y][x].Green = depthW * 10 * 255;
+            //         // pixels[y][x].Blue = depthW * 10 * 255;
+            //     } else if (depthW == depth_buffer[y][x]) {
+            //         pixels[y][x].Red = 255;
+            //         pixels[y][x].Green = 0;
+            //         pixels[y][x].Blue = 0;
+            //         depth_buffer[y][x] = depthW;
+            //     }
+            //     xflag++;
+            // } else if (xflag) break;
+            // xa += y10,    xb += y21,    xc += y02;
+            xa += y10 << 2,    xb += y21 << 2,    xc += y02 << 2;
         }
         ya += -x10,    yb += -x21,    yc += -x02;
     }
@@ -250,7 +364,7 @@ const void texGeneral(const Triangle t, Pixel **texels, const int tex_height, co
             xb = ( (!xb) && (tpB) ) ? -1 : xb;
             xc = ( (!xc) && (tpC) ) ? -1 : xc;
 
-            if ( (xa | xb | xc) >= 0 ) {
+            if ( (xa | xb | xc) > 0 ) {
                 const float a = (float)xa / area;
                 const float b = (float)xb / area;
                 const float c = (float)xc / area;
