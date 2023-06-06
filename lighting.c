@@ -1,11 +1,4 @@
 #include "header_files/lighting.h"
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "header_files/logging.h"
-#include "header_files/exec_time.h"
-#include "header_files/matrices.h"
-#include "header_files/shadowmap.h"
 
 extern int HALFW;
 extern int HALFH;
@@ -13,7 +6,7 @@ extern Mat4x4 rePerspMat;
 extern Pixel **pixels;
 extern float **shadow_buffer;
 
-const float phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW) {
+const void phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW) {
     Pixel r;
     Vector diffuse = { 0 }, specular = { 0 };
 
@@ -56,6 +49,5 @@ const float phong(Phong model, const float pixX, const float pixY, const float p
     memcpy(&pixels[(int)pixY][(int)pixX], &r, sizeof(Pixel));
     /* Reseting the shadow bias after lighting calculations are done. */
     model.bias = 0.0;
-    return pixW;
 }
 
