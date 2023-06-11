@@ -1,4 +1,15 @@
 #include "header_files/vectors_math.h"
+
+// #include "header_files/exec_time.h"
+// #include "header_files/logging.h"
+// #include <immintrin.h>
+
+// typedef float u32x4 __attribute__((vector_size(16)));
+// typedef union {
+//     __m128 mm;
+//     u32x4 u32;
+// } v128;
+
 /* Computing the average of the Z values of the Triangle's Vectors.Returns the average float value. */
 const float depth(const Triangle t) {
     float res = 0;
@@ -59,10 +70,27 @@ const Vector sub_vecs(const Vector v1, const Vector v2) {
 }
 /* Computes the Cross Product of two given Vectors.Returns a new Vector. */ 
 const Vector cross_product(const Vector v1, const Vector v2) {
+    // clock_t start_time = start();
+    // __m128 va, vb, vc, vd, mula, mulb;
+    // v128 res;
+
+    // va = _mm_setr_ps(v1.y, v1.z, v1.x, 0);
+    // vb = _mm_setr_ps(v2.z, v2.x, v2.y, 0);
+
+    // vc = _mm_setr_ps(v1.z, v1.x, v1.y, 0);
+    // vd = _mm_setr_ps(v2.y, v2.z, v2.x, 0);
+
+    // mula = _mm_mul_ps(va, vb);
+    // mulb = _mm_mul_ps(vc, vd);
+
+    // res.mm = _mm_sub_ps(mula, mulb);
+    
+    // Vector cp = { res.u32[0], res.u32[1], res.u32[2], 0 };
     Vector cp;
     cp.x = v1.y * v2.z - v1.z * v2.y;
     cp.y = v1.z * v2.x - v1.x * v2.z;
     cp.z = v1.x * v2.y - v1.y * v2.x;
+    // end(start_time);
     return cp;
 }
 /* Computes the Dot Product of two given Vectors.Returns a new Vector. */

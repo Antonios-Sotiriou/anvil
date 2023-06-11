@@ -1,9 +1,7 @@
 anvil
+*.s
 header_files/code_cache.h
-header_files/camera.h
 header_files/bmp.h
-header_files/logging.h
-logging.c
 textures/*
 objects/*
 

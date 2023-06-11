@@ -5,9 +5,11 @@
 #include <X11/Xutil.h>
 #include <math.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 /* signal */
 #include <signal.h>
+// #include <immintrin.h>
 
 /* Project specific headers */
 #include "header_files/locale.h"
@@ -21,20 +23,40 @@
 #include "header_files/general_functions.h"
 #include "header_files/quaternions.h"
 #include "header_files/shadowmap.h"
+#include "header_files/lighting.h"
+#include "header_files/camera.h"
 
 /* testing */
 #include "header_files/test_shapes.h"
 #include "header_files/exec_time.h"
 #include "header_files/logging.h"
 
+/* ############################################## THREAD POOL ################################################################### */
+/* Multithreading, Thread Pool Global variables. */
+#include <pthread.h>
+#define THREADS 4
+pthread_mutex_t mutexQueue;
+pthread_cond_t condQueue;
+
+typedef struct {
+    void (*taskFunction)(Vector, float, float, float, float);
+    float arg1, arg2, arg3, arg4;
+    Vector model;
+} Task;
+
+pthread_t threads[THREADS];
+Task TaskQueue[10000];
+int TASKCOUNT = 0;
+
+void submitTask(Task task);
+void printTask(Vector normal, float a, float b, float c, float d);
+/* ############################################## THREAD POOL ################################################################### */
+
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
 enum { Pos, U, V, N, C};
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define XWorldToScreen            ( (1 + c.t[i].v[j].x) * HALFW )
-#define YWorldToScreen            ( (1 + c.t[i].v[j].y) * HALFH )
-
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask )
@@ -62,20 +84,6 @@ Global camera = {
     .V   = { 0.0, 1.0, 0.0, 0.0 },
     .N   = { 0.0, 0.0, 1.0, 0.0 }
 };
-// Global light = {
-//     .Pos = { -9.648195, -16.342173, 517.552246, 0.0 },
-//     .U   = { -0.883299, -0.006683, -0.468767, 0.0 },
-//     .V   = { -0.330613, 0.717806, 0.612739, 0.0 },
-//     .N   = { 0.332388, 0.696211, -0.636246, 0.0 },
-//     .C   = { 1.0, 1.0, 1.0}
-// };
-// Global light = {
-//     .Pos = { 0, -10, 500, 1.0 },
-//     .U   = { 1, 0, 0, 0.0 },
-//     .V   = { 0, 1, 0, 0.0 },
-//     .N   = { 0, 0, 1, 0.0 },
-//     .C   = { 1.0, 1.0, 1.0}
-// };
 Global light = {
     .Pos = { -56.215076, -47.867058, 670.036438, 1.0 },
     .U   = { -0.907780, -0.069064, -0.413726, 0.0 },
@@ -99,8 +107,9 @@ static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
-static float bias = 0.000120; //0.000440;
+static float bias = 0.000120;
 static int AdjustShadow = 0;
+static int AdjustScene = 0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
@@ -108,6 +117,9 @@ static float NPlane = 1.0;
 static float FPlane = 0.00001;
 static float Scale = 0.03;
 static int DEBUG = 0;
+float			        TimeCounter, LastFrameTimeCounter, DeltaTime, prevTime = 0.0, FPS;
+struct timeval		    tv, tv0;
+int			            Frame = 1, FramesPerFPS;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -117,18 +129,6 @@ const static void resizerequest(XEvent *event);
 const static void configurenotify(XEvent *event);
 const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
-
-/* Moving functions */
-const static void look_left(Global *g, const float Angle);
-const static void look_right(Global *g, const float Angle);
-const static void move_forward(Global *g);
-const static void move_backward(Global *g);
-const static void look_up(Global *g, const float Angle);
-const static void look_down(Global *g, const float Angle);
-const static void move_left(Global *g);
-const static void move_right(Global *g);
-const static void move_up(Global *g);
-const static void move_down(Global *g);
 
 /* Objects Rotation functions */
 const static void rotate_x(Mesh *c, const float angle);
@@ -166,7 +166,7 @@ const static void pixmapdisplay(void);
 const static void atomsinit(void);
 const static void sigsegv_handler(const int sig);
 const static int registerSig(const int signal);
-const static int board(void);
+static void *board(void  *args);
 static void (*handler[LASTEvent]) (XEvent *event) = {
     [ClientMessage] = clientmessage,
     [ReparentNotify] = reparentnotify,
@@ -200,6 +200,11 @@ const static void clientmessage(XEvent *event) {
         printf("Reached step 7\n");
         XDestroyWindow(displ, win);
         printf("Reached step 8\n");
+
+        int i = 0;
+        for (i = 1; i < THREADS; i++)
+            if (pthread_cancel(threads[i]));
+                fprintf(stderr, "Thread Cancelation of thead[%d] returned an error.\n", i);
 
         RUNNING = 0;
     }
@@ -243,6 +248,17 @@ const static void buttonpress(XEvent *event) {
     printf("buttonpress event received\n");
     printf("X: %f\n", ((event->xbutton.x - (WIDTH / 2.00)) / (WIDTH / 2.00)));
     printf("Y: %f\n", ((event->xbutton.y - (HEIGHT / 2.00)) / (HEIGHT / 2.00)));
+    for (int i = 0; i < 10000; i++) {
+        Task task = {
+            .taskFunction = &printTask,
+            .model = camera.Pos,
+            .arg1 = 1.0,
+            .arg2 = 2.0,
+            .arg3 = 3.0,
+            .arg4 = 4.0
+        };
+        submitTask(task);
+    }
 }
 
 const static void keypress(XEvent *event) {
@@ -361,108 +377,13 @@ const static void keypress(XEvent *event) {
     ViewMat = inverse_mat(LookAt);
     model.lightPos = vecxm(light.Pos, ViewMat);
     AdjustShadow = 1;
+    AdjustScene = 1;
 
     if (!PROJECTIONVIEW)
         WorldMat = mxm(ViewMat, PerspMat);
     else
         WorldMat = mxm(ViewMat, OrthoMat);
     // project(scene);
-}
-/* Rotates the camera to look left. */
-const static void look_left(Global *g, const float angle) {
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(-2, g->V);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-/* Rotates the camera to look right. */
-const static void look_right(Global *g, const float angle) {
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(2, g->V);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-const static void move_forward(Global *g) {
-    g->Pos = add_vecs(g->Pos, multiply_vec(g->N, 0.2));
-}
-const static void move_backward(Global *g) {
-    g->Pos = sub_vecs(g->Pos, multiply_vec(g->N, 0.2));
-}
-/* Rotates the camera to look Up. */
-const static void look_up(Global *g, const float angle) {
-
-    /* A working example with Quaternion rotation. */
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(-1, g->U);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-/* Rotates the camera to look Down. */
-const static void look_down(Global *g, const float angle) {
-
-    /* A working example with Quaternion rotation. */
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(1, g->U);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-/* Moves camera position left. */
-const static void move_left(Global *g) {
-    g->Pos = sub_vecs(g->Pos, multiply_vec(g->U, 0.1));
-}
-/* Moves camera position right. */
-const static void move_right(Global *g) {
-    g->Pos = add_vecs(g->Pos, multiply_vec(g->U, 0.1));
-}
-/* Moves camera position Up. */
-const static void move_up(Global *g) {
-    // g->Pos = sub_vecs(g->Pos, multiply_vec(g->V, 0.1));
-    g->Pos.y -= 0.1;
-}
-/* Moves camera position Down. */
-const static void move_down(Global *g) {
-    // g->Pos = add_vecs(g->Pos, multiply_vec(g->V, 0.1));
-    g->Pos.y += 0.1;
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
@@ -529,9 +450,9 @@ const static void initBuffers(void) {
     for (int y = 0; y < wa.height; y++){
         memset(pixels[y], 0, sizeof(Pixel) * wa.width);
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
-        for (int x = 0; x < wa.width; x++) {
-            shadow_buffer[y][x] = 1.0;
-        }
+        // for (int x = 0; x < wa.width; x++) {
+        //     shadow_buffer[y][x] = 1.0;
+        // }
     }
 }
 /* Initializes the meshes from which the Scene consists. */
@@ -553,7 +474,7 @@ const static void initMeshes(Scene *s) {
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
     ScaleMat = scale_mat(10.0);
-    rotate_y(&terrain, 90);
+    // rotate_y(&terrain, 90);
     TransMat = translation_mat(0.0, 0.0, 500.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
@@ -636,16 +557,22 @@ const static void releaseScene(Scene *s) {
 /* Starts the Projection Pipeline. */ // ########################################################################################################
 const static void project(Scene s) {
     if (AdjustShadow) {
-        for (int y = 0; y < wa.height; y++)
-            for (int x = 0; x < wa.width; x++) {
-                shadow_buffer[y][x] = 1.0;
-            }
-
+        for (int y = 0; y < wa.height; y++) {
+            memset(shadow_buffer[y], '@', sizeof(float) * wa.width);
+            // for (int x = 0; x < wa.width; x++) {
+            //     // shadow_buffer[y][x] = 1.0;
+            //     printf("shadow_buffer[%d][%d]: %f\n", y, x, shadow_buffer[y][x]);
+            // }
+        }
         applyShadows(s);
         AdjustShadow = 0;
     }
-    pipeLine(s);
-
+    // if (AdjustScene) {
+    //     clearBuffers(wa.height, wa.width);
+        pipeLine(s);
+        // displayScene();
+        // AdjustScene = 0;
+    // }
     displayScene();
     clearBuffers(wa.height, wa.width);
 }
@@ -703,6 +630,7 @@ static void *pipeLine(Scene s) {
 
             /* Sending to translation from NDC to Screen Coordinates. */
             Mesh uf = viewtoscreen(bf);
+
             rasterize(uf);
             free(uf.t);
             free(uf.v);
@@ -792,8 +720,8 @@ const static Mesh viewtoscreen(const Mesh c) {
     for (int i = 0; i < c.t_indexes; i++) {
         for (int j = 0; j < 3; j++) {
             w = c.t[i].v[j].w;
-            c.t[i].v[j].x = XWorldToScreen;
-            c.t[i].v[j].y = YWorldToScreen;
+            c.t[i].v[j].x = (++c.t[i].v[j].x) * HALFW;
+            c.t[i].v[j].y = (++c.t[i].v[j].y) * HALFH;
             c.t[i].v[j].z *= 0.5;//( (1 / c.t[i].v[j].z) - (1 / ZNear) ) / ( (1 / ZFar) - (1 / ZNear) );//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
             c.t[i].v[j].w = 1 / w;
 
@@ -808,23 +736,25 @@ const static Mesh viewtoscreen(const Mesh c) {
            plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(c, plane_far_p, plane_far_n);
 
-    Vector plane_right_p = { (float)wa.width - 1.0, 0.0, 0.0 },
-           plane_right_n = { -1.0, 0.0, 0.0 };
-    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    // if (DEBUG == 1) {
+        Vector plane_right_p = { wa.width - 1.0, 0.0, 0.0 },
+            plane_right_n = { -1.0, 0.0, 0.0 };
+        Mesh rf = clipp(ff, plane_right_p, plane_right_n);
 
-    Vector plane_down_p = { 0.0, (float)wa.height - 1.0, 0.0 },
-           plane_down_n = { 0.0, -1.0, 0.0 };
-    Mesh df = clipp(rf, plane_down_p, plane_down_n);
+        Vector plane_down_p = { 0.0, wa.height - 1.0, 0.0 },
+            plane_down_n = { 0.0, -1.0, 0.0 };
+        Mesh df = clipp(rf, plane_down_p, plane_down_n);
 
-    Vector plane_left_p = { 0.0, 0.0, 0.0 },
-           plane_left_n = { 1.0, 0.0, 0.0 };
-    Mesh lf = clipp(df, plane_left_p, plane_left_n);
+        Vector plane_left_p = { 0.0, 0.0, 0.0 },
+            plane_left_n = { 1.0, 0.0, 0.0 };
+        Mesh lf = clipp(df, plane_left_p, plane_left_n);
 
-    Vector plane_up_p = { 0.0, 0.0, 0.0 },
-           plane_up_n = { 0.0, 1.0, 0.0 };
-    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-
-    return uf;
+        Vector plane_up_p = { 0.0, 0.0, 0.0 },
+            plane_up_n = { 0.0, 1.0, 0.0 };
+        Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+        return uf;
+    // }
+    // return ff;
 }
 /* Rasterize given Mesh by passing them to the appropriate function. */
 const static void rasterize(const Mesh c) {
@@ -965,6 +895,35 @@ const static void initMainWindow(void) {
     XMapWindow(displ, win);
     XGetWindowAttributes(displ, win, &wa);
 }
+void InitTimeCounter() {
+    gettimeofday(&tv0, NULL);
+    FramesPerFPS = 30;
+}
+void UpdateTimeCounter() {
+    LastFrameTimeCounter = TimeCounter;
+    gettimeofday(&tv, NULL);
+    TimeCounter = (float)(tv.tv_sec - tv0.tv_sec) + 0.000001*((float)(tv.tv_usec - tv0.tv_usec));
+    DeltaTime = TimeCounter - LastFrameTimeCounter;
+}
+void CalculateFPS() {
+    Frame ++;
+
+    if((Frame % FramesPerFPS) == 0) {
+    FPS = ((float)(FramesPerFPS)) / (TimeCounter-prevTime);
+    prevTime = TimeCounter;
+    }
+}
+void displayInfo() {
+    char Resolution_string[20], TimeCounter_string[20], FPS_string[20];
+
+    sprintf(Resolution_string, "Resolution: %d x %d\0", wa.width, wa.height);
+    sprintf(TimeCounter_string, "Running Time: %4.1f\0", TimeCounter);
+    sprintf(FPS_string, "%4.1f fps\0", FPS);
+
+    XDrawString(displ ,win ,gc, 5, 12, Resolution_string, strlen(Resolution_string));
+    XDrawString(displ ,win ,gc, 5, 24, TimeCounter_string, strlen(TimeCounter_string));
+    XDrawString(displ ,win ,gc, 5, 36, FPS_string, strlen(FPS_string));
+}
 const static void initGlobalGC(void) {
     gcvalues.foreground = 0xffffff;
     gcvalues.background = 0x000000;
@@ -973,8 +932,8 @@ const static void initGlobalGC(void) {
 }
 const static void initDependedVariables(void) {
     AspectRatio = ((float)wa.width / (float)wa.height);
-    HALFW = wa.width / 2.00;
-    HALFH = wa.height / 2.00;
+    HALFW = wa.width >> 1;
+    HALFH = wa.height >> 1;
     PerspMat = perspective_mat(FOV, AspectRatio);
     rePerspMat = reperspective_mat(FOV, AspectRatio);
     OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
@@ -984,6 +943,7 @@ const static void initDependedVariables(void) {
     WorldMat = mxm(ViewMat, PerspMat);
 
     AdjustShadow = 1;
+    AdjustScene = 1;
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -1007,7 +967,8 @@ const static void sigsegv_handler(const int sig) {
     event.type = ClientMessage;
     event.xclient.data.l[0] = wmatom[Win_Close];
     /* Send the signal to our event dispatcher for further processing. */
-    handler[event.type](&event);
+    if(RUNNING)
+        handler[event.type](&event);
 }
 /* Registers the given Signal. */
 const static int registerSig(const int signal) {
@@ -1021,12 +982,48 @@ const static int registerSig(const int signal) {
     }
     return EXIT_SUCCESS;
 }
+/* ############################################## THREAD POOL ################################################################### */
+const void executeTask(Task *task) {
+    task->taskFunction(task->model, task->arg1, task->arg2, task->arg3, task->arg4);
+}
+void *startThread(void *args) {
+    Task task;
+    while (1) {
+
+        pthread_mutex_lock(&mutexQueue);
+        while (TASKCOUNT == 0) {
+            pthread_cond_wait(&condQueue, &mutexQueue);
+        }
+
+        task = TaskQueue[0];
+        for (int i = 0; i < TASKCOUNT; i++) {
+            TaskQueue[i] = TaskQueue[i + 1];
+        }
+        TASKCOUNT--;
+
+        pthread_mutex_unlock(&mutexQueue);
+
+        executeTask(&task);
+    }
+}
+void submitTask(Task task) {
+    pthread_mutex_lock(&mutexQueue);
+    TaskQueue[TASKCOUNT] = task;
+    TASKCOUNT++;
+    pthread_mutex_unlock(&mutexQueue);
+    pthread_cond_signal(&condQueue);
+}
+void printTask(Vector normal, float a, float b, float c, float d) {
+    logVector(normal);
+    printf("a: %f,    b: %f,    c: %f,    d: %f\n", a, b, c, d);
+}
+/* ############################################## THREAD POOL ################################################################### */
 /* General initialization and event handling. */
-const static int board(void) {
+static void *board(void  *args) {
 
     if (!XInitThreads()) {
         fprintf(stderr, "Warning: board() -- XInitThreads()\n");
-        return EXIT_FAILURE;
+        // return EXIT_FAILURE;
     }
 
     XEvent event;
@@ -1034,14 +1031,15 @@ const static int board(void) {
     displ = XOpenDisplay(NULL);
     if (displ == NULL) {
         fprintf(stderr, "Warning: board() -- XOpenDisplay()\n");
-        return EXIT_FAILURE;
+        // return EXIT_FAILURE;
     }
 
     initMainWindow();
+    InitTimeCounter();
     initGlobalGC();
     pixmapcreate();
     atomsinit();
-    registerSig(SIGSEGV);
+    // registerSig(SIGSEGV);
 
     initDependedVariables();
     initBuffers();
@@ -1052,12 +1050,15 @@ const static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        // clock_t start_time = start();
+        clock_t start_time = start();
+        UpdateTimeCounter();
+        CalculateFPS();
         project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
-        // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
+        // rotate_origin(&scene.m[1], 1, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        // end_time = end(start_time);
+        end_time = end(start_time);
+        displayInfo();
 
         while(XPending(displ)) {
 
@@ -1066,10 +1067,10 @@ const static int board(void) {
             if (handler[event.type])
                 handler[event.type](&event);
         }
-        usleep(16667 - (end_time * 1000));
+        usleep(0);
     }
 
-    return EXIT_SUCCESS;
+    // return EXIT_SUCCESS;
 }
 const int main(int argc, char *argv[]) {
 
@@ -1089,10 +1090,43 @@ const int main(int argc, char *argv[]) {
         }
     }
 
-    if (board()) {
-        fprintf(stderr, "ERROR: main() -- board()\n");
-        return EXIT_FAILURE;
+    /* ############################################## THREAD POOL ################################################################### */
+    pthread_mutex_init(&mutexQueue, NULL);
+    pthread_cond_init(&condQueue, NULL);
+
+    for (int i = 0; i < THREADS; i++) {
+        if (i == 0)
+            if (pthread_create(&threads[i], NULL, &board, NULL) != 0);
+        else 
+            if (pthread_create(&threads[i], NULL, &startThread, NULL) != 0)
+                fprintf(stderr, "Failed to create thread [ %d ]\n", i);
     }
+
+    // for (int i = 0; i < 100; i++) {
+    //     Task task = {
+    //         .taskFunction = &printTask,
+    //         .normal = camera.Pos,
+    //         .arg1 = 1.0,
+    //         .arg2 = 2.0,
+    //         .arg3 = 3.0,
+    //         .arg4 = 4.0
+    //     };
+    //     submitTask(task);
+    // }
+
+    for (int i = 0; i < THREADS; i++) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            fprintf(stderr, "Failed to join thread [ %d ]\n", i);
+        }
+    }
+    pthread_mutex_destroy(&mutexQueue);
+    pthread_cond_destroy(&condQueue);
+    /* ############################################## THREAD POOL ################################################################### */
+
+    // if (board()) {
+    //     fprintf(stderr, "ERROR: main() -- board()\n");
+    //     return EXIT_FAILURE;
+    // }
 
     XCloseDisplay(displ);
     
