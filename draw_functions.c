@@ -1,6 +1,5 @@
 #include "header_files/draw_functions.h"
 
-#include "header_files/exec_time.h"
 #include "immintrin.h"
 
 extern XWindowAttributes wa;
@@ -30,19 +29,18 @@ const void checkQuad(int xa, int xb, int xc,
                      int modulo,
                      Triangle t)
 {
-    v128i step_y;
-    v128i edgesi[modulo];
-    step_y.mm = _mm_setr_epi32(y10, y21, y02, 0);
-    edgesi[0].mm = _mm_setr_epi32(xa, xb, xc, 0);
+    v128i edgesi[modulo], step_x;
+    step_x.mm = _mm_set_epi32(0, y02, y21, y10);
+    edgesi[0].mm = _mm_set_epi32(0, xc, xb, xa);
     int masks[modulo];
 
     for (int i = 0; i < modulo; i++) {
         if (i > 0)
-            edgesi[i].mm = _mm_add_epi32(edgesi[i - 1].mm, step_y.mm);
+            edgesi[i].mm = _mm_add_epi32(edgesi[i - 1].mm, step_x.mm);
 
-        edgesi[i].i32[0] = (!edgesi[i].i32[0] && tpA) ? -1 : edgesi[i].i32[0];
-        edgesi[i].i32[1] = (!edgesi[i].i32[1] && tpB) ? -1 : edgesi[i].i32[1];
-        edgesi[i].i32[2] = (!edgesi[i].i32[2] && tpC) ? -1 : edgesi[i].i32[2];
+        edgesi[i].i32[0] = (tpA && !edgesi[i].i32[0]) ? -1 : edgesi[i].i32[0];
+        edgesi[i].i32[1] = (tpB && !edgesi[i].i32[1]) ? -1 : edgesi[i].i32[1];
+        edgesi[i].i32[2] = (tpC && !edgesi[i].i32[2]) ? -1 : edgesi[i].i32[2];
 
         masks[i] = (edgesi[i].i32[0] | edgesi[i].i32[1] | edgesi[i].i32[2]) < 0 ? -1 : 1;
     }
@@ -50,33 +48,32 @@ const void checkQuad(int xa, int xb, int xc,
     if ( masks[0] < 0 && masks[1] < 0 && masks[2] < 0 && masks[3] < 0 )
         return;
 
-    v128f ar;
+    v128f ar = { .mm = _mm_set1_ps(area) };
     v128f edgesf[modulo];
-    ar.mm = _mm_set1_ps(area);
 
     for (int i = 0; i < modulo; i++){
+
         if ( (edgesi[i].i32[0] | edgesi[i].i32[1] | edgesi[i].i32[2]) > 0 ) {
             edgesf[i].mm = _mm_div_ps(_mm_cvtepi32_ps(edgesi[i].mm), ar.mm);
 
-            v128f zdepth = { .mm = _mm_setr_ps(z2, z0, z1, 0.0) };
-            v128f wdepth = { .mm = _mm_setr_ps(w2, w0, w1, 0.0) };
+            v128f az = { .mm = _mm_mul_ps(edgesf[i].mm, _mm_set_ps(0.0, z1, z0, z2)) };
+            v128f aw = { .mm = _mm_mul_ps(edgesf[i].mm, _mm_set_ps(0.0, w1, w0, w2)) };
 
-            v128f az = { .mm = _mm_mul_ps(edgesf[i].mm, zdepth.mm) };
-            v128f aw = { .mm = _mm_mul_ps(edgesf[i].mm, wdepth.mm) };
             const float depthZ = az.f32[0] + az.f32[1] + az.f32[2];
             const float depthW = aw.f32[0] + aw.f32[1] + aw.f32[2];
 
-            if ( depthW > depth_buffer[y][x + i] ) {
-                v128f normx = { .mm = _mm_mul_ps(_mm_setr_ps(t.vn[2].x, t.vn[0].x, t.vn[1].x, 0.0), edgesf[i].mm) };
-                v128f normy = { .mm = _mm_mul_ps(_mm_setr_ps(t.vn[2].y, t.vn[0].y, t.vn[1].y, 0.0), edgesf[i].mm) };
-                v128f normz = { .mm = _mm_mul_ps(_mm_setr_ps(t.vn[2].z, t.vn[0].z, t.vn[1].z, 0.0), edgesf[i].mm) };
+            if ( depthW > depth_buffer[y][x] ) {
+                v128f normx = { .mm = _mm_mul_ps(_mm_set_ps(0.0, t.vn[1].x, t.vn[0].x, t.vn[2].x), edgesf[i].mm) };
+                v128f normy = { .mm = _mm_mul_ps(_mm_set_ps(0.0, t.vn[1].y, t.vn[0].y, t.vn[2].y), edgesf[i].mm) };
+                v128f normz = { .mm = _mm_mul_ps(_mm_set_ps(0.0, t.vn[1].z, t.vn[0].z, t.vn[2].z), edgesf[i].mm) };
                 model.normal.x = normx.f32[0] + normx.f32[1] + normx.f32[2];
                 model.normal.y = normy.f32[0] + normy.f32[1] + normy.f32[2];
                 model.normal.z = normz.f32[0] + normz.f32[1] + normz.f32[2];
 
-                depth_buffer[y][x + i] = phong(model, x + i, y, depthZ, depthW);
+                depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
             }
-        }   
+        }
+        x++;
     }
 }
 const Pixel antialliasing(const Pixel a, const Pixel b) {
@@ -199,12 +196,14 @@ const void fillGeneral(const Triangle t, int minX, int maxX, int minY, int maxY)
 
     const int modulo = maxX % 4;
     const int limit = maxX - modulo;
-    int incX = 4;
     for (int y = minY; y <= maxY; y++) {
         int xa = ya;
         int xb = yb;
         int xc = yc;
         for (int x = minX; x <= maxX; x += 4) {
+            int incX = 4;
+            if (x == limit)
+                incX = modulo;
 
             checkQuad(xa, xb, xc, y10, y21, y02, area, z0, z1, z2, w0, w1, w2, x, y, tpA, tpB, tpC, incX, t);
 
