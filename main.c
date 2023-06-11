@@ -1039,7 +1039,7 @@ static void *board(void  *args) {
     initGlobalGC();
     pixmapcreate();
     atomsinit();
-    registerSig(SIGSEGV);
+    // registerSig(SIGSEGV);
 
     initDependedVariables();
     initBuffers();
