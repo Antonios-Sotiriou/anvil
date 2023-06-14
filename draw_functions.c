@@ -12,7 +12,6 @@ const Pixel antialliasing(const Pixel a, const Pixel b) {
     r.Blue = (a.Blue + b.Blue) * 0.5;
     return r;
 }
-
 const void drawLine(float x1, float y1, float x2, float y2, const float red, const float green, const float blue) {
     Pixel pix = { blue, green, red }, s1, s2;
     Pixel test1 = { 255, 255, 255 };
@@ -148,17 +147,12 @@ const void fillGeneral(const Triangle t, int minX, int maxX, int minY, int maxY)
                 const float depthW = a * w2 + b * w0 + c * w1;
 
                 if (depthW > depth_buffer[y][x]) {
-                    depth_buffer[y][x] = depthW;
+
                     model.normal.x = a * t.vn[2].x + b * t.vn[0].x + c * t.vn[1].x;
                     model.normal.y = a * t.vn[2].y + b * t.vn[0].y + c * t.vn[1].y;
                     model.normal.z = a * t.vn[2].z + b * t.vn[0].z + c * t.vn[1].z;
 
-                    phong(model, x, y, depthZ, depthW);
-                } else if (depthW == depth_buffer[y][x]) {
-                    pixels[y][x].Red = 255;
-                    pixels[y][x].Green = 0;
-                    pixels[y][x].Blue = 0;
-                    depth_buffer[y][x] = depthW;
+                    depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
                 }
                 xflag++;
             } else if (xflag) break;
@@ -212,10 +206,10 @@ const void texGeneral(const Triangle t, Pixel **texels, const int tex_height, co
     const int tpB = ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ? 1 : 0;
     const int tpC = ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) ? 1 : 0;
 
-    minY = minY < 0 ? 0 : minY;
-    maxY = maxY > maxHeight ? maxHeight : maxY;
-    minX = minX < 0 ? 0 : minX;
-    maxX = maxX > maxWidth ? maxWidth : maxX;
+    // minY = minY < 0 ? 0 : minY;
+    // maxY = maxY > maxHeight ? maxHeight : maxY;
+    // minX = minX < 0 ? 0 : minX;
+    // maxX = maxX > maxWidth ? maxWidth : maxX;
 
     const float area = ((x0 - x1) * y21) - ((y0 - y1) * x21);
     int ya = ((minX - x0) * y10) - ((minY - y0) * x10);
@@ -242,7 +236,6 @@ const void texGeneral(const Triangle t, Pixel **texels, const int tex_height, co
                 float depthW = a * w2 + b * w0 + c * w1;
 
                 if (depthW > depth_buffer[y][x]) {
-                    depth_buffer[y][x] = depthW;
 
                     float tex_w = a * tw2 + b * tw0 + c * tw1;
                     int tex_u = ((a * tu2 + b * tu0 + c * tu1) * tex_width) / tex_w;
@@ -253,7 +246,7 @@ const void texGeneral(const Triangle t, Pixel **texels, const int tex_height, co
                     model.normal.z = a * t.vn[2].z + b * t.vn[0].z + c * t.vn[1].z;
 
                     memcpy(&model.objColor, &texels[tex_v][tex_u], sizeof(Pixel));
-                    phong(model, x, y, depthZ, depthW);
+                    depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
                 }
                 xflag++;
             } else if (xflag) break;
