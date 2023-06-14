@@ -5,7 +5,7 @@
     #include "objects.h"
 #endif
 
-#ifndef _VECTORS_MATH_H
+#ifndef _vectors_mathMATH_H
     #include "vectors_math.h"
 #endif
 

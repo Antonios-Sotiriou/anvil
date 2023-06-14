@@ -15,7 +15,7 @@ uninstall:
 	sudo apt remove libx11-dev;
 
 all:
-	$(CC) $(CFLAGS) $(INTRINSICS) main.c locale.c matrices.c vectors_math.c clipping.c obj_parser.c draw_functions.c general_functions.c exec_time.c lighting.c camera.c quaternions.c shadowmap.c logging.c -o $(OBJ) $(LINKS);
+	$(CC) $(CFLAGS) $(INTRINSICS) main.c locale.c matrices.c vectors_math.c clipping.c grfk_pipeline.c world_objects.c kinetics.c obj_parser.c draw_functions.c general_functions.c exec_time.c lighting.c camera.c quaternions.c shadowmap.c logging.c -o $(OBJ) $(LINKS);
 
 exec:
 	./$(OBJ)
@@ -25,4 +25,8 @@ assembly:
 
 clean:
 	sudo apt autoremove -y;
+
+# Removes all assembly generated files.
+clearAsm:
+	rm *.s;
 

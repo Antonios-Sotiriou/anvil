@@ -1,13 +1,13 @@
 #include "header_files/obj_parser.h"
 
 static Face *get_faces(const char path[]);
-static Vector *get_vectors(const char path[]);
+static Vec4 *get_Vec4s(const char path[]);
 static Textor *get_textors(const char path[]);
-static Vector *get_normals(const char path[]);
+static Vec4 *get_normals(const char path[]);
 
 /* Face array indexes */
 static int f_indexes = 0;
-/* Vector array indexes */
+/* Vec4 array indexes */
 static int v_indexes = 0;
 
 const Mesh load_obj(const char path[]) {
@@ -17,29 +17,29 @@ const Mesh load_obj(const char path[]) {
     if (!f)
         fprintf(stderr, "Could not create Faces array. load_obj() - get_faces()\n");
 
-    Vector *v = get_vectors(path);
+    Vec4 *v = get_Vec4s(path);
     if (!v)
-        fprintf(stderr, "Could not reallocate Vectors array. load_obj() - get_vectors()\n");
+        fprintf(stderr, "Could not reallocate Vec4s array. load_obj() - get_Vec4s()\n");
 
     r.v_indexes = v_indexes;
-    r.v = realloc(v, sizeof(Vector) * v_indexes);
+    r.v = realloc(v, sizeof(Vec4) * v_indexes);
     if (!r.v)
-        fprintf(stderr, "Could not reallocate Vectors array. load_obj() - relloc()\n");
+        fprintf(stderr, "Could not reallocate Vec4s array. load_obj() - relloc()\n");
 
     Textor *tex = get_textors(path);
     if (!tex)
-        fprintf(stderr, "Could not create Vectors array. load_obj() - get_textors()\n");
+        fprintf(stderr, "Could not create Vec4s array. load_obj() - get_textors()\n");
 
-    Vector *n = get_normals(path);
+    Vec4 *n = get_normals(path);
     if (!n)
-        fprintf(stderr, "Could not create Vectors array. load_obj() - get_normals()\n");
+        fprintf(stderr, "Could not create Vec4s array. load_obj() - get_normals()\n");
 
     r.t_indexes = f_indexes;
     r.t = malloc(sizeof(Triangle) * f_indexes);
     if (!r.t)
         fprintf(stderr, "Could not allocate memory for Triangles array. load_obj()\n");
 
-    /* Assign the Faces of the Vectors to the Mesh triangle array creating the final object. */
+    /* Assign the Faces of the Vec4s to the Mesh triangle array creating the final object. */
     for (int i = 0; i < r.t_indexes; i++) {
         r.t[i].v[0] = r.v[f[i].va - 1];
         r.t[i].v[1] = r.v[f[i].vb - 1];
@@ -87,7 +87,7 @@ static Face *get_faces(const char path[]) {
     int index = 0;
 
     char ch;
-    /* v* Vector, t* Textor, n* Normal */
+    /* v* Vec4, t* Textor, n* Normal */
     int va, vb, vc, ta, tb, tc, na, nb, nc;
 
     while (!feof(fp)) {
@@ -121,7 +121,7 @@ static Face *get_faces(const char path[]) {
     fclose(fp);
     return f;
 }
-static Vector *get_vectors(const char path[]) {
+static Vec4 *get_Vec4s(const char path[]) {
 
     FILE *fp = fopen(path, "r");
     if (!fp) {
@@ -129,10 +129,10 @@ static Vector *get_vectors(const char path[]) {
         return NULL;
     }
 
-    Vector *v = { 0 };
-    v = malloc(sizeof(Vector));
+    Vec4 *v = { 0 };
+    v = malloc(sizeof(Vec4));
     if (!v) {
-        fprintf(stderr, "Could not allocate memory for Vector struct. get_vectors() -- calloc().\n");
+        fprintf(stderr, "Could not allocate memory for Vec4 struct. get_Vec4s() -- calloc().\n");
         fclose(fp);
         return NULL;
     }
@@ -147,9 +147,9 @@ static Vector *get_vectors(const char path[]) {
             if ( (ch = getc(fp)) == ' ' )
                 if (fscanf(fp, "%f %f %f", &tempx, &tempy, &tempz) == 3) {
 
-                    v = realloc(v, sizeof(Vector) * dynamic_inc);
+                    v = realloc(v, sizeof(Vec4) * dynamic_inc);
                     if (!v) {
-                        fprintf(stderr, "Could not reallocate memory for Vector struct array. load_obj() -- realloc().\n");
+                        fprintf(stderr, "Could not reallocate memory for Vec4 struct array. load_obj() -- realloc().\n");
                         fclose(fp);
                         free(v);
                         return NULL;
@@ -197,7 +197,7 @@ static Textor *get_textors(const char path[]) {
 
                         tex = realloc(tex, sizeof(Textor) * dynamic_inc);
                         if (!tex) {
-                            fprintf(stderr, "Could not reallocate memory for Vector struct array. get_textors() -- realloc().\n");
+                            fprintf(stderr, "Could not reallocate memory for Vec4 struct array. get_textors() -- realloc().\n");
                             fclose(fp);
                             free(tex);
                             return NULL;
@@ -215,7 +215,7 @@ static Textor *get_textors(const char path[]) {
     fclose(fp);
     return tex;
 }
-static Vector *get_normals(const char path[]) {
+static Vec4 *get_normals(const char path[]) {
 
     FILE *fp = fopen(path, "r");
     if (!fp) {
@@ -223,8 +223,8 @@ static Vector *get_normals(const char path[]) {
         return NULL;
     }
 
-    Vector *n = { 0 };
-    n = malloc(sizeof(Vector));
+    Vec4 *n = { 0 };
+    n = malloc(sizeof(Vec4));
     if (!n) {
         fprintf(stderr, "Could not allocate memory for Textor struct. get_normals() -- calloc().\n");
         fclose(fp);
@@ -242,9 +242,9 @@ static Vector *get_normals(const char path[]) {
                 if ( (ch = getc(fp)) == ' ' )
                     if (fscanf(fp, "%f %f %f", &tempx, &tempy, &tempz) == 3) {
 
-                        n = realloc(n, sizeof(Vector) * dynamic_inc);
+                        n = realloc(n, sizeof(Vec4) * dynamic_inc);
                         if (!n) {
-                            fprintf(stderr, "Could not reallocate memory for Vector struct array. load_obj() -- realloc().\n");
+                            fprintf(stderr, "Could not reallocate memory for Vec4 struct array. load_obj() -- realloc().\n");
                             fclose(fp);
                             free(n);
                             return NULL;

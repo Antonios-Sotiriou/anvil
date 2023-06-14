@@ -12,7 +12,7 @@ Quat unitQuat(void) {
     return q;
 }
 
-Quat setQuat(const float w, const Vector vec) {
+Quat setQuat(const float w, const Vec4 vec) {
     Quat q = {
         .w = w,
         .v = { vec.x, vec.y, vec.z }
@@ -46,7 +46,7 @@ float magnitudeQuat(const Quat q) {
     return sqrtf((q.w * q.w) + (q.v.x * q.v.x) + (q.v.y * q.v.y) + (q.v.z * q.v.z));
 }
 
-Quat rotationQuat(const float angle, const Vector axis) {
+Quat rotationQuat(const float angle, const Vec4 axis) {
     float radius = angle * (3.14159 / 180.0);
     float c = sinf(radius / 2.00);
     Quat res = {
@@ -106,7 +106,7 @@ Quat addQuats(const Quat q1, const Quat q2) {
     return res;
 }
 
-Mat4x4 MatfromQuat(const Quat q, const Vector v) {
+Mat4x4 MatfromQuat(const Quat q, const Vec4 v) {
     Mat4x4 m = { 0 };
 
     m.m[0][0] = 2.0 * ( (q.w * q.w) + (q.v.x * q.v.x) ) - 1.0;

@@ -5,7 +5,7 @@
     #include "objects.h"
 #endif
 
-#ifndef _VECTORS_MATH_H
+#ifndef _vectors_mathMATH_H
     #include "vectors_math.h"
 #endif
 
@@ -13,10 +13,10 @@
     #include <stdlib.h>
 #endif
 
-const Mesh clipp(const Mesh c, Vector plane_n, Vector plane_p);
-const Vector plane_intersect(Vector plane_n, Vector plane_p, Vector line_start, Vector line_end, float *t);
-float dist(Vector plane_p, Vector plane_n, Vector v);
-int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2);
+const Mesh clipp(const Mesh c, Vec4 plane_n, Vec4 plane_p);
+const Vec4 plane_intersect(Vec4 plane_n, Vec4 plane_p, Vec4 line_start, Vec4 line_end, float *t);
+float dist(Vec4 plane_p, Vec4 plane_n, Vec4 v);
+int clipp_triangle(Vec4 plane_p, Vec4 plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2);
 
 #endif /* _CLIPPING_H */
 

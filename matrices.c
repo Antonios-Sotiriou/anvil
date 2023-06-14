@@ -55,45 +55,48 @@ const Mat4x4 translation_mat(const float x, const float y, const float z) {
     return m;
 }
 /* Perspective Projection Matrix. */
-const Mat4x4 perspective_mat(const float fov, const float aspectratio) {
+const Mat4x4 perspective_mat(const float fov, const float aspectratio, const float zn, const float zf) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = FovRadius;
-    m.m[1][1] = aspectratio * FovRadius;
-    m.m[2][2] = (ZFar / (ZFar - ZNear));
+    const float fovRadius = 1 / tanf(fov * 0.5 / 180.0 * 3.14159);
+    m.m[0][0] = fovRadius;
+    m.m[1][1] = aspectratio * fovRadius;
+    m.m[2][2] = (zf / (zf - zn));
     m.m[2][3] = 1.0;
-    m.m[3][2] = ((ZFar * ZNear) / (ZFar - ZNear));
+    m.m[3][2] = ((zf * zn) / (zf - zn));
     return m;
 }
 /* Reverse Perspective Projection Matrix. */
 const Mat4x4 reperspective_mat(const float fov, const float aspectratio) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = aspectratio / FovRadius;
-    m.m[1][1] = aspectratio / FovRadius;
+    const float fovRadius = 1 / tanf(fov * 0.5 / 180.0 * 3.14159);
+    m.m[0][0] = aspectratio / fovRadius;
+    m.m[1][1] = aspectratio / fovRadius;
     m.m[3][2] = 1.0;
     m.m[3][3] = 1.0;
     return m;
 }
 /* Orthographic Projection Matrix. */
-const Mat4x4 orthographic_mat(const float scaleX, const float scaleY, const float transX, const float transY) {
+const Mat4x4 orthographic_mat(const float scaleX, const float scaleY, const float transX, const float transY, const float zn, const float zf) {
     Mat4x4 m = { 0 };
     m.m[0][0] = scaleX;
     m.m[1][1] = scaleY;
-    m.m[2][2] = 1.00 / (ZFar - ZNear);
+    m.m[2][2] = 1.00 / (zf - zn);
     m.m[3][0] = transX;
     m.m[3][1] = transY;
-    m.m[3][2] = ( (ZFar + ZNear) / (ZFar - ZNear) );
+    m.m[3][2] = ( (zf + zn) / (zf - zn) );
     m.m[3][3] = 1.0;
     return m;
 }
 /* Reverse Orthographic Projection Matrix. */
-const Mat4x4 reorthographic_mat(const float fov, const float aspectratio) {
+const Mat4x4 reorthographic_mat(const float fov, const float aspectratio, const float zn, const float zf) {
     Mat4x4 m = { 0 };
-    m.m[0][0] = aspectratio * FovRadius;
-    m.m[1][1] = aspectratio * FovRadius;
-    m.m[3][2] = 2.00 * (ZFar - ZNear);
+    const float fovRadius = 1 / tanf(fov * 0.5 / 180.0 * 3.14159);
+    m.m[0][0] = aspectratio * fovRadius;
+    m.m[1][1] = aspectratio * fovRadius;
+    m.m[3][2] = 2.00 * (zf - zn);
     m.m[3][0] = 1.0;    /* Translation area. */
     m.m[3][1] = 1.0;    /* Translation area. */
-    m.m[2][2] = ((ZFar + ZNear) * (ZFar - ZNear));
+    m.m[2][2] = ((zf + zn) * (zf - zn));
     m.m[3][3] = 1.0;
     return m;
 }
@@ -107,10 +110,10 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
     if (!memcpy(r.t, c.t, sizeof(Triangle) * c.t_indexes))
         fprintf(stderr, "Could not copy memory for Cache Mesh. meshxm() -- memcpy().\n");
 
-    r.v = malloc(sizeof(Vector) * c.v_indexes);
+    r.v = malloc(sizeof(Vec4) * c.v_indexes);
     if (!r.v)
         fprintf(stderr, "Could not allocate memory for Cache Mesh. meshxm() -- malloc().\n");
-    Vector temp_v;
+    Vec4 temp_v;
     for (int i = 0; i < c.v_indexes; i++) {
         temp_v = c.v[i];
         r.v[i].x = temp_v.x * m.m[0][0] + temp_v.y * m.m[1][0] + temp_v.z * m.m[2][0] + temp_v.w * m.m[3][0];
@@ -127,7 +130,7 @@ const Mesh meshxm(const Mesh c, const Mat4x4 m) {
 }
 /* Multiplies a Mesh normals with the given Matrix. */
 const void normalsxm(const Mesh *c, const Mat4x4 m) {
-    Vector temp_vn;
+    Vec4 temp_vn;
     for (int i = 0; i < c->t_indexes; i++) {
         for (int j = 0; j < 3; j++) {
             temp_vn = c->t[i].vn[j];
@@ -138,9 +141,9 @@ const void normalsxm(const Mesh *c, const Mat4x4 m) {
         }
     }
 }
-/* Multiplies a Vector with the given Matrix and returns a new Vector, leaving the original unmodified. */
-const Vector vecxm(const Vector v, const Mat4x4 m) {
-    Vector r = { 0 };
+/* Multiplies a Vec4 with the given Matrix and returns a new Vec4, leaving the original unmodified. */
+const Vec4 vecxm(const Vec4 v, const Mat4x4 m) {
+    Vec4 r = { 0 };
     r.x = v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + v.w * m.m[3][0];
     r.y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + v.w * m.m[3][1];
     r.z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + v.w * m.m[3][2];
@@ -148,7 +151,7 @@ const Vector vecxm(const Vector v, const Mat4x4 m) {
     return r;
 }
 /* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix. */
-const Mat4x4 lookat(const Vector P, const Vector U, const Vector V, const Vector N) {
+const Mat4x4 lookat(const Vec4 P, const Vec4 U, const Vec4 V, const Vec4 N) {
     Mat4x4 m = { 0 };
     m.m[0][0] = U.x;    m.m[0][1] = U.y;    m.m[0][2] = U.z;    m.m[0][3] = 0.0;
     m.m[1][0] = V.x;    m.m[1][1] = V.y;    m.m[1][2] = V.z;    m.m[1][3] = 0.0;
@@ -157,11 +160,11 @@ const Mat4x4 lookat(const Vector P, const Vector U, const Vector V, const Vector
     return m;
 }
 /* The Camera Matrix or as used to called the View Matrix.Returns a new 4x4 Matrix. */
-const Mat4x4 pointat(const Vector P, const Vector T, const Vector Up) {
+const Mat4x4 pointat(const Vec4 P, const Vec4 T, const Vec4 Up) {
     Mat4x4 m = { 0 };
-    Vector N = norm_vec(sub_vecs(P, T));
-    Vector U = norm_vec(cross_product(Up, N));
-    Vector V = cross_product(N, U);
+    Vec4 N = norm_vec(sub_vecs(P, T));
+    Vec4 U = norm_vec(cross_product(Up, N));
+    Vec4 V = cross_product(N, U);
 
     m.m[0][0] = U.x;    m.m[0][1] = U.y;    m.m[0][2] = U.z;    m.m[0][3] = 0.0;
     m.m[1][0] = V.x;    m.m[1][1] = V.y;    m.m[1][2] = V.z;    m.m[1][3] = 0.0;

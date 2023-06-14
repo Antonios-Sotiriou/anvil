@@ -15,10 +15,10 @@ extern float **shadow_buffer;
 
 const float phong(Phong model, const float pixX, const float pixY, const float pixZ, const float pixW) {
     Pixel r;
-    Vector diffuse = { 0 }, specular = { 0 };
+    Vec4 diffuse = { 0 }, specular = { 0 };
 
     float w = 1 / pixW;
-    Vector pixel = {
+    Vec4 pixel = {
         .x = ((pixX / HALFW) - 1.0) * w,
         .y = ((pixY / HALFH) - 1.0) * w,
         .z = (pixZ / 0.5) * w,
@@ -28,14 +28,14 @@ const float phong(Phong model, const float pixX, const float pixY, const float p
     model.normal = norm_vec(model.normal);
 
     /* Applying shadow test by transforming View Space coordinates to light Space. */
-    Vector shadow = shadowTest(pixel);
+    Vec4 shadow = shadowTest(pixel);
 
-    Vector lightdir = norm_vec(sub_vecs(pixel, model.lightPos));
+    Vec4 lightdir = norm_vec(sub_vecs(pixel, model.lightPos));
     float diff = dot_product(lightdir, model.normal);
     if ( diff > 0 ) {
         diffuse = multiply_vec(model.LightColor, diff);
 
-        Vector reflectdir = multiply_vec(cross_product(cross_product(multiply_vec(lightdir, -1), model.normal), sub_vecs(multiply_vec(lightdir, -1), model.normal)), 2.00);
+        Vec4 reflectdir = multiply_vec(cross_product(cross_product(multiply_vec(lightdir, -1), model.normal), sub_vecs(multiply_vec(lightdir, -1), model.normal)), 2.00);
         float dot = dot_product(norm_vec(pixel), norm_vec(reflectdir));
         if ( dot < 0 )
             dot = 0;
