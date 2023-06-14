@@ -25,6 +25,9 @@
 #include "header_files/shadowmap.h"
 #include "header_files/lighting.h"
 #include "header_files/camera.h"
+#include "header_files/grfk_pipeline.h"
+#include "header_files/world_objects.h"
+#include "header_files/kinetics.h"
 
 /* testing */
 #include "header_files/test_shapes.h"
@@ -39,9 +42,9 @@ pthread_mutex_t mutexQueue;
 pthread_cond_t condQueue;
 
 typedef struct {
-    void (*taskFunction)(Vector, float, float, float, float);
+    void (*taskFunction)(Vec4, float, float, float, float);
     float arg1, arg2, arg3, arg4;
-    Vector model;
+    Vec4 model;
 } Task;
 
 pthread_t threads[THREADS];
@@ -49,7 +52,7 @@ Task TaskQueue[10000];
 int TASKCOUNT = 0;
 
 void submitTask(Task task);
-void printTask(Vector normal, float a, float b, float c, float d);
+void printTask(Vec4 normal, float a, float b, float c, float d);
 /* ############################################## THREAD POOL ################################################################### */
 
 enum { Win_Close, Win_Name, Atom_Type, Atom_Last};
@@ -78,18 +81,18 @@ float **depth_buffer;
 float **shadow_buffer;
 
 /* Project Global Structures. */
-Global camera = {
-    .Pos = { 0.0, 0.0, 498.0, 1.0 },
-    .U   = { 1.0, 0.0, 0.0, 0.0 },
-    .V   = { 0.0, 1.0, 0.0, 0.0 },
-    .N   = { 0.0, 0.0, 1.0, 0.0 }
+Vec4 camera[N + 1] = {
+    { 0.0, 0.0, 498.0, 1.0 },
+    { 1.0, 0.0, 0.0, 0.0 },
+    { 0.0, 1.0, 0.0, 0.0 },
+    { 0.0, 0.0, 1.0, 0.0 }
 };
-Global light = {
-    .Pos = { -56.215076, -47.867058, 670.036438, 1.0 },
-    .U   = { -0.907780, -0.069064, -0.413726, 0.0 },
-    .V   = { -0.178108, 0.956481, 0.231131, 0.0 },
-    .N   = { 0.379759, 0.283504, -0.880576, 0.0 },
-    .C   = { 1.0, 1.0, 1.0}
+Vec4 light[C + 1] = {
+    { -56.215076, -47.867058, 670.036438, 1.0 },
+    { -0.907780, -0.069064, -0.413726, 0.0 },
+    { -0.178108, 0.956481, 0.231131, 0.0 },
+    { 0.379759, 0.283504, -0.880576, 0.0 },
+    { 1.0, 1.0, 1.0}
 };
 
 Scene scene = { 0 };
@@ -104,6 +107,8 @@ int HALFH = 0; // Half height of the screen; This variable is initialized in con
 static int EYEPOINT = 0;
 static int PROJECTIONVIEW = 0;
 static int PROJECTBUFFER = 1;
+static int ZNear = 0.01;
+static int ZFar = 1000.0;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
@@ -113,10 +118,10 @@ static int AdjustScene = 0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
-static float NPlane = 1.0;
-static float FPlane = 0.00001;
+float NPlane = 1.0;
+float FPlane = 0.00001;
 static float Scale = 0.03;
-static int DEBUG = 0;
+int DEBUG = 0;
 float			        TimeCounter, LastFrameTimeCounter, DeltaTime, prevTime = 0.0, FPS;
 struct timeval		    tv, tv0;
 int			            Frame = 1, FramesPerFPS;
@@ -130,28 +135,10 @@ const static void configurenotify(XEvent *event);
 const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
 
-/* Objects Rotation functions */
-const static void rotate_x(Mesh *c, const float angle);
-const static void rotate_y(Mesh *c, const float angle);
-const static void rotate_z(Mesh *c, const float angle);
-const static void rotate_origin(Mesh *obj, const float angle, float x, float y, float z);
-const static void rotate_light(Global g, const float angle, float x, float y, float z);
-
 /* Represantation functions */
 const static void initBuffers(void);
-const static void initMeshes(Scene *s);
-const static void loadTexture(Mesh *c);
-const static void createScene(Scene *s);
-const static void releaseScene(Scene *s);
-const static void project(Scene s);
-static void *applyShadows(Scene s);
-static void *pipeLine(Scene s);
-const static void ppdiv(Mesh *c);
-const static Mesh shadowcull(const Mesh c);
-const static Mesh bfculling(const Mesh c);
-const static Mesh viewtoscreen(const Mesh c);
-const static void rasterize(const Mesh sc);
 const static Phong initLightModel(void);
+const static void project(Scene s);
 const static void displayScene(void);
 const static void clearBuffers(const int height, const int width);
 const void exportScene(void);
@@ -176,7 +163,6 @@ static void (*handler[LASTEvent]) (XEvent *event) = {
     [ButtonPress] = buttonpress,
     [KeyPress] = keypress,
 };
-const static Global rerasterize(const Global l);
 
 const static void clientmessage(XEvent *event) {
     printf("Received client message event\n");
@@ -236,8 +222,9 @@ const static void configurenotify(XEvent *event) {
 
             pixmapcreate();
             initBuffers();
+
+            initDependedVariables();
         }
-        initDependedVariables();
 
         if (!INIT)
             INIT = 1;
@@ -251,7 +238,7 @@ const static void buttonpress(XEvent *event) {
     for (int i = 0; i < 10000; i++) {
         Task task = {
             .taskFunction = &printTask,
-            .model = camera.Pos,
+            .model = camera[Pos],
             .arg1 = 1.0,
             .arg2 = 2.0,
             .arg3 = 3.0,
@@ -264,11 +251,11 @@ const static void buttonpress(XEvent *event) {
 const static void keypress(XEvent *event) {
     
     KeySym keysym = getKeysym(event);
-    Global *eye;
+    Vec4 *eye;
     if (EYEPOINT)
-        eye = &light;
+        eye = &light[Pos];
     else
-        eye = &camera;
+        eye = &camera[Pos];
 
     printf("Key Pressed: %ld\n", keysym);
     printf("\x1b[H\x1b[J");
@@ -348,34 +335,34 @@ const static void keypress(XEvent *event) {
             else
                 EYEPOINT = 0;
             break;
-        case 65462 : light.Pos.x += 10.1;                   /* Adjust Light Source */
+        case 65462 : light[Pos].x += 10.1;                   /* Adjust Light Source */
             break;
-        case 65460 : light.Pos.x -= 10.1;                   /* Adjust Light Source */
+        case 65460 : light[Pos].x -= 10.1;                   /* Adjust Light Source */
             break;
-        case 65458 : light.Pos.z -= 10.1;                   /* Adjust Light Source */
+        case 65458 : light[Pos].z -= 10.1;                   /* Adjust Light Source */
             break;
-        case 65464 : light.Pos.z += 10.1;                   /* Adjust Light Source */
+        case 65464 : light[Pos].z += 10.1;                   /* Adjust Light Source */
             break;
-        case 65465 : light.Pos.y -= 10.1;                   /* Adjust Light Source */
+        case 65465 : light[Pos].y -= 10.1;                   /* Adjust Light Source */
             break;
-        case 65459 : light.Pos.y += 10.1;                   /* Adjust Light Source */
+        case 65459 : light[Pos].y += 10.1;                   /* Adjust Light Source */
             break;
         case 43 : Scale += 0.01;
             printf("Scale: %f\n", Scale);                    /* + */
-            OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
+            OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0, ZNear, ZFar);
             break;
         case 45 : Scale -= 0.01;                            /* - */
             printf("Scale: %f\n", Scale);
-            OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
+            OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0, ZNear, ZFar);
             break;
-        case 65289 : rerasterize(light);                    /* Tab */
+        case 65289 : ;                    /* Tab */
             break;
         default :
             return;
     }
-    LookAt = lookat(eye->Pos, eye->U, eye->V, eye->N);
+    LookAt = lookat(eye[Pos], eye[U], eye[V], eye[N]);
     ViewMat = inverse_mat(LookAt);
-    model.lightPos = vecxm(light.Pos, ViewMat);
+    model.lightPos = vecxm(light[Pos], ViewMat);
     AdjustShadow = 1;
     AdjustScene = 1;
 
@@ -384,61 +371,6 @@ const static void keypress(XEvent *event) {
     else
         WorldMat = mxm(ViewMat, OrthoMat);
     // project(scene);
-}
-/* Rotates object according to World X axis. */
-const static void rotate_x(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_xmat(radians(angle));
-    Mesh cache = *c;
-    *c = meshxm(cache, m);
-    free(cache.t);
-    free(cache.v);
-}
-/* Rotates object according to World Y axis. */
-const static void rotate_y(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_ymat(radians(angle));
-    Mesh cache = *c;
-    *c = meshxm(cache, m);
-    free(cache.t);
-    free(cache.v);
-}
-/* Rotates object according to World Z axis. */
-const static void rotate_z(Mesh *c, const float angle) {
-    Mat4x4 m = rotate_zmat(radians(angle));
-    Mesh cache = *c;
-    *c = meshxm(cache, m);
-    free(cache.t);
-    free(cache.v);
-}
-/* Rotates object according to own axis. */
-const static void rotate_origin(Mesh *c, const float angle, float x, float y, float z) {
-    Vector pos = { 1.0, -1.0, 510.0 };
-    Vector axis = { x, y, z };
-    Quat n = setQuat(0, pos);
-
-    Quat xrot = rotationQuat(angle, axis);
-    Mat4x4 rm = MatfromQuat(xrot, n.v);
-
-    Mesh cache = *c;
-    normalsxm(&cache, rm);
-    *c = meshxm(cache, rm);
-    
-    free(cache.t);
-    free(cache.v);
-}
-/* Rotates light arround scene center. */
-const static void rotate_light(Global g, const float angle, float x, float y, float z) {
-    Vector pos = { 0.0, 0.0, 498.0 };
-    Vector axis = { x, y, z };
-    Quat n = setQuat(0, pos);
-
-    Quat xrot = rotationQuat(1, axis);
-    Mat4x4 rm = MatfromQuat(xrot, n.v);
-
-    light.Pos = vecxm(g.Pos, rm);
-    light.U = vecxm(g.U, rm);
-    light.V = vecxm(g.V, rm);
-    light.N = vecxm(g.N, rm);
-    logGlobal(light);
 }
 /* Creates and Initializes the importand buffers. (frame, depth, shadow). */
 const static void initBuffers(void) {
@@ -455,336 +387,13 @@ const static void initBuffers(void) {
         // }
     }
 }
-/* Initializes the meshes from which the Scene consists. */
-const static void initMeshes(Scene *s) {
-    Mesh space = { 0 }, terrain = { 0 }, jupiter = { 0 }, earth = { 0 }, sun = { 0 };
-    Mat4x4 ScaleMat, TransMat, PosMat;
-
-    // space = load_obj("objects/spacedom.obj");
-    // memcpy(space.texture_file, "textures/spacedom_texture.bmp", sizeof(char) * 30);
-    // loadTexture(&space);
-    // ScaleMat = scale_mat(1000.0);
-    // TransMat = translation_mat(0.0, 0.0, 500.0);
-    // PosMat = mxm(ScaleMat, TransMat);
-    // s->m[4] = meshxm(space, PosMat);
-    // free(space.v);
-    // free(space.t);
-
-    terrain = load_obj("objects/terrain.obj");
-    memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    loadTexture(&terrain);
-    ScaleMat = scale_mat(10.0);
-    // rotate_y(&terrain, 90);
-    TransMat = translation_mat(0.0, 0.0, 500.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[0] = meshxm(terrain, PosMat);
-    free(terrain.v);
-    free(terrain.t);
-
-    jupiter = load_obj("objects/earth.obj");
-    memcpy(jupiter.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    loadTexture(&jupiter);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, 0.0, 580.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[1] = meshxm(jupiter, PosMat);
-    free(jupiter.v);
-    free(jupiter.t);
-
-    earth = load_obj("objects/earth.obj");
-    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    loadTexture(&earth);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(1.0, -1.0, 510.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    // normalsxm(&earth, PosMat);
-    s->m[2] = meshxm(earth, PosMat);
-    free(earth.v);
-    free(earth.t);
-
-    sun = load_obj("objects/spacedom.obj");
-    memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
-    loadTexture(&sun);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(light.Pos.x, light.Pos.y, light.Pos.z);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[3] = meshxm(sun, PosMat);
-    free(sun.v);
-    free(sun.t);
-}
-/* Loads the appropriate Textures and importand Texture infos. */
-const static void loadTexture(Mesh *c) {
-
-    BMP_Header bmp_header;
-    BMP_Info texture;
-
-    FILE *fp;
-    fp = fopen(c->texture_file, "rb");
-    if (fp == NULL){
-        fclose(fp);
-        fprintf(stderr, "Could not open file < %s >! loadTexture() -- fopen().\n", c->texture_file);
-    } else {
-        fread(&bmp_header, sizeof(BMP_Header), 1, fp);
-        fseek(fp, 14, SEEK_SET);
-        fread(&texture, sizeof(BMP_Info), 1, fp);
-        fseek(fp, (14 + texture.Size), SEEK_SET);
-
-        c->texture_height = texture.Height;
-        c->texture_width = texture.Width;
-        c->texels = create2darray((void*)c->texels, sizeof(Pixel), texture.Height, texture.Width);
-
-        for (int y = (texture.Height - 1); y >= 0; y--) {
-            for (int x = 0; x < texture.Width; x++) {
-                fread(&c->texels[y][x], sizeof(Pixel), 1, fp);
-            }
-        }
-    }
-    fclose(fp);
-}
-/* Unifies all meshes to a mesh array to finally create the scene or frame else spoken. */
-const static void createScene(Scene *s) {
-    s->m = malloc(sizeof(Mesh) * 4);
-    s->indexes = 4;
-}
-const static void releaseScene(Scene *s) {
-    for (int i = 0; i < s->indexes; i++) {
-        free(s->m[i].t);
-        free(s->m[i].v);
-        free2darray((void*)s->m[i].texels, s->m[i].texture_height);
-    }
-    free(s->m);
-}
-/* Starts the Projection Pipeline. */ // ########################################################################################################
-const static void project(Scene s) {
-    if (AdjustShadow) {
-        for (int y = 0; y < wa.height; y++) {
-            memset(shadow_buffer[y], '@', sizeof(float) * wa.width);
-            // for (int x = 0; x < wa.width; x++) {
-            //     // shadow_buffer[y][x] = 1.0;
-            //     printf("shadow_buffer[%d][%d]: %f\n", y, x, shadow_buffer[y][x]);
-            // }
-        }
-        applyShadows(s);
-        AdjustShadow = 0;
-    }
-    // if (AdjustScene) {
-    //     clearBuffers(wa.height, wa.width);
-        pipeLine(s);
-        // displayScene();
-        // AdjustScene = 0;
-    // }
-    displayScene();
-    clearBuffers(wa.height, wa.width);
-}
-static void *applyShadows(Scene s) {
-    Mat4x4 lm = lookat(light.Pos, light.U, light.V, light.N);
-    Mat4x4 Lview = inverse_mat(lm);
-    LightMat = mxm(Lview, OrthoMat);
-
-    for (int i = 0; i < s.indexes; i++) {
-
-        Mesh cache = meshxm(s.m[i], LightMat);
-
-        /* At this Point triangles must be clipped against near plane. */
-        Vector plane_near_p = { 0.0, 0.0, NPlane },
-            plane_near_n = { 0.0, 0.0, 1.0 };
-        Mesh nf = clipp(cache, plane_near_p, plane_near_n);
-
-        if (nf.t_indexes) {
-            /* Applying Backface culling before we proceed to full frustum clipping. */
-            Mesh bf = shadowcull(nf);
-
-            /* Sending to translation from NDC to Screen Coordinates. */
-            Mesh uf = viewtoscreen(bf);
-
-            createShadowmap(uf);
-            free(uf.t);
-            free(uf.v);
-        } else {
-            free(nf.t);
-            free(nf.v);
-        }
-    }
-    return NULL;
-}
-static void *pipeLine(Scene s) {
-
-    for (int i = 0; i < s.indexes; i++) {
-
-        Mesh cache = meshxm(s.m[i], WorldMat);
-
-        /* Transform normals in View Space before clipping and perspective division. */
-        normalsxm(&cache, ViewMat);
-
-        /* At this Point triangles must be clipped against near plane. */
-        Vector plane_near_p = { 0.0, 0.0, NPlane },
-            plane_near_n = { 0.0, 0.0, 1.0 };
-        Mesh nf = clipp(cache, plane_near_p, plane_near_n);
-
-        /* Applying perspective division. */
-        if (nf.t_indexes) {
-            ppdiv(&nf);
-
-            /* Applying Backface culling before we proceed to full frustum clipping. */
-            Mesh bf = bfculling(nf);
-
-            /* Sending to translation from NDC to Screen Coordinates. */
-            Mesh uf = viewtoscreen(bf);
-
-            rasterize(uf);
-            free(uf.t);
-            free(uf.v);
-        } else {
-            free(nf.t);
-            free(nf.v);
-        }
-    }
-    return NULL;
-} // ##############################################################################################################################################
-/* Perspective division. */
-const static void ppdiv(Mesh *c) {
-
-    for (int i = 0; i < c->t_indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-            if ( c->t[i].v[j].w > 0.00 ) {
-                c->t[i].v[j].x /= c->t[i].v[j].w;
-                c->t[i].v[j].y /= c->t[i].v[j].w;
-                c->t[i].v[j].z /= c->t[i].v[j].w;
-            }
-        }
-    }
-}
-/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
-const static Mesh shadowcull(const Mesh c) {
-    Mesh r = c;
-    Vector cp;
-    float dpc;
-    int counter = 1;
-    int index = 0;
-    r.t = malloc(sizeof(Triangle));
-    if (!r.t)
-        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
-
-    for (int i = 0; i < c.t_indexes; i++) {
-        dpc = winding3D(c.t[i]);
-
-        if (dpc > 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
-
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
-
-            r.t[index] = c.t[i];
-
-            counter++;
-            index++;
-        }
-    }
-    r.t_indexes = index;
-    free(c.t);
-    return r;
-}
-/* Backface culling.Discarding Triangles that should not be painted.Creating a new dynamic Mesh stucture Triangles array. */
-const static Mesh bfculling(const Mesh c) {
-    Mesh r = c;
-    Vector cp;
-    float dpc;
-    int counter = 1;
-    int index = 0;
-    r.t = malloc(sizeof(Triangle));
-    if (!r.t)
-        fprintf(stderr, "Could not allocate memory - bfculling() - malloc\n");
-
-    for (int i = 0; i < c.t_indexes; i++) {
-        dpc = winding3D(c.t[i]);
-
-        if (dpc > 0.00) {
-            r.t = realloc(r.t, sizeof(Triangle) * counter);
-
-            if (!r.t)
-                fprintf(stderr, "Could not allocate memory - bfculling() - realloc\n");
-
-            r.t[index] = c.t[i];
-
-            counter++;
-            index++;
-        }
-    }
-    r.t_indexes = index;
-    free(c.t);
-    return r;
-}
-/* Translates the Mesh's Triangles from world to Screen Coordinates. */
-const static Mesh viewtoscreen(const Mesh c) {
-    float w = 0.0;
-    for (int i = 0; i < c.t_indexes; i++) {
-        for (int j = 0; j < 3; j++) {
-            w = c.t[i].v[j].w;
-            c.t[i].v[j].x = (++c.t[i].v[j].x) * HALFW;
-            c.t[i].v[j].y = (++c.t[i].v[j].y) * HALFH;
-            c.t[i].v[j].z *= 0.5;//( (1 / c.t[i].v[j].z) - (1 / ZNear) ) / ( (1 / ZFar) - (1 / ZNear) );//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
-            c.t[i].v[j].w = 1 / w;
-
-            c.t[i].vt[j].u /= w;
-            c.t[i].vt[j].v /= w;
-            c.t[i].vt[j].w = c.t[i].v[j].w;
-        }
-    }
-
-    /* Far Plane clipping and side clipping. */
-    Vector plane_far_p = { 0.0, 0.0, FPlane },
-           plane_far_n = { 0.0, 0.0, 1.0 };
-    Mesh ff = clipp(c, plane_far_p, plane_far_n);
-
-    // if (DEBUG == 1) {
-        Vector plane_right_p = { wa.width - 1.0, 0.0, 0.0 },
-            plane_right_n = { -1.0, 0.0, 0.0 };
-        Mesh rf = clipp(ff, plane_right_p, plane_right_n);
-
-        Vector plane_down_p = { 0.0, wa.height - 1.0, 0.0 },
-            plane_down_n = { 0.0, -1.0, 0.0 };
-        Mesh df = clipp(rf, plane_down_p, plane_down_n);
-
-        Vector plane_left_p = { 0.0, 0.0, 0.0 },
-            plane_left_n = { 1.0, 0.0, 0.0 };
-        Mesh lf = clipp(df, plane_left_p, plane_left_n);
-
-        Vector plane_up_p = { 0.0, 0.0, 0.0 },
-            plane_up_n = { 0.0, 1.0, 0.0 };
-        Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-        return uf;
-    // }
-    // return ff;
-}
-/* Rasterize given Mesh by passing them to the appropriate function. */
-const static void rasterize(const Mesh c) {
-    signed int tex_h = c.texture_height - 1;
-    signed int tex_w = c.texture_width - 1;
-
-    for (int i = 0; i < c.t_indexes; i++) {
-
-        if (DEBUG == 1) {
-            drawLine(c.t[i].v[0].x, c.t[i].v[0].y, c.t[i].v[1].x, c.t[i].v[1].y, 255, 0, 0);
-            drawLine(c.t[i].v[1].x, c.t[i].v[1].y, c.t[i].v[2].x, c.t[i].v[2].y, 255, 0, 0);
-            drawLine(c.t[i].v[2].x, c.t[i].v[2].y, c.t[i].v[0].x, c.t[i].v[0].y, 255, 0, 0);
-        } else if (DEBUG == 2) {
-            // clock_t start_time = start();
-            fillTriangle(c.t[i]);
-            // end(start_time);
-        } else {
-            // clock_t start_time = start();
-            texTriangle(c.t[i], c.texels, tex_h, tex_w);
-            // end(start_time);
-        }
-    }
-}
 /* Initializing the structure which we pass arround for lighting calculations. This way we keep lighting vvariables more orginized. */
 const static Phong initLightModel(void) {
     Phong r = { 0 };
 
-    r.lightPos = vecxm(light.Pos, ViewMat);
-    Vector LightColor = { 1.0, 1.0, 1.0 };
-    Vector SpecularColor = { 0.0, 1.0, 0.0 };
+    r.lightPos = vecxm(light[Pos], ViewMat);
+    Vec4 LightColor = { 1.0, 1.0, 1.0 };
+    Vec4 SpecularColor = { 0.0, 1.0, 0.0 };
 
     r.LightColor = LightColor;
     r.objColor.Blue = 0.129 * 255;
@@ -798,6 +407,24 @@ const static Phong initLightModel(void) {
     r.Specular = multiply_vec(SpecularColor, r.SpecularStrength);
 
     return r;
+}
+/* Starts the Projection Pipeline. */ // ########################################################################################################
+const static void project(Scene s) {
+    if (AdjustShadow) {
+        for (int y = 0; y < wa.height; y++) {
+            memset(shadow_buffer[y], '@', sizeof(float) * wa.width);
+        }
+        shadowPipeline(s);
+        AdjustShadow = 0;
+    }
+    // if (AdjustScene) {
+    //     clearBuffers(wa.height, wa.width);
+        grfkPipeLine(s);
+        // displayScene();
+        // AdjustScene = 0;
+    // }
+    displayScene();
+    clearBuffers(wa.height, wa.width);
 }
 /* Writes the final Pixel values on screen. */
 const static void displayScene(void) {
@@ -934,11 +561,11 @@ const static void initDependedVariables(void) {
     AspectRatio = ((float)wa.width / (float)wa.height);
     HALFW = wa.width >> 1;
     HALFH = wa.height >> 1;
-    PerspMat = perspective_mat(FOV, AspectRatio);
+    PerspMat = perspective_mat(FOV, AspectRatio, ZNear, ZFar);
     rePerspMat = reperspective_mat(FOV, AspectRatio);
-    OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
+    OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0, ZNear, ZFar);
 
-    LookAt = lookat(camera.Pos, camera.U, camera.V, camera.N);
+    LookAt = lookat(camera[Pos], camera[U], camera[V], camera[N]);
     ViewMat = inverse_mat(LookAt);
     WorldMat = mxm(ViewMat, PerspMat);
 
@@ -1013,8 +640,8 @@ void submitTask(Task task) {
     pthread_mutex_unlock(&mutexQueue);
     pthread_cond_signal(&condQueue);
 }
-void printTask(Vector normal, float a, float b, float c, float d) {
-    logVector(normal);
+void printTask(Vec4 normal, float a, float b, float c, float d) {
+    logVec4(normal);
     printf("a: %f,    b: %f,    c: %f,    d: %f\n", a, b, c, d);
 }
 /* ############################################## THREAD POOL ################################################################### */
@@ -1131,55 +758,5 @@ const int main(int argc, char *argv[]) {
     XCloseDisplay(displ);
     
     return EXIT_SUCCESS;
-}
-/* From World Coordinate System to Screen space and back again to World Coordinate System. Testing Purposes only. */
-const static Global rerasterize(const Global l) {
-    Global r = l;
-    printf("World Space:  r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    Mat4x4 View = inverse_mat(LookAt);
-    r.Pos = vecxm(r.Pos, View);
-    printf("Camera Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    // Mat4x4 Proj = orthographic_mat(Scale, Scale, 0.0, 0.0);
-    // r.Pos = vecxm(r.Pos, Proj);
-    // printf("Orthogr Homogin Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    Mat4x4 Proj = perspective_mat(FOV, AspectRatio);
-    r.Pos = vecxm(r.Pos, Proj);
-    printf("Perspec Clipp Space: r.x: %f,   r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    if (r.Pos.w > 0.0) {
-        r.Pos.x /= r.Pos.w;
-        r.Pos.y /= r.Pos.w;
-        r.Pos.z /= r.Pos.w;
-    }
-    printf("NDC Space:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    r.Pos.x = (1.0 + r.Pos.x) * HALFW;
-    r.Pos.y = (1.0 + r.Pos.y) * HALFH;
-    printf("Screen Space: r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    r.Pos.x = (r.Pos.x / HALFW) - 1.0;
-    r.Pos.y = (r.Pos.y / HALFH) - 1.0;
-    printf("To NDC:       r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    if (r.Pos.w > 0.0) {
-        r.Pos.x *= r.Pos.w;
-        r.Pos.y *= r.Pos.w;
-        r.Pos.z *= r.Pos.w;
-    }
-    printf("To Clipp:    r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    // Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
-    Mat4x4 reProj = reperspective_mat(FOV, AspectRatio);
-    r.Pos = vecxm(r.Pos, reProj);
-    r.Pos.w = 1.0;
-    printf("To Camera:   r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    r.Pos = vecxm(r.Pos, LookAt);
-    printf("To World:   r.x: %f,    r.y: %f,    r.z: %f,    r.w: %f\n", r.Pos.x, r.Pos.y, r.Pos.z, r.Pos.w);
-
-    return r;
 }
 

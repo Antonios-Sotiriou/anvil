@@ -1,6 +1,6 @@
 #include "header_files/draw_functions.h"
 
-#include "immintrin.h"
+#include <immintrin.h>
 
 extern XWindowAttributes wa;
 extern Pixel **pixels;
@@ -184,6 +184,11 @@ const void fillGeneral(const Triangle t, int minX, int maxX, int minY, int maxY)
     const float w0 = t.v[0].w,    w1 = t.v[1].w,     w2 = t.v[2].w;
     int x10 = x0 - x1,    x20 = x2 - x0,    x02 = x2 - x0,    x21 = x1 - x2;
     int y10 = y0 - y1,    y20 = y2 - y0,    y02 = y2 - y0,    y21 = y1 - y2;
+
+    // minY = minY < 0 ? 0 : minY;
+    // maxY = maxY > maxHeight ? maxHeight : maxY;
+    // minX = minX < 0 ? 0 : minX;
+    // maxX = maxX > maxWidth ? maxWidth : maxX;
 
     const int tpA = ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) ? 1 : 0;
     const int tpB = ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ? 1 : 0;

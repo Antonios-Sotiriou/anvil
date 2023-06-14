@@ -5,7 +5,7 @@
     #include "objects.h"
 #endif
 
-#ifndef _VECTORS_MATH_H
+#ifndef _vectors_mathMATH_H
     #include "vectors_math.h"
 #endif
 
@@ -13,15 +13,15 @@
     #include "quaternions.h"
 #endif
 
-const void look_left(Global *g, const float Angle);
-const void look_right(Global *g, const float Angle);
-const void move_forward(Global *g);
-const void move_backward(Global *g);
-const void look_up(Global *g, const float Angle);
-const void look_down(Global *g, const float Angle);
-const void move_left(Global *g);
-const void move_right(Global *g);
-const void move_up(Global *g);
-const void move_down(Global *g);
+const void look_left(Vec4 *g, const float Angle);
+const void look_right(Vec4 *g, const float Angle);
+const void move_forward(Vec4 *g);
+const void move_backward(Vec4 *g);
+const void look_up(Vec4 *g, const float Angle);
+const void look_down(Vec4 *g, const float Angle);
+const void move_left(Vec4 *g);
+const void move_right(Vec4 *g);
+const void move_up(Vec4 *g);
+const void move_down(Vec4 *g);
 
 #endif /* _CAMERA_H */

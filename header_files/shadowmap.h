@@ -19,6 +19,6 @@
 
 const void createShadowmap(Mesh c);
 const void shadowTriangle(const Triangle t, const int minX, const int maxX, const int minY, const int maxY);
-const Vector shadowTest(Vector pix);
+const Vec4 shadowTest(Vec4 pix);
 
 #endif /* _SHADOWMAP_H */

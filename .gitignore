@@ -1,7 +1,6 @@
 anvil
 *.s
 header_files/code_cache.h
-header_files/bmp.h
 textures/*
 objects/*
 
