@@ -1,6 +1,4 @@
-#include "header_files/draw_functions.h"
-#include "header_files/exec_time.h"
-#include "header_files/logging.h"
+#include "header_files/scanline.h"
 
 extern Pixel **pixels;
 extern float **depth_buffer;
@@ -103,22 +101,30 @@ const void fillTriangle(Triangle t) {
     float winding = 1 / winding3D(t);
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     fillGeneral(t, winding);
+    drawLine(t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
+    drawLine(t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 255, 0);
+    drawLine(t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 0, 255);
 }
 const static void fillGeneral(const Triangle t, const float winding) {
-    Pixel pix = { 0 };
     const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x02 = t.v[0].x - t.v[2].x,    x21 = t.v[2].x - t.v[1].x;
     const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y02 = t.v[0].y - t.v[2].y,    y21 = t.v[2].y - t.v[1].y;
 
-    const float ma = x10 / y10,    mb = x02 / y02,    mc = x21 / y21;
-    const float z0 = t.v[0].z,    z1 = t.v[1].z,     z2 = t.v[2].z;
-    const float w0 = t.v[0].w,    w1 = t.v[1].w,     w2 = t.v[2].w;
-
+    const float orient = ((t.v[1].x - t.v[0].x) * y02) - ((t.v[1].y - t.v[0].y) * x02);
+    float ma = ( (x10 == 0) || (y10 == 0) ) ? 0 : x10 / y10;
+    float mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : x20 / y20;
+    if (orient < 0)
+        swap(&ma, &mb, sizeof(float));
 
     const int y_start = t.v[0].y + 0.5;
     const int y_end1 = t.v[1].y + 0.5;
     const int y_end2 = t.v[2].y + 0.5;
+    int t_start = t.v[0].x + 0.5;
+    int t_end = t.v[0].x + 0.5;
 
     const float area = ((t.v[0].x - t.v[1].x) * y21) - ((t.v[0].y - t.v[1].y) * x21);
+    // float ya = ((t_start - t.v[0].x) * y10) - ((y_start - t.v[0].y) * x10);
+    // float yb = ((t_start - t.v[1].x) * y21) - ((y_start - t.v[1].y) * x21);
+    // float yc = ((t_start - t.v[2].x) * y02) - ((y_start - t.v[2].y) * x02);
     float ya = -(y_start - t.v[0].y) * x10;
     float yb = -(y_start - t.v[1].y) * x21;
     float yc = -(y_start - t.v[2].y) * x02;
@@ -129,20 +135,23 @@ const static void fillGeneral(const Triangle t, const float winding) {
 
             int x_start = ((ma * yA) + t.v[0].x) + 0.5;
             int x_end = ((mb * yA) + t.v[0].x) + 0.5;
-            if (x_start > x_end)
-                swap(&x_start, &x_end, sizeof(int));
+            // printf("Upper  x_start: %d,    t_start: %d\n", x_start, t_start);
+            // printf("Upper  x_end  : %d,    t_end  : %d\n", x_end, t_end);
 
             float xa = ((x_start - t.v[0].x) * y10) + ya;
             float xb = ((x_start - t.v[1].x) * y21) + yb;
             float xc = ((x_start - t.v[2].x) * y02) + yc;
+            // float xa = ya;
+            // float xb = yb;
+            // float xc = yc;
 
             for (int x = x_start; x < x_end; x++) {
                 const float a = xa / area;
                 const float b = xb / area;
                 const float c = xc / area;
 
-                const float depthZ = a * z2 + b * z0 + c * z1;
-                const float depthW = a * w2 + b * w0 + c * w1;
+                const float depthZ = a * t.v[2].z + b * t.v[0].z + c * t.v[1].z;
+                const float depthW = a * t.v[2].w + b * t.v[0].w + c * t.v[1].w;
 
                 if ( depthW > depth_buffer[y][x] ) {
 
@@ -150,43 +159,44 @@ const static void fillGeneral(const Triangle t, const float winding) {
                     model.normal.y = a * t.vn[2].y + b * t.vn[0].y + c * t.vn[1].y;
                     model.normal.z = a * t.vn[2].z + b * t.vn[0].z + c * t.vn[1].z;
 
-                    Vector shadow = shadowTest(x, y, depthZ, depthW);
-                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias)) {
-                        pix = phong(model, x, y, depthZ, depthW, 1);
-                    } else {
-                        pix = phong(model, x, y, depthZ, depthW, 0);
-                    }
-
-                    memcpy(&pixels[y][x], &pix, sizeof(Pixel));
-                    depth_buffer[y][x] = depthW;
+                    depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
                 }
                 xa += y10, xb += y21, xc += y02;
             }
             ya += -x10, yb += -x21, yc += -x02;
+            t_start += ma, t_end += mb;
         }
 
     if (y21 == 0)
         return;
+
+    ma = ( (x21 == 0) || (y21 == 0) ) ? 0 : x21 / y21;
+    mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : x20 / y20;
+    if (orient < 0)
+        swap(&ma, &mb, sizeof(float));
+
     for (int y = y_end1; y < y_end2; y++) {
-        const int yA = y - y_start;
-        const int yB = y - y_end1;
+        const int yB = y - y_end2;
 
-        int x_start = ((mb * yA) + t.v[0].x) + 0.5;
-        int x_end = ((mc * yB) + t.v[1].x) + 0.5;
-        if (x_start > x_end)
-            swap(&x_start, &x_end, sizeof(int));
-
+        int x_start = ((ma * yB) + t.v[2].x) + 0.5;
+        int x_end = ((mb * yB) + t.v[2].x) + 0.5;
+        // printf("Lower  x_start: %d,    t_start: %d\n", x_start, t_start);
+        // printf("Lower  x_end  : %d,    t_end  : %d\n", x_end, t_end);
+        // printf("Lower  x_start: %d,    x_end: %d\n", x_start, x_end);
         float xa = ((x_start - t.v[0].x) * y10) + ya;
         float xb = ((x_start - t.v[1].x) * y21) + yb;
         float xc = ((x_start - t.v[2].x) * y02) + yc;
+        // float xa = ya;
+        // float xb = yb;
+        // float xc = yc;
 
         for (int x = x_start; x < x_end; x++) {
             const float a = xa / area;
             const float b = xb / area;
             const float c = xc / area;
 
-            const float depthZ = a * z2 + b * z0 + c * z1;
-            const float depthW = a * w2 + b * w0 + c * w1;
+            const float depthZ = a * t.v[2].z + b * t.v[0].z + c * t.v[1].z;
+            const float depthW = a * t.v[2].w + b * t.v[0].w + c * t.v[1].w;
 
             if ( depthW > depth_buffer[y][x] ) {
 
@@ -194,19 +204,12 @@ const static void fillGeneral(const Triangle t, const float winding) {
                 model.normal.y = a * t.vn[2].y + b * t.vn[0].y + c * t.vn[1].y;
                 model.normal.z = a * t.vn[2].z + b * t.vn[0].z + c * t.vn[1].z;
 
-                Vector shadow = shadowTest(x, y, depthZ, depthW);
-                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias)) {
-                    pix = phong(model, x, y, depthZ, depthW, 1);
-                } else {
-                    pix = phong(model, x, y, depthZ, depthW, 0);
-                }
-
-                memcpy(&pixels[y][x], &pix, sizeof(Pixel));
-                depth_buffer[y][x] = depthW;
+                depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
             }
             xa += y10, xb += y21, xc += y02;
         }
         ya += -x10, yb += -x21, yc += -x02;
+        t_start += ma, t_end += mb;
     }
 }
 const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const int tex_width) {
@@ -234,7 +237,7 @@ const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const i
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     texGeneral(t, winding, texels, tex_height, tex_width);
 }
-const void texGeneral(const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
+const static void texGeneral(const Triangle t, const float winding, Pixel **texels, const int tex_height, const int tex_width) {
     Pixel pix = { 0 };
     const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x21 = t.v[2].x - t.v[1].x;
     const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y21 = t.v[2].y - t.v[1].y;
@@ -312,14 +315,9 @@ const void texGeneral(const Triangle t, const float winding, Pixel **texels, con
 
                     model.normal = add_vecs(ny1, multiply_vec(sub_vecs(ny2, ny1), barycentric));
                     memcpy(&model.objColor, &texels[tex_y][tex_x], sizeof(Pixel));
-                    Vector shadow = shadowTest(x, y, depthZ, depthW);
-                    if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                            pix = phong(model, x, y, depthZ, depthW, 1);
-                    } else {
-                            pix = phong(model, x, y, depthZ, depthW, 0);
-                    }
+
                     memcpy(&pixels[y][x], &pix, sizeof(Pixel));
-                    depth_buffer[y][x] = depthW;
+                    depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
                 }
                 xxs += 1.0,    q += q_step;
             }
@@ -387,14 +385,9 @@ const void texGeneral(const Triangle t, const float winding, Pixel **texels, con
 
                 model.normal = add_vecs(ny1, multiply_vec(sub_vecs(ny2, ny1), barycentric));
                 memcpy(&model.objColor, &texels[tex_y][tex_x], sizeof(Pixel));
-                Vector shadow = shadowTest(x, y, depthZ, depthW);
-                if ( shadow.z > (shadow_buffer[(int)shadow.y][(int)shadow.x] + model.bias) ) {
-                    pix = phong(model, x, y, depthZ, depthW, 1);
-                } else {
-                    pix = phong(model, x, y, depthZ, depthW, 0);
-                }
+
                 memcpy(&pixels[y][x], &pix, sizeof(Pixel));
-                depth_buffer[y][x] = depthW;
+                depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
             }
             xxs += 1.0,    q += q_step;
         }

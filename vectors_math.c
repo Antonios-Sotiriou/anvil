@@ -1,4 +1,5 @@
 #include "header_files/vectors_math.h"
+
 /* Computing the average of the Z values of the Triangle's Vectors.Returns the average float value. */
 const float depth(const Triangle t) {
     float res = 0;

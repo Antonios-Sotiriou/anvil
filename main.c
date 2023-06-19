@@ -5,6 +5,10 @@
 #include <X11/Xutil.h>
 #include <math.h>
 #include <unistd.h>
+#include <sys/time.h>
+
+#define EDGEFUNC 0
+#define SCANLINE 1
 
 /* signal */
 #include <signal.h>
@@ -17,10 +21,17 @@
 #include "header_files/vectors_math.h"
 #include "header_files/obj_parser.h"
 #include "header_files/clipping.h"
-#include "header_files/draw_functions.h"
 #include "header_files/general_functions.h"
 #include "header_files/quaternions.h"
 #include "header_files/shadowmap.h"
+#include "header_files/lighting.h"
+#include "header_files/camera.h"
+
+#ifdef EDGEFUNC
+    #include "header_files/edgefunc.h"
+#elif SCANLINE
+    #include "header_files/scanline.h"
+#endif
 
 /* testing */
 #include "header_files/test_shapes.h"
@@ -32,9 +43,6 @@ enum { Pos, U, V, N, C};
 
 #define WIDTH                     800
 #define HEIGHT                    800
-#define XWorldToScreen            ( (1 + c.t[i].v[j].x) * HALFW )
-#define YWorldToScreen            ( (1 + c.t[i].v[j].y) * HALFH )
-
 #define POINTERMASKS              ( ButtonPressMask )
 #define KEYBOARDMASKS             ( KeyPressMask )
 #define EXPOSEMASKS               ( StructureNotifyMask )
@@ -62,20 +70,6 @@ Global camera = {
     .V   = { 0.0, 1.0, 0.0, 0.0 },
     .N   = { 0.0, 0.0, 1.0, 0.0 }
 };
-// Global light = {
-//     .Pos = { -9.648195, -16.342173, 517.552246, 0.0 },
-//     .U   = { -0.883299, -0.006683, -0.468767, 0.0 },
-//     .V   = { -0.330613, 0.717806, 0.612739, 0.0 },
-//     .N   = { 0.332388, 0.696211, -0.636246, 0.0 },
-//     .C   = { 1.0, 1.0, 1.0}
-// };
-// Global light = {
-//     .Pos = { 0, -10, 500, 1.0 },
-//     .U   = { 1, 0, 0, 0.0 },
-//     .V   = { 0, 1, 0, 0.0 },
-//     .N   = { 0, 0, 1, 0.0 },
-//     .C   = { 1.0, 1.0, 1.0}
-// };
 Global light = {
     .Pos = { -56.215076, -47.867058, 670.036438, 1.0 },
     .U   = { -0.907780, -0.069064, -0.413726, 0.0 },
@@ -99,8 +93,9 @@ static int PROJECTBUFFER = 1;
 static float AspectRatio = 0;
 static float FOV = 45.0;
 static float Angle = 2.0;
-static float bias = 0.000120; //0.000440;
+static float bias = 0.000120;
 static int AdjustShadow = 0;
+static int AdjustScene = 0;
 // static float Yaw = 0.0;
 // static float Pitch = 0.0;
 // static float Roll = 0.0;
@@ -108,6 +103,9 @@ static float NPlane = 1.0;
 static float FPlane = 0.00001;
 static float Scale = 0.03;
 static int DEBUG = 0;
+float			        TimeCounter, LastFrameTimeCounter, DeltaTime, prevTime = 0.0, FPS;
+struct timeval		    tv, tv0;
+int			            Frame = 1, FramesPerFPS;
 
 /* Event handling functions. */
 const static void clientmessage(XEvent *event);
@@ -117,18 +115,6 @@ const static void resizerequest(XEvent *event);
 const static void configurenotify(XEvent *event);
 const static void buttonpress(XEvent *event);
 const static void keypress(XEvent *event);
-
-/* Moving functions */
-const static void look_left(Global *g, const float Angle);
-const static void look_right(Global *g, const float Angle);
-const static void move_forward(Global *g);
-const static void move_backward(Global *g);
-const static void look_up(Global *g, const float Angle);
-const static void look_down(Global *g, const float Angle);
-const static void move_left(Global *g);
-const static void move_right(Global *g);
-const static void move_up(Global *g);
-const static void move_down(Global *g);
 
 /* Objects Rotation functions */
 const static void rotate_x(Mesh *c, const float angle);
@@ -166,7 +152,7 @@ const static void pixmapdisplay(void);
 const static void atomsinit(void);
 const static void sigsegv_handler(const int sig);
 const static int registerSig(const int signal);
-const static int board(void);
+static int board(void);
 static void (*handler[LASTEvent]) (XEvent *event) = {
     [ClientMessage] = clientmessage,
     [ReparentNotify] = reparentnotify,
@@ -361,108 +347,13 @@ const static void keypress(XEvent *event) {
     ViewMat = inverse_mat(LookAt);
     model.lightPos = vecxm(light.Pos, ViewMat);
     AdjustShadow = 1;
+    AdjustScene = 1;
 
     if (!PROJECTIONVIEW)
         WorldMat = mxm(ViewMat, PerspMat);
     else
         WorldMat = mxm(ViewMat, OrthoMat);
-    // project(scene);
-}
-/* Rotates the camera to look left. */
-const static void look_left(Global *g, const float angle) {
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(-2, g->V);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-/* Rotates the camera to look right. */
-const static void look_right(Global *g, const float angle) {
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(2, g->V);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-const static void move_forward(Global *g) {
-    g->Pos = add_vecs(g->Pos, multiply_vec(g->N, 0.2));
-}
-const static void move_backward(Global *g) {
-    g->Pos = sub_vecs(g->Pos, multiply_vec(g->N, 0.2));
-}
-/* Rotates the camera to look Up. */
-const static void look_up(Global *g, const float angle) {
-
-    /* A working example with Quaternion rotation. */
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(-1, g->U);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-/* Rotates the camera to look Down. */
-const static void look_down(Global *g, const float angle) {
-
-    /* A working example with Quaternion rotation. */
-    Quat u = setQuat(0, g->U);
-    Quat v = setQuat(0, g->V);
-    Quat n = setQuat(0, g->N);
-
-    Quat xrot = rotationQuat(1, g->U);
-    Quat rerot = conjugateQuat(xrot);
-
-    Quat resu = multiplyQuats(multiplyQuats(xrot, u), rerot);
-    Quat resv = multiplyQuats(multiplyQuats(xrot, v), rerot);
-    Quat resn = multiplyQuats(multiplyQuats(xrot, n), rerot);
-
-    g->U = resu.v;
-    g->V = resv.v;
-    g->N = resn.v;
-}
-/* Moves camera position left. */
-const static void move_left(Global *g) {
-    g->Pos = sub_vecs(g->Pos, multiply_vec(g->U, 0.1));
-}
-/* Moves camera position right. */
-const static void move_right(Global *g) {
-    g->Pos = add_vecs(g->Pos, multiply_vec(g->U, 0.1));
-}
-/* Moves camera position Up. */
-const static void move_up(Global *g) {
-    // g->Pos = sub_vecs(g->Pos, multiply_vec(g->V, 0.1));
-    g->Pos.y -= 0.1;
-}
-/* Moves camera position Down. */
-const static void move_down(Global *g) {
-    // g->Pos = add_vecs(g->Pos, multiply_vec(g->V, 0.1));
-    g->Pos.y += 0.1;
+    project(scene);
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
@@ -529,9 +420,9 @@ const static void initBuffers(void) {
     for (int y = 0; y < wa.height; y++){
         memset(pixels[y], 0, sizeof(Pixel) * wa.width);
         memset(depth_buffer[y], 0, sizeof(float) * wa.width);
-        for (int x = 0; x < wa.width; x++) {
-            shadow_buffer[y][x] = 1.0;
-        }
+        // for (int x = 0; x < wa.width; x++) {
+        //     shadow_buffer[y][x] = 1.0;
+        // }
     }
 }
 /* Initializes the meshes from which the Scene consists. */
@@ -549,47 +440,47 @@ const static void initMeshes(Scene *s) {
     // free(space.v);
     // free(space.t);
 
-    terrain = load_obj("objects/terrain.obj");
+    terrain = load_obj("objects/triangle.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
-    ScaleMat = scale_mat(10.0);
-    rotate_y(&terrain, 90);
-    TransMat = translation_mat(0.0, 0.0, 500.0);
+    ScaleMat = scale_mat(1.0);
+    rotate_x(&terrain, -90);
+    TransMat = translation_mat(0.0, 0.0, 510.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
     free(terrain.t);
 
-    jupiter = load_obj("objects/earth.obj");
-    memcpy(jupiter.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    loadTexture(&jupiter);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, 0.0, 580.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[1] = meshxm(jupiter, PosMat);
-    free(jupiter.v);
-    free(jupiter.t);
+    // jupiter = load_obj("objects/earth.obj");
+    // memcpy(jupiter.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    // loadTexture(&jupiter);
+    // ScaleMat = scale_mat(10.0);
+    // TransMat = translation_mat(-10.0, 0.0, 580.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[1] = meshxm(jupiter, PosMat);
+    // free(jupiter.v);
+    // free(jupiter.t);
 
-    earth = load_obj("objects/earth.obj");
-    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    loadTexture(&earth);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(1.0, -1.0, 510.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    // normalsxm(&earth, PosMat);
-    s->m[2] = meshxm(earth, PosMat);
-    free(earth.v);
-    free(earth.t);
+    // earth = load_obj("objects/earth.obj");
+    // memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    // loadTexture(&earth);
+    // ScaleMat = scale_mat(0.5);
+    // TransMat = translation_mat(1.0, -1.0, 510.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // // normalsxm(&earth, PosMat);
+    // s->m[2] = meshxm(earth, PosMat);
+    // free(earth.v);
+    // free(earth.t);
 
-    sun = load_obj("objects/spacedom.obj");
-    memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
-    loadTexture(&sun);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(light.Pos.x, light.Pos.y, light.Pos.z);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[3] = meshxm(sun, PosMat);
-    free(sun.v);
-    free(sun.t);
+    // sun = load_obj("objects/spacedom.obj");
+    // memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
+    // loadTexture(&sun);
+    // ScaleMat = scale_mat(0.5);
+    // TransMat = translation_mat(light.Pos.x, light.Pos.y, light.Pos.z);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[3] = meshxm(sun, PosMat);
+    // free(sun.v);
+    // free(sun.t);
 }
 /* Loads the appropriate Textures and importand Texture infos. */
 const static void loadTexture(Mesh *c) {
@@ -636,16 +527,22 @@ const static void releaseScene(Scene *s) {
 /* Starts the Projection Pipeline. */ // ########################################################################################################
 const static void project(Scene s) {
     if (AdjustShadow) {
-        for (int y = 0; y < wa.height; y++)
-            for (int x = 0; x < wa.width; x++) {
-                shadow_buffer[y][x] = 1.0;
-            }
-
+        for (int y = 0; y < wa.height; y++) {
+            memset(shadow_buffer[y], '@', sizeof(float) * wa.width);
+            // for (int x = 0; x < wa.width; x++) {
+            //     // shadow_buffer[y][x] = 1.0;
+            //     printf("shadow_buffer[%d][%d]: %f\n", y, x, shadow_buffer[y][x]);
+            // }
+        }
         applyShadows(s);
         AdjustShadow = 0;
     }
-    pipeLine(s);
-
+    // if (AdjustScene) {
+    //     clearBuffers(wa.height, wa.width);
+        pipeLine(s);
+        // displayScene();
+        // AdjustScene = 0;
+    // }
     displayScene();
     clearBuffers(wa.height, wa.width);
 }
@@ -703,6 +600,7 @@ static void *pipeLine(Scene s) {
 
             /* Sending to translation from NDC to Screen Coordinates. */
             Mesh uf = viewtoscreen(bf);
+
             rasterize(uf);
             free(uf.t);
             free(uf.v);
@@ -792,8 +690,8 @@ const static Mesh viewtoscreen(const Mesh c) {
     for (int i = 0; i < c.t_indexes; i++) {
         for (int j = 0; j < 3; j++) {
             w = c.t[i].v[j].w;
-            c.t[i].v[j].x = XWorldToScreen;
-            c.t[i].v[j].y = YWorldToScreen;
+            c.t[i].v[j].x = (++c.t[i].v[j].x) * HALFW;
+            c.t[i].v[j].y = (++c.t[i].v[j].y) * HALFH;
             c.t[i].v[j].z *= 0.5;//( (1 / c.t[i].v[j].z) - (1 / ZNear) ) / ( (1 / ZFar) - (1 / ZNear) );//(c.t[i].v[j].z - ZNear) / (ZFar - ZNear);
             c.t[i].v[j].w = 1 / w;
 
@@ -808,23 +706,25 @@ const static Mesh viewtoscreen(const Mesh c) {
            plane_far_n = { 0.0, 0.0, 1.0 };
     Mesh ff = clipp(c, plane_far_p, plane_far_n);
 
-    Vector plane_right_p = { (float)wa.width - 1.0, 0.0, 0.0 },
-           plane_right_n = { -1.0, 0.0, 0.0 };
-    Mesh rf = clipp(ff, plane_right_p, plane_right_n);
+    // if (DEBUG == 1) {
+        Vector plane_right_p = { wa.width - 1.0, 0.0, 0.0 },
+            plane_right_n = { -1.0, 0.0, 0.0 };
+        Mesh rf = clipp(ff, plane_right_p, plane_right_n);
 
-    Vector plane_down_p = { 0.0, (float)wa.height - 1.0, 0.0 },
-           plane_down_n = { 0.0, -1.0, 0.0 };
-    Mesh df = clipp(rf, plane_down_p, plane_down_n);
+        Vector plane_down_p = { 0.0, wa.height - 1.0, 0.0 },
+            plane_down_n = { 0.0, -1.0, 0.0 };
+        Mesh df = clipp(rf, plane_down_p, plane_down_n);
 
-    Vector plane_left_p = { 0.0, 0.0, 0.0 },
-           plane_left_n = { 1.0, 0.0, 0.0 };
-    Mesh lf = clipp(df, plane_left_p, plane_left_n);
+        Vector plane_left_p = { 0.0, 0.0, 0.0 },
+            plane_left_n = { 1.0, 0.0, 0.0 };
+        Mesh lf = clipp(df, plane_left_p, plane_left_n);
 
-    Vector plane_up_p = { 0.0, 0.0, 0.0 },
-           plane_up_n = { 0.0, 1.0, 0.0 };
-    Mesh uf = clipp(lf, plane_up_p, plane_up_n);
-
-    return uf;
+        Vector plane_up_p = { 0.0, 0.0, 0.0 },
+            plane_up_n = { 0.0, 1.0, 0.0 };
+        Mesh uf = clipp(lf, plane_up_p, plane_up_n);
+        return uf;
+    // }
+    // return ff;
 }
 /* Rasterize given Mesh by passing them to the appropriate function. */
 const static void rasterize(const Mesh c) {
@@ -965,6 +865,35 @@ const static void initMainWindow(void) {
     XMapWindow(displ, win);
     XGetWindowAttributes(displ, win, &wa);
 }
+void InitTimeCounter() {
+    gettimeofday(&tv0, NULL);
+    FramesPerFPS = 30;
+}
+void UpdateTimeCounter() {
+    LastFrameTimeCounter = TimeCounter;
+    gettimeofday(&tv, NULL);
+    TimeCounter = (float)(tv.tv_sec - tv0.tv_sec) + 0.000001*((float)(tv.tv_usec - tv0.tv_usec));
+    DeltaTime = TimeCounter - LastFrameTimeCounter;
+}
+void CalculateFPS() {
+    Frame ++;
+
+    if((Frame % FramesPerFPS) == 0) {
+    FPS = ((float)(FramesPerFPS)) / (TimeCounter-prevTime);
+    prevTime = TimeCounter;
+    }
+}
+void displayInfo() {
+    char Resolution_string[20], TimeCounter_string[20], FPS_string[20];
+
+    sprintf(Resolution_string, "Resolution: %d x %d\0", wa.width, wa.height);
+    sprintf(TimeCounter_string, "Running Time: %4.1f\0", TimeCounter);
+    sprintf(FPS_string, "%4.1f fps\0", FPS);
+
+    XDrawString(displ ,win ,gc, 5, 12, Resolution_string, strlen(Resolution_string));
+    XDrawString(displ ,win ,gc, 5, 24, TimeCounter_string, strlen(TimeCounter_string));
+    XDrawString(displ ,win ,gc, 5, 36, FPS_string, strlen(FPS_string));
+}
 const static void initGlobalGC(void) {
     gcvalues.foreground = 0xffffff;
     gcvalues.background = 0x000000;
@@ -973,8 +902,8 @@ const static void initGlobalGC(void) {
 }
 const static void initDependedVariables(void) {
     AspectRatio = ((float)wa.width / (float)wa.height);
-    HALFW = wa.width / 2.00;
-    HALFH = wa.height / 2.00;
+    HALFW = wa.width >> 1;
+    HALFH = wa.height >> 1;
     PerspMat = perspective_mat(FOV, AspectRatio);
     rePerspMat = reperspective_mat(FOV, AspectRatio);
     OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0);
@@ -984,6 +913,7 @@ const static void initDependedVariables(void) {
     WorldMat = mxm(ViewMat, PerspMat);
 
     AdjustShadow = 1;
+    AdjustScene = 1;
 }
 const static void pixmapcreate(void) {
     pixmap = XCreatePixmap(displ, win, wa.width, wa.height, wa.depth);
@@ -1007,7 +937,8 @@ const static void sigsegv_handler(const int sig) {
     event.type = ClientMessage;
     event.xclient.data.l[0] = wmatom[Win_Close];
     /* Send the signal to our event dispatcher for further processing. */
-    handler[event.type](&event);
+    if(RUNNING)
+        handler[event.type](&event);
 }
 /* Registers the given Signal. */
 const static int registerSig(const int signal) {
@@ -1022,7 +953,7 @@ const static int registerSig(const int signal) {
     return EXIT_SUCCESS;
 }
 /* General initialization and event handling. */
-const static int board(void) {
+static int board(void) {
 
     if (!XInitThreads()) {
         fprintf(stderr, "Warning: board() -- XInitThreads()\n");
@@ -1038,6 +969,7 @@ const static int board(void) {
     }
 
     initMainWindow();
+    InitTimeCounter();
     initGlobalGC();
     pixmapcreate();
     atomsinit();
@@ -1053,11 +985,14 @@ const static int board(void) {
     while (RUNNING) {
 
         // clock_t start_time = start();
-        project(scene);
+        UpdateTimeCounter();
+        CalculateFPS();
+        // project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
-        // rotate_origin(&scene.m[2], Angle, 0.0, 1.0, 0.0);
+        // rotate_origin(&scene.m[1], 1, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
         // end_time = end(start_time);
+        displayInfo();
 
         while(XPending(displ)) {
 
@@ -1066,7 +1001,7 @@ const static int board(void) {
             if (handler[event.type])
                 handler[event.type](&event);
         }
-        usleep(16667 - (end_time * 1000));
+        usleep(0);
     }
 
     return EXIT_SUCCESS;
