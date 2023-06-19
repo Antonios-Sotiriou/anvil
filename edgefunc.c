@@ -1,4 +1,4 @@
-#include "header_files/draw_functions.h"
+#include "header_files/edgefunc.h"
 
 extern XWindowAttributes wa;
 extern Pixel **pixels;
@@ -103,7 +103,7 @@ const void fillTriangle(const Triangle t) {
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     fillGeneral(t, Xs[0] + 0.5, Xs[2] + 0.5, Ys[0] + 0.5, Ys[2] + 0.5);
 }
-const void fillGeneral(const Triangle t, int minX, int maxX, int minY, int maxY) {
+const static void fillGeneral(const Triangle t, int minX, int maxX, int minY, int maxY) {
     const int maxHeight = wa.height - 1;
     const int maxWidth = wa.width - 1;
     const int x0 = t.v[0].x + 0.5,    x1 = t.v[1].x + 0.5,    x2 = t.v[2].x + 0.5;
@@ -188,7 +188,7 @@ const void texTriangle(const Triangle t, Pixel **texture, const int tex_height, 
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     texGeneral(t, texture, tex_height, tex_width, Xs[0] + 0.5, Xs[2] + 0.5, Ys[0] + 0.5, Ys[2] + 0.5);
 }
-const void texGeneral(const Triangle t, Pixel **texels, const int tex_height, const int tex_width, int minX, int maxX, int minY, int maxY) {
+const static void texGeneral(const Triangle t, Pixel **texels, const int tex_height, const int tex_width, int minX, int maxX, int minY, int maxY) {
     Pixel pix = { 0 };
     const int maxHeight = wa.height - 1;
     const int maxWidth = wa.width - 1;
