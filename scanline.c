@@ -101,54 +101,53 @@ const void fillTriangle(Triangle t) {
     float winding = 1 / winding3D(t);
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     fillGeneral(t, winding);
-    drawLine(t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
-    drawLine(t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 255, 0);
-    drawLine(t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 0, 255);
+    // drawLine(t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
+    // drawLine(t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 255, 0);
+    // drawLine(t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 0, 255);
 }
 const static void fillGeneral(const Triangle t, const float winding) {
-    const float x10 = t.v[1].x - t.v[0].x,    x20 = t.v[2].x - t.v[0].x,    x02 = t.v[0].x - t.v[2].x,    x21 = t.v[2].x - t.v[1].x;
-    const float y10 = t.v[1].y - t.v[0].y,    y20 = t.v[2].y - t.v[0].y,    y02 = t.v[0].y - t.v[2].y,    y21 = t.v[2].y - t.v[1].y;
+    const int x0 = t.v[0].x + 0.5,    x1 = t.v[1].x + 0.5,    x2 = t.v[2].x + 0.5;
+    const int y0 = t.v[0].y + 0.5,    y1 = t.v[1].y + 0.5,    y2 = t.v[2].y + 0.5;
+    const int x10 = x1 - x0,    x20 = x2 - x0,    x02 = x0 - x2,    x21 = x2 - x1;
+    const int y10 = y1 - y0,    y20 = y2 - y0,    y02 = y0 - y2,    y21 = y2 - y1;
 
-    const float orient = ((t.v[1].x - t.v[0].x) * y02) - ((t.v[1].y - t.v[0].y) * x02);
-    float ma = ( (x10 == 0) || (y10 == 0) ) ? 0 : x10 / y10;
-    float mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : x20 / y20;
+    const int orient = ((x1 - x0) * y02) - ((y1 - y0) * x02);
+    float ma = ( (x10 == 0) || (y10 == 0) ) ? 0 : (float)x10 / y10;
+    float mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : (float)x20 / y20;
     if (orient < 0)
-        swap(&ma, &mb, sizeof(float));
+        swap(&ma, &mb, sizeof(int));
 
-    const int y_start = t.v[0].y + 0.5;
-    const int y_end1 = t.v[1].y + 0.5;
-    const int y_end2 = t.v[2].y + 0.5;
-    int t_start = t.v[0].x + 0.5;
-    int t_end = t.v[0].x + 0.5;
+    const int y_start = y0;
+    const int y_end1 = y1;
+    const int y_end2 = y2;
 
-    const float area = ((t.v[0].x - t.v[1].x) * y21) - ((t.v[0].y - t.v[1].y) * x21);
-    // float ya = ((t_start - t.v[0].x) * y10) - ((y_start - t.v[0].y) * x10);
-    // float yb = ((t_start - t.v[1].x) * y21) - ((y_start - t.v[1].y) * x21);
-    // float yc = ((t_start - t.v[2].x) * y02) - ((y_start - t.v[2].y) * x02);
-    float ya = -(y_start - t.v[0].y) * x10;
-    float yb = -(y_start - t.v[1].y) * x21;
-    float yc = -(y_start - t.v[2].y) * x02;
+    const int area = ((x0 - x1) * y21) - ((y0 - y1) * x21);
+    // int ya = ((x0 - x0) * y10) - ((y_start - y0) * x10);
+    // int yb = ((x0 - x1) * y21) - ((y_start - y1) * x21);
+    // int yc = ((x0 - x2) * y02) - ((y_start - y2) * x02);
+    int ya = -(y_start - y0) * x10;
+    int yb = -(y_start - y1) * x21;
+    int yc = -(y_start - y2) * x02;
 
+    int yA = 0;
     if (y10 != 0)
         for (int y = y_start; y < y_end1; y++) {
-            const int yA = y - y_start;
+            // const int yA = y - y_start;
 
-            int x_start = ((ma * yA) + t.v[0].x) + 0.5;
-            int x_end = ((mb * yA) + t.v[0].x) + 0.5;
-            // printf("Upper  x_start: %d,    t_start: %d\n", x_start, t_start);
-            // printf("Upper  x_end  : %d,    t_end  : %d\n", x_end, t_end);
+            int x_start = (ma * yA) + x0;
+            int x_end = (mb * yA) + x0;
 
-            float xa = ((x_start - t.v[0].x) * y10) + ya;
-            float xb = ((x_start - t.v[1].x) * y21) + yb;
-            float xc = ((x_start - t.v[2].x) * y02) + yc;
-            // float xa = ya;
-            // float xb = yb;
-            // float xc = yc;
+            int xa = ((x_start - x0) * y10) + ya;
+            int xb = ((x_start - x1) * y21) + yb;
+            int xc = ((x_start - x2) * y02) + yc;
+            // int xa = ya;
+            // int xb = yb;
+            // int xc = yc;
 
             for (int x = x_start; x < x_end; x++) {
-                const float a = xa / area;
-                const float b = xb / area;
-                const float c = xc / area;
+                const float a = (float)xa / area;
+                const float b = (float)xb / area;
+                const float c = (float)xc / area;
 
                 const float depthZ = a * t.v[2].z + b * t.v[0].z + c * t.v[1].z;
                 const float depthW = a * t.v[2].w + b * t.v[0].w + c * t.v[1].w;
@@ -164,36 +163,35 @@ const static void fillGeneral(const Triangle t, const float winding) {
                 xa += y10, xb += y21, xc += y02;
             }
             ya += -x10, yb += -x21, yc += -x02;
-            t_start += ma, t_end += mb;
+            yA++;
         }
 
     if (y21 == 0)
         return;
 
-    ma = ( (x21 == 0) || (y21 == 0) ) ? 0 : x21 / y21;
-    mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : x20 / y20;
+    ma = ( (x21 == 0) || (y21 == 0) ) ? 0 : (float)x21 / y21;
+    mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : (float)x20 / y20;
     if (orient < 0)
-        swap(&ma, &mb, sizeof(float));
+        swap(&ma, &mb, sizeof(int));
 
+    int yB = (y_end1) - y_end2;
     for (int y = y_end1; y < y_end2; y++) {
-        const int yB = y - y_end2;
+        // const int yB = (y + 1) - y_end2;
 
-        int x_start = ((ma * yB) + t.v[2].x) + 0.5;
-        int x_end = ((mb * yB) + t.v[2].x) + 0.5;
-        // printf("Lower  x_start: %d,    t_start: %d\n", x_start, t_start);
-        // printf("Lower  x_end  : %d,    t_end  : %d\n", x_end, t_end);
-        // printf("Lower  x_start: %d,    x_end: %d\n", x_start, x_end);
-        float xa = ((x_start - t.v[0].x) * y10) + ya;
-        float xb = ((x_start - t.v[1].x) * y21) + yb;
-        float xc = ((x_start - t.v[2].x) * y02) + yc;
-        // float xa = ya;
-        // float xb = yb;
-        // float xc = yc;
+        int x_start = (ma * yB) + x2;
+        int x_end = (mb * yB) + x2;
+
+        int xa = ((x_start - x0) * y10) + ya;
+        int xb = ((x_start - x1) * y21) + yb;
+        int xc = ((x_start - x2) * y02) + yc;
+        // int xa = ya;
+        // int xb = yb;
+        // int xc = yc;
 
         for (int x = x_start; x < x_end; x++) {
-            const float a = xa / area;
-            const float b = xb / area;
-            const float c = xc / area;
+            const float a = (float)xa / area;
+            const float b = (float)xb / area;
+            const float c = (float)xc / area;
 
             const float depthZ = a * t.v[2].z + b * t.v[0].z + c * t.v[1].z;
             const float depthW = a * t.v[2].w + b * t.v[0].w + c * t.v[1].w;
@@ -209,7 +207,7 @@ const static void fillGeneral(const Triangle t, const float winding) {
             xa += y10, xb += y21, xc += y02;
         }
         ya += -x10, yb += -x21, yc += -x02;
-        t_start += ma, t_end += mb;
+        yB++;
     }
 }
 const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const int tex_width) {
