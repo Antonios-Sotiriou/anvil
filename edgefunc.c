@@ -108,24 +108,22 @@ const static void fillGeneral(const Triangle t, int minX, int maxX, int minY, in
     const int maxWidth = wa.width - 1;
     const int x0 = t.v[0].x + 0.5,    x1 = t.v[1].x + 0.5,    x2 = t.v[2].x + 0.5;
     const int y0 = t.v[0].y + 0.5,    y1 = t.v[1].y + 0.5,    y2 = t.v[2].y + 0.5;
-    const float z0 = t.v[0].z,    z1 = t.v[1].z,     z2 = t.v[2].z;
-    const float w0 = t.v[0].w,    w1 = t.v[1].w,     w2 = t.v[2].w;
-    const int x10 = x0 - x1,    x20 = x2 - x0,    x02 = x2 - x0,    x21 = x1 - x2;
-    const int y10 = y0 - y1,    y20 = y2 - y0,    y02 = y2 - y0,    y21 = y1 - y2;
+    const int x01 = x0 - x1,    x20 = x2 - x0,    x12 = x1 - x2;
+    const int y01 = y0 - y1,    y20 = y2 - y0,    y12 = y1 - y2;
 
-    const int tpA = ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) ? 1 : 0;
-    const int tpB = ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ? 1 : 0;
-    const int tpC = ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) ? 1 : 0;
+    const int tpA = ((y01 == 0) && (t.v[2].y > t.v[1].y)) || (y01 < 0) ? 1 : 0;
+    const int tpB = ((y12 == 0) && (t.v[0].y > t.v[2].y)) || (y12 < 0) ? 1 : 0;
+    const int tpC = ((y20 == 0) && (t.v[1].y > t.v[0].y)) || (y20 < 0) ? 1 : 0;
 
     // minY = minY < 0 ? 0 : minY;
     // maxY = maxY > maxHeight ? maxHeight : maxY;
     // minX = minX < 0 ? 0 : minX;
     // maxX = maxX > maxWidth ? maxWidth : maxX;
 
-    const int area = ((x0 - x1) * y21) - ((y0 - y1) * x21);
-    int ya = ((minX - x0) * y10) - ((minY - y0) * x10);
-    int yb = ((minX - x1) * y21) - ((minY - y1) * x21);
-    int yc = ((minX - x2) * y02) - ((minY - y2) * x02);
+    const int area = ((x0 - x1) * y12) - ((y0 - y1) * x12);
+    int ya = ((minX - x0) * y01) - ((minY - y0) * x01);
+    int yb = ((minX - x1) * y12) - ((minY - y1) * x12);
+    int yc = ((minX - x2) * y20) - ((minY - y2) * x20);
 
     for (int y = minY; y <= maxY; y++) {
         int xa = ya;
@@ -143,8 +141,8 @@ const static void fillGeneral(const Triangle t, int minX, int maxX, int minY, in
                 const float b = (float)xb / area;
                 const float c = (float)xc / area;
 
-                const float depthZ = a * z2 + b * z0 + c * z1;
-                const float depthW = a * w2 + b * w0 + c * w1;
+                const float depthZ = a * t.v[2].z + b * t.v[0].z + c * t.v[1].z;
+                const float depthW = a * t.v[2].w + b * t.v[0].w + c * t.v[1].w;
 
                 if (depthW > depth_buffer[y][x]) {
 
@@ -156,9 +154,9 @@ const static void fillGeneral(const Triangle t, int minX, int maxX, int minY, in
                 }
                 xflag++;
             } else if (xflag) break;
-            xa += y10,    xb += y21,    xc += y02;
+            xa += y01,    xb += y12,    xc += y20;
         }
-        ya += -x10,    yb += -x21,    yc += -x02;
+        ya += -x01,    yb += -x12,    yc += -x20;
     }
 }
 const void texTriangle(const Triangle t, Pixel **texture, const int tex_height, const int tex_width) {
@@ -196,25 +194,25 @@ const static void texGeneral(const Triangle t, Pixel **texels, const int tex_hei
     const int y0 = t.v[0].y + 0.5,    y1 = t.v[1].y + 0.5,    y2 = t.v[2].y + 0.5;
     const float z0 = t.v[0].z,    z1 = t.v[1].z,     z2 = t.v[2].z;
     const float w0 = t.v[0].w,    w1 = t.v[1].w,     w2 = t.v[2].w;
-    const int x10 = x0 - x1,    x20 = x2 - x0,    x02 = x2 - x0,    x21 = x1 - x2;
-    const int y10 = y0 - y1,    y20 = y2 - y0,    y02 = y2 - y0,    y21 = y1 - y2;
+    const int x01 = x0 - x1,    x20 = x2 - x0,    x12 = x1 - x2;
+    const int y01 = y0 - y1,    y20 = y2 - y0,    y12 = y1 - y2;
     const float tu0 = t.vt[0].u,  tu1 = t.vt[1].u,  tu2 = t.vt[2].u;
     const float tv0 = t.vt[0].v,  tv1 = t.vt[1].v,  tv2 = t.vt[2].v;
     const float tw0 = t.vt[0].w,  tw1 = t.vt[1].w,  tw2 = t.vt[2].w;
 
-    const int tpA = ((y10 == 0) && (t.v[2].y > t.v[1].y)) || (y10 < 0) ? 1 : 0;
-    const int tpB = ((y21 == 0) && (t.v[0].y > t.v[2].y)) || (y21 < 0) ? 1 : 0;
-    const int tpC = ((y02 == 0) && (t.v[1].y > t.v[0].y)) || (y02 < 0) ? 1 : 0;
+    const int tpA = ((y01 == 0) && (t.v[2].y > t.v[1].y)) || (y01 < 0) ? 1 : 0;
+    const int tpB = ((y12 == 0) && (t.v[0].y > t.v[2].y)) || (y12 < 0) ? 1 : 0;
+    const int tpC = ((y20 == 0) && (t.v[1].y > t.v[0].y)) || (y20 < 0) ? 1 : 0;
 
     // minY = minY < 0 ? 0 : minY;
     // maxY = maxY > maxHeight ? maxHeight : maxY;
     // minX = minX < 0 ? 0 : minX;
     // maxX = maxX > maxWidth ? maxWidth : maxX;
 
-    const float area = ((x0 - x1) * y21) - ((y0 - y1) * x21);
-    int ya = ((minX - x0) * y10) - ((minY - y0) * x10);
-    int yb = ((minX - x1) * y21) - ((minY - y1) * x21);
-    int yc = ((minX - x2) * y02) - ((minY - y2) * x02);
+    const float area = ((x0 - x1) * y12) - ((y0 - y1) * x12);
+    int ya = ((minX - x0) * y01) - ((minY - y0) * x01);
+    int yb = ((minX - x1) * y12) - ((minY - y1) * x12);
+    int yc = ((minX - x2) * y20) - ((minY - y2) * x20);
 
     for (int y = minY; y <= maxY; y++) {
         int xa = ya;
@@ -250,9 +248,9 @@ const static void texGeneral(const Triangle t, Pixel **texels, const int tex_hei
                 }
                 xflag++;
             } else if (xflag) break;
-            xa += y10,    xb += y21,    xc += y02;
+            xa += y01,    xb += y12,    xc += y20;
         }
-        ya += -x10,    yb += -x21,    yc += -x02;
+        ya += -x01,    yb += -x12,    yc += -x20;
     }
 }
 
