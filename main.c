@@ -353,7 +353,7 @@ const static void keypress(XEvent *event) {
         WorldMat = mxm(ViewMat, PerspMat);
     else
         WorldMat = mxm(ViewMat, OrthoMat);
-    // project(scene);
+    project(scene);
 }
 /* Rotates object according to World X axis. */
 const static void rotate_x(Mesh *c, const float angle) {
@@ -440,47 +440,47 @@ const static void initMeshes(Scene *s) {
     // free(space.v);
     // free(space.t);
 
-    terrain = load_obj("objects/terrain.obj");
+    terrain = load_obj("objects/triangle.obj");
     memcpy(terrain.texture_file, "textures/stones.bmp", sizeof(char) * 20);
     loadTexture(&terrain);
-    ScaleMat = scale_mat(10.0);
-    // rotate_x(&terrain, -90);
-    TransMat = translation_mat(0.0, 0.0, 500.0);
+    ScaleMat = scale_mat(1.0);
+    rotate_x(&terrain, -90);
+    TransMat = translation_mat(0.0, 0.0, 502.0);
     PosMat = mxm(ScaleMat, TransMat);
     s->m[0] = meshxm(terrain, PosMat);
     free(terrain.v);
     free(terrain.t);
 
-    jupiter = load_obj("objects/earth.obj");
-    memcpy(jupiter.texture_file, "textures/stones.bmp", sizeof(char) * 20);
-    loadTexture(&jupiter);
-    ScaleMat = scale_mat(10.0);
-    TransMat = translation_mat(-10.0, 0.0, 580.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[1] = meshxm(jupiter, PosMat);
-    free(jupiter.v);
-    free(jupiter.t);
+    // jupiter = load_obj("objects/earth.obj");
+    // memcpy(jupiter.texture_file, "textures/stones.bmp", sizeof(char) * 20);
+    // loadTexture(&jupiter);
+    // ScaleMat = scale_mat(10.0);
+    // TransMat = translation_mat(-10.0, 0.0, 580.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[1] = meshxm(jupiter, PosMat);
+    // free(jupiter.v);
+    // free(jupiter.t);
 
-    earth = load_obj("objects/earth.obj");
-    memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
-    loadTexture(&earth);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(1.0, -1.0, 510.0);
-    PosMat = mxm(ScaleMat, TransMat);
-    // normalsxm(&earth, PosMat);
-    s->m[2] = meshxm(earth, PosMat);
-    free(earth.v);
-    free(earth.t);
+    // earth = load_obj("objects/earth.obj");
+    // memcpy(earth.texture_file, "textures/Earth.bmp", sizeof(char) * 19);
+    // loadTexture(&earth);
+    // ScaleMat = scale_mat(0.5);
+    // TransMat = translation_mat(1.0, -1.0, 510.0);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // // normalsxm(&earth, PosMat);
+    // s->m[2] = meshxm(earth, PosMat);
+    // free(earth.v);
+    // free(earth.t);
 
-    sun = load_obj("objects/spacedom.obj");
-    memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
-    loadTexture(&sun);
-    ScaleMat = scale_mat(0.5);
-    TransMat = translation_mat(light.Pos.x, light.Pos.y, light.Pos.z);
-    PosMat = mxm(ScaleMat, TransMat);
-    s->m[3] = meshxm(sun, PosMat);
-    free(sun.v);
-    free(sun.t);
+    // sun = load_obj("objects/spacedom.obj");
+    // memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
+    // loadTexture(&sun);
+    // ScaleMat = scale_mat(0.5);
+    // TransMat = translation_mat(light.Pos.x, light.Pos.y, light.Pos.z);
+    // PosMat = mxm(ScaleMat, TransMat);
+    // s->m[3] = meshxm(sun, PosMat);
+    // free(sun.v);
+    // free(sun.t);
 }
 /* Loads the appropriate Textures and importand Texture infos. */
 const static void loadTexture(Mesh *c) {
@@ -616,11 +616,11 @@ const static void ppdiv(Mesh *c) {
 
     for (int i = 0; i < c->t_indexes; i++) {
         for (int j = 0; j < 3; j++) {
-            if ( c->t[i].v[j].w > 0.00 ) {
+            // if ( c->t[i].v[j].w > 0.00 ) {
                 c->t[i].v[j].x /= c->t[i].v[j].w;
                 c->t[i].v[j].y /= c->t[i].v[j].w;
                 c->t[i].v[j].z /= c->t[i].v[j].w;
-            }
+            // }
         }
     }
 }
@@ -984,14 +984,14 @@ static int board(void) {
     float end_time = 0.0;
     while (RUNNING) {
 
-        clock_t start_time = start();
+        // clock_t start_time = start();
         UpdateTimeCounter();
         CalculateFPS();
-        project(scene);
+        // project(scene);
         // rotate_origin(&scene.m[2], Angle, 0.0, 0.0, 1.0);
         // rotate_origin(&scene.m[1], 1, 0.0, 1.0, 0.0);
         // rotate_origin(&scene.m[2], Angle, 1.0, 0.0, 0.0);
-        end_time = end(start_time);
+        // end_time = end(start_time);
         displayInfo();
 
         while(XPending(displ)) {

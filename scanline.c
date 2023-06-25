@@ -100,12 +100,12 @@ const void fillTriangle(Triangle t) {
     model.normal = t.fn;
     float winding = 1 / winding3D(t);
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
-    fillGeneral(t, winding);
+    fillGeneral(t);
     // drawLine(t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
     // drawLine(t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 255, 0);
     // drawLine(t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 0, 255);
 }
-const static void fillGeneral(const Triangle t, const float winding) {
+const static void fillGeneral(const Triangle t) {
     const int x0 = t.v[0].x + 0.5,    x1 = t.v[1].x + 0.5,    x2 = t.v[2].x + 0.5;
     const int y0 = t.v[0].y + 0.5,    y1 = t.v[1].y + 0.5,    y2 = t.v[2].y + 0.5;
     const int x10 = x1 - x0,    x20 = x2 - x0,    x02 = x0 - x2,    x21 = x2 - x1;
@@ -130,13 +130,15 @@ const static void fillGeneral(const Triangle t, const float winding) {
     int yc = -(y_start - y2) * x02;
 
     int yA = 0;
+    int t_start = (ma * yA) + x0;
+    int t_end = (mb * yA) + x0;
     if (y10 != 0)
         for (int y = y_start; y < y_end1; y++) {
             // const int yA = y - y_start;
 
             int x_start = (ma * yA) + x0;
             int x_end = (mb * yA) + x0;
-
+            // printf("x_start: %d,    t_start: %d\nx_end: %d,    t_end: %d\n", x_start, t_start, x_end, t_end);
             int xa = ((x_start - x0) * y10) + ya;
             int xb = ((x_start - x1) * y21) + yb;
             int xc = ((x_start - x2) * y02) + yc;
@@ -163,6 +165,7 @@ const static void fillGeneral(const Triangle t, const float winding) {
                 xa += y10, xb += y21, xc += y02;
             }
             ya += -x10, yb += -x21, yc += -x02;
+            t_start += ma, t_end += mb;
             yA++;
         }
 
@@ -174,7 +177,7 @@ const static void fillGeneral(const Triangle t, const float winding) {
     if (orient < 0)
         swap(&ma, &mb, sizeof(int));
 
-    int yB = (y_end1) - y_end2;
+    int yB = y_end1 - y_end2;
     for (int y = y_end1; y < y_end2; y++) {
         // const int yB = (y + 1) - y_end2;
 
