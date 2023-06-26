@@ -1,6 +1,10 @@
 #ifndef _EDGEFUNC_H
 #define _EDGEFUNC_H 1
 
+#ifndef _DRAWLINE_H
+    #include "drawline.h"
+#endif
+
 #ifndef _LIGHTING_H
     #include "lighting.h"
 #endif
@@ -14,4 +18,5 @@ const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const i
 const static void texGeneral(const Triangle t, Pixel **texels, const int tex_height, const int tex_width, int minX, int maxX, int minY, int maxY);
 
 #endif /* _EDGEFUNC_H */
+
 

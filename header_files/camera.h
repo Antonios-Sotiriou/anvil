@@ -13,15 +13,17 @@
     #include "quaternions.h"
 #endif
 
-const void look_left(Global *g, const float Angle);
-const void look_right(Global *g, const float Angle);
-const void move_forward(Global *g);
-const void move_backward(Global *g);
-const void look_up(Global *g, const float Angle);
-const void look_down(Global *g, const float Angle);
-const void move_left(Global *g);
-const void move_right(Global *g);
-const void move_up(Global *g);
-const void move_down(Global *g);
+const void look_left(vec4 *g, const float Angle);
+const void look_right(vec4 *g, const float Angle);
+const void move_forward(vec4 *g);
+const void move_backward(vec4 *g);
+const void look_up(vec4 *g, const float Angle);
+const void look_down(vec4 *g, const float Angle);
+const void move_left(vec4 *g);
+const void move_right(vec4 *g);
+const void move_up(vec4 *g);
+const void move_down(vec4 *g);
 
 #endif /* _CAMERA_H */
+
+

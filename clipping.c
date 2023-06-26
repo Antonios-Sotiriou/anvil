@@ -1,6 +1,6 @@
 #include "header_files/clipping.h"
 
-const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
+const Mesh clipp(const Mesh c, vec4 plane_p, vec4 plane_n) {
 
     Mesh r = c;
     r.t = malloc(sizeof(Triangle) * c.t_indexes);
@@ -36,29 +36,29 @@ const Mesh clipp(const Mesh c, Vector plane_p, Vector plane_n) {
     return r;
 }
 
-const Vector plane_intersect(Vector plane_p, Vector plane_n, Vector line_start, Vector line_end, float *t) {
+const vec4 plane_intersect(vec4 plane_p, vec4 plane_n, vec4 line_start, vec4 line_end, float *t) {
     float plane_d = -dot_product(plane_n, plane_p);
     float ad = dot_product(line_start, plane_n);
     float bd = dot_product(line_end, plane_n);
     *t = ((-plane_d - ad) / (bd - ad));
-    Vector line_ste = sub_vecs(line_end, line_start);
-    Vector line_ti = multiply_vec(line_ste, *t);
+    vec4 line_ste = sub_vecs(line_end, line_start);
+    vec4 line_ti = multiply_vec(line_ste, *t);
 
     return add_vecs(line_start, line_ti);
 }
 /* Return signed shortest distance from point to plane, plane normal must be normalised. */
-float dist(Vector plane_p, Vector plane_n, Vector v) {
+float dist(vec4 plane_p, vec4 plane_n, vec4 v) {
     return ( ((plane_n.x * v.x) + (plane_n.y * v.y) + (plane_n.z * v.z)) - dot_product(plane_n, plane_p) );
 }
 
-int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2) {
+int clipp_triangle(vec4 plane_p, vec4 plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2) {
 
-    Vector inside_points[3];     int inside_count = 0;
-    Vector outside_points[3];    int outside_count = 0;
+    vec4 inside_points[3];     int inside_count = 0;
+    vec4 outside_points[3];    int outside_count = 0;
     Textor inside_vt[3];
     Textor outside_vt[3];
-    Vector inside_vn[3];
-    Vector outside_vn[3];
+    vec4 inside_vn[3];
+    vec4 outside_vn[3];
 
     // Get signed distance of each point in triangle to plane.
     float d0 = dist(plane_p, plane_n, in_t.v[0]);

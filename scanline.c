@@ -5,80 +5,8 @@ extern float **depth_buffer;
 extern float **shadow_buffer;
 extern Phong model;
 
-const Pixel antialliasing(const Pixel a, const Pixel b) {
-    Pixel r = { 0 };
-    r.Red = (a.Red + b.Red) * 0.5;
-    r.Green = (a.Green + b.Green) * 0.5;
-    r.Blue = (a.Blue + b.Blue) * 0.5;
-    return r;
-}
-
-const void drawLine(float x1, float y1, float x2, float y2, const float red, const float green, const float blue) {
-    Pixel pix = { blue, green, red }, s1, s2;
-    Pixel test1 = { 255, 255, 255 };
-    Pixel test2 = { 255, 0, 0 };
-    float delta_y = y2 - y1;
-    float delta_x = x2 - x1;
-
-    float fabsdy = fabs(delta_y);
-    float fabsdx = fabs(delta_x);
-
-    int start_y = y1 + 0.5;
-    int end_y = y2 + 0.5;
-    int start_x = x1 + 0.5;
-    int end_x = x2 + 0.5;
-
-    int step_y, step_x;
-    int step_cache = start_y;
-    if ( (delta_x == 0) && (delta_y == 0) ) {
-        memcpy(&pixels[start_y][start_x], &pix, sizeof(Pixel));
-    } else if ( fabsdx >= fabsdy ) {
-        float slope = delta_y / delta_x;
-
-        if (delta_x < 0) {
-
-            for (int x = start_x; x > end_x; x--) {
-                step_y = (slope * (x - start_x)) + y1;
-                memcpy(&pixels[step_y][x], &pix, sizeof(Pixel));
-                if ( step_cache != step_y) {
-                    s1 = antialliasing(pixels[step_y][x], pixels[step_cache][x]);
-                    s2 = antialliasing(pixels[step_y][x], pixels[step_y][x + 1]);
-                    memcpy(&pixels[step_cache][x], &test1, sizeof(Pixel));
-                    memcpy(&pixels[step_y][x + 1], &test2, sizeof(Pixel));
-                }
-                step_cache = step_y;
-            }
-        } else {
-            int step_cache;
-            for (int x = start_x; x < end_x; x++) {
-                step_y = (slope * (x - start_x)) + y1;
-                memcpy(&pixels[step_y][x], &pix, sizeof(Pixel));
-                step_cache = step_y;
-            }
-        }
-    } else if ( fabsdx < fabsdy ) {
-        float slope = delta_x / delta_y;
-
-        if (delta_y < 0) {
-
-            for (int y = start_y; y > end_y; y--) {
-                step_x = (slope * (y - start_y)) + x1;
-                memcpy(&pixels[y][step_x], &pix, sizeof(Pixel));
-            }
-        } else {
-
-            for (int y = start_y; y < end_y; y++) {
-                step_x = (slope * (y - start_y)) + x1;
-                memcpy(&pixels[y][step_x], &pix, sizeof(Pixel));
-            }
-        }
-    } else {
-        fprintf(stderr, "An Error has occured! draw_line().");
-        exit(EXIT_FAILURE);
-    }
-}
 const void fillTriangle(Triangle t) {
-    Vector temp_v, temp_vn;
+    vec4 temp_v, temp_vn;
     Textor temp_vt;
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
@@ -101,19 +29,25 @@ const void fillTriangle(Triangle t) {
     float winding = 1 / winding3D(t);
     model.bias = (winding <= 0.000026 && winding >= 0.0) ? 0.0017 : 0.0009;
     fillGeneral(t);
-    // drawLine(t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
-    // drawLine(t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 255, 0);
-    // drawLine(t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 0, 255);
+    if (winding > 0) {
+        drawLine(t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 255, 0, 0);
+        drawLine(t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 255, 0, 0);
+        drawLine(t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 255, 0, 0);
+    } else {
+        drawLine(t.v[0].x, t.v[0].y, t.v[1].x, t.v[1].y, 0, 255, 0);
+        drawLine(t.v[1].x, t.v[1].y, t.v[2].x, t.v[2].y, 0, 255, 0);
+        drawLine(t.v[2].x, t.v[2].y, t.v[0].x, t.v[0].y, 0, 255, 0);  
+    }
 }
 const static void fillGeneral(const Triangle t) {
     const int x0 = t.v[0].x + 0.5,    x1 = t.v[1].x + 0.5,    x2 = t.v[2].x + 0.5;
     const int y0 = t.v[0].y + 0.5,    y1 = t.v[1].y + 0.5,    y2 = t.v[2].y + 0.5;
-    const int x10 = x1 - x0,    x20 = x2 - x0,    x02 = x0 - x2,    x21 = x2 - x1;
-    const int y10 = y1 - y0,    y20 = y2 - y0,    y02 = y0 - y2,    y21 = y2 - y1;
+    const int x10 = x1 - x0,    x21 = x2 - x1,    x02 = x0 - x2;
+    const int y10 = y1 - y0,    y21 = y2 - y1,    y02 = y0 - y2;
 
     const int orient = ((x1 - x0) * y02) - ((y1 - y0) * x02);
     float ma = ( (x10 == 0) || (y10 == 0) ) ? 0 : (float)x10 / y10;
-    float mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : (float)x20 / y20;
+    float mb = ( (x02 == 0) || (y02 == 0) ) ? 0 : (float)x02 / y02;
     if (orient < 0)
         swap(&ma, &mb, sizeof(int));
 
@@ -122,12 +56,12 @@ const static void fillGeneral(const Triangle t) {
     const int y_end2 = y2;
 
     const int area = ((x0 - x1) * y21) - ((y0 - y1) * x21);
-    // int ya = ((x0 - x0) * y10) - ((y_start - y0) * x10);
-    // int yb = ((x0 - x1) * y21) - ((y_start - y1) * x21);
-    // int yc = ((x0 - x2) * y02) - ((y_start - y2) * x02);
-    int ya = -(y_start - y0) * x10;
-    int yb = -(y_start - y1) * x21;
-    int yc = -(y_start - y2) * x02;
+    int ya = ((x0 - x0) * y10) - ((y_start - y0) * x10);
+    int yb = ((x0 - x1) * y21) - ((y_start - y1) * x21); /* area. */
+    int yc = ((x0 - x2) * y02) - ((y_start - y2) * x02);
+    // int ya = -(y_start - y0) * x10;
+    // int yb = -(y_start - y1) * x21;
+    // int yc = -(y_start - y2) * x02;
 
     int yA = 0;
     int t_start = (ma * yA) + x0;
@@ -138,19 +72,21 @@ const static void fillGeneral(const Triangle t) {
 
             int x_start = (ma * yA) + x0;
             int x_end = (mb * yA) + x0;
+            
             // printf("x_start: %d,    t_start: %d\nx_end: %d,    t_end: %d\n", x_start, t_start, x_end, t_end);
-            int xa = ((x_start - x0) * y10) + ya;
-            int xb = ((x_start - x1) * y21) + yb;
-            int xc = ((x_start - x2) * y02) + yc;
-            // int xa = ya;
-            // int xb = yb;
-            // int xc = yc;
-
+            // int xa = ((x_start - x0) * y10) + ya;
+            // int xb = ((x_start - x1) * y21) + yb;
+            // int xc = ((x_start - x2) * y02) + yc;
+            int xa = ya;
+            int xb = yb;
+            int xc = yc;
+            // printf("xa      : %d,    xb      : %d,    xc      : %d\n", xa, xb, xc);
+            // printf("fabs(xa): %d,    fabs(xb): %d,    fabs(xc): %d\n", (int)fabs(xa), (int)fabs(xb), (int)fabs(xc));
             for (int x = x_start; x < x_end; x++) {
                 const float a = (float)xa / area;
                 const float b = (float)xb / area;
                 const float c = (float)xc / area;
-
+                // printf("a: %f,    b: %f,    c: %f\n", fabs((double)a), fabs((double)b), fabs((double)c));
                 const float depthZ = a * t.v[2].z + b * t.v[0].z + c * t.v[1].z;
                 const float depthW = a * t.v[2].w + b * t.v[0].w + c * t.v[1].w;
 
@@ -173,9 +109,9 @@ const static void fillGeneral(const Triangle t) {
         return;
 
     ma = ( (x21 == 0) || (y21 == 0) ) ? 0 : (float)x21 / y21;
-    mb = ( (x20 == 0) || (y20 == 0) ) ? 0 : (float)x20 / y20;
+    mb = ( (x02 == 0) || (y02 == 0) ) ? 0 : (float)x02 / y02;
     if (orient < 0)
-        swap(&ma, &mb, sizeof(int));
+        swap(&ma, &mb, sizeof(float));
 
     int yB = y_end1 - y_end2;
     for (int y = y_end1; y < y_end2; y++) {
@@ -184,12 +120,12 @@ const static void fillGeneral(const Triangle t) {
         int x_start = (ma * yB) + x2;
         int x_end = (mb * yB) + x2;
 
-        int xa = ((x_start - x0) * y10) + ya;
-        int xb = ((x_start - x1) * y21) + yb;
-        int xc = ((x_start - x2) * y02) + yc;
-        // int xa = ya;
-        // int xb = yb;
-        // int xc = yc;
+        // int xa = ((x_start - x0) * y10) + ya;
+        // int xb = ((x_start - x1) * y21) + yb;
+        // int xc = ((x_start - x2) * y02) + yc;
+        int xa = ya;
+        int xb = yb;
+        int xc = yc;
 
         for (int x = x_start; x < x_end; x++) {
             const float a = (float)xa / area;
@@ -214,7 +150,7 @@ const static void fillGeneral(const Triangle t) {
     }
 }
 const void texTriangle(Triangle t, Pixel **texels, const int tex_height, const int tex_width) {
-    Vector temp_v, temp_vn;
+    vec4 temp_v, temp_vn;
     Textor temp_vt;
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
@@ -267,10 +203,10 @@ const static void texGeneral(const Triangle t, const float winding, Pixel **texe
 
             const float nt = ((float)yA / (y_end1 - y_start));
             const float nc = ((float)yA / (y_end2 - y_start));  
-            Vector ny1 = add_vecs(t.vn[0], multiply_vec(sub_vecs(t.vn[1], t.vn[0]), nt));
-            Vector ny2 = add_vecs(t.vn[0], multiply_vec(sub_vecs(t.vn[2], t.vn[0]), nc));
+            vec4 ny1 = add_vecs(t.vn[0], multiply_vec(sub_vecs(t.vn[1], t.vn[0]), nt));
+            vec4 ny2 = add_vecs(t.vn[0], multiply_vec(sub_vecs(t.vn[2], t.vn[0]), nc));
             if (winding > 0) {
-                swap(&ny1, &ny2, sizeof(Vector));
+                swap(&ny1, &ny2, sizeof(vec4));
             }
 
             int x_start = ((ma * yA) + t.v[0].x);
@@ -331,8 +267,8 @@ const static void texGeneral(const Triangle t, const float winding, Pixel **texe
 
         const float nt = ((float)yB / (y_end2 - y_end1));
         const float nc = ((float)yA / (y_end2 - y_start));
-        Vector ny1 = add_vecs(t.vn[1], multiply_vec(sub_vecs(t.vn[2], t.vn[1]), nt));
-        Vector ny2 = add_vecs(t.vn[0], multiply_vec(sub_vecs(t.vn[2], t.vn[0]), nc));
+        vec4 ny1 = add_vecs(t.vn[1], multiply_vec(sub_vecs(t.vn[2], t.vn[1]), nt));
+        vec4 ny2 = add_vecs(t.vn[0], multiply_vec(sub_vecs(t.vn[2], t.vn[0]), nc));
 
         int x_start = ((mb * yA) + t.v[0].x);
         int x_end = ((mc * yB) + t.v[1].x);
@@ -364,7 +300,7 @@ const static void texGeneral(const Triangle t, const float winding, Pixel **texe
             z1 = (zc * yB) + t.v[1].z;
             w2 = (wa * yA) + t.v[0].w;
             w1 = (wc * yB) + t.v[1].w;
-            swap(&ny1, &ny2, sizeof(Vector));
+            swap(&ny1, &ny2, sizeof(vec4));
         }
 
         const float xexs = x_end - x_start;

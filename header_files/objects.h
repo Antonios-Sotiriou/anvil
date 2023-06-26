@@ -12,12 +12,12 @@ typedef struct {
     unsigned char Blue;
 } Pixel;
 
-/* World Vector */
+/* World vec4 */
 typedef struct {
     float x, y, z, w;
-} Vector;
+} vec4;
 
-/* Textures Vector */
+/* Textures vec4 */
 typedef struct {
     float u, v, w;
 } Textor;
@@ -25,16 +25,16 @@ typedef struct {
 /* World Triangle */
 typedef struct {
     int va, vb, vc;
-    Vector v[3];
+    vec4 v[3];
     Textor vt[3];
-    Vector vn[3];
-    Vector fn;
+    vec4 vn[3];
+    vec4 fn;
 } Triangle;
 
 /* World Mesh */
 typedef struct {
     Triangle *t;
-    Vector *v;
+    vec4 *v;
     int v_indexes;
     int t_indexes;
     char texture_file[50];
@@ -56,19 +56,19 @@ typedef struct {
 
 /* structure for global objets that need their own coordinate system. C here can be used for normalized Color. */
 typedef struct {
-    Vector Pos, U, V, N, C;
+    vec4 Pos, U, V, N, C;
 } Global;
 
 /* structure for lighting models. Helps to keep orginized the lighting values that we need to pass arround. */
 typedef struct {
-    Vector lightPos;
-    Vector LightColor;
+    vec4 lightPos;
+    vec4 LightColor;
     Pixel objColor;
-    Vector normal;
+    vec4 normal;
     float AmbientStrength;
-    Vector Ambient;
+    vec4 Ambient;
     float SpecularStrength;
-    Vector Specular;
+    vec4 Specular;
     float bias;
 } Phong;
 
@@ -79,4 +79,5 @@ typedef struct {
 // } Task;
 
 #endif /* _OBJECTS_H */
+
 

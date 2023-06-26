@@ -21,3 +21,4 @@ const float radians(const float value);
 
 #endif /* _GENERAL_FUNCTIONS_H */
 
+
