@@ -24,3 +24,4 @@ const Mesh load_obj(const char path[]);
 
 #endif /* _OBJ_PARSER_H */
 
+

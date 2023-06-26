@@ -84,8 +84,8 @@ const void shadowTriangle(const Triangle t, int minX, int maxX, int minY, int ma
         ya += -x10,    yb += -x21,    yc += -x02;
     }
 }
-const Vector shadowTest(Vector pixel) {
-    Vector r = pixel;
+const vec4 shadowTest(vec4 pixel) {
+    vec4 r = pixel;
     r.w = 1;
     /* Transform to Model space coordinates. */
     r = vecxm(r, LookAt);

@@ -14,11 +14,12 @@
 #endif
 
 const void logEvent(const XEvent e);
-const void logGlobal(const Global g);
-const void logVector(const Vector v);
+const void logVector(const vec4 v);
 const void logPixel(const Pixel p);
 const void logTriangle(const Triangle t, const int vec, const int tex, const int norm);
 const void logMatrix(const Mat4x4 m);
 const void logQuat(const Quat q);
 
 #endif /* _LOGGING_H */
+
+

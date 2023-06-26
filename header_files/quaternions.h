@@ -15,18 +15,20 @@
 
 typedef struct {
     float w;
-    Vector v;
+    vec4 v;
 } Quat;
 
 Quat unitQuat(void);
-Quat setQuat(const float w, const Vector vec);
+Quat setQuat(const float w, const vec4 vec);
 void normalizeQuat(Quat *q);
 Quat conjugateQuat(const Quat q);
 float magnitudeQuat(const Quat q);
-Quat rotationQuat(const float angle, const Vector axis);
+Quat rotationQuat(const float angle, const vec4 axis);
 Quat eulertoQuat(const float roll, const float yaw, const float pitch);
 Quat multiplyQuats(const Quat q1, const Quat q2);
 Quat addQuats(const Quat q1, const Quat q2);
-Mat4x4 MatfromQuat(const Quat q, const Vector v);
+Mat4x4 MatfromQuat(const Quat q, const vec4 v);
 
 #endif /* _QUATERNIONS_H */
+
+

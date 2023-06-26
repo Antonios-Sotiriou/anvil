@@ -25,28 +25,25 @@
     #include <math.h>
 #endif
 
-#define ZNear                     0.01
-#define ZFar                      1000.0
-#define FovRadius                 ( 1 / tanf(fov * 0.5 / 180.0 * 3.14159) )
-
 /* 3D graphics Matrices and computations. */
 const Mat4x4 rotate_xmat(const float angle);
 const Mat4x4 rotate_ymat(const float angle);
 const Mat4x4 rotate_zmat(const float angle);
 const Mat4x4 scale_mat(const float scale);
 const Mat4x4 translation_mat(const float x, const float y, const float z);
-const Mat4x4 perspective_mat(const float fov, const float aspectratio);
+const Mat4x4 perspective_mat(const float fov, const float aspectratio, const float zn, const float zf);
 const Mat4x4 reperspective_mat(const float fov, const float aspectratio);
-const Mat4x4 orthographic_mat(const float scaleX, const float scaleY, const float transX, const float transY);
-const Mat4x4 reorthographic_mat(const float fov, const float aspectratio);
+const Mat4x4 orthographic_mat(const float scaleX, const float scaleY, const float transX, const float transY, const float zn, const float zf);
+const Mat4x4 reorthographic_mat(const float fov, const float aspectratio, const float zn, const float zf);
 const Mesh meshxm(const Mesh c, const Mat4x4 m);
 const void normalsxm(const Mesh *c, const Mat4x4 m);
-const Vector vecxm(const Vector v, const Mat4x4 m);
-const Mat4x4 pointat(const Vector P, const Vector T, const Vector V);
-const Mat4x4 lookat(const Vector P, const Vector U, const Vector V, const Vector N);
+const vec4 vecxm(const vec4 v, const Mat4x4 m);
+const Mat4x4 pointat(const vec4 P, const vec4 T, const vec4 V);
+const Mat4x4 lookat(const vec4 P, const vec4 U, const vec4 V, const vec4 N);
 const Mat4x4 inverse_mat(const Mat4x4 m);
 const Mat4x4 transpose_mat(const Mat4x4 m);
 const Mat4x4 mxm(const Mat4x4 m1, const Mat4x4 m2);
 
 #endif /* _MATRICES_H */
+
 

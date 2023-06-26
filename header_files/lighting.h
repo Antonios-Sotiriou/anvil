@@ -25,3 +25,4 @@ const float phong(Phong model, const float pixX, const float pixY, const float p
 
 #endif /* _LIGHTING_H */
 
+

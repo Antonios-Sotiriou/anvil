@@ -15,10 +15,10 @@ uninstall:
 	sudo apt remove libx11-dev;
 
 sc:
-	$(CC) $(CFLAGS) main.c locale.c matrices.c vectors_math.c clipping.c obj_parser.c scanline.c general_functions.c exec_time.c lighting.c camera.c quaternions.c shadowmap.c logging.c -o $(OBJ) $(LINKS);
+	$(CC) $(CFLAGS) main.c locale.c matrices.c vectors_math.c clipping.c obj_parser.c scanline.c drawline.c general_functions.c exec_time.c lighting.c camera.c quaternions.c shadowmap.c grfk_pipeline.c kinetics.c world_objects.c logging.c -o $(OBJ) $(LINKS);
 
 ed:
-	$(CC) $(CFLAGS) main.c locale.c matrices.c vectors_math.c clipping.c obj_parser.c edgefunc.c general_functions.c exec_time.c lighting.c camera.c quaternions.c shadowmap.c logging.c -o $(OBJ) $(LINKS);
+	$(CC) $(CFLAGS) main.c locale.c matrices.c vectors_math.c clipping.c obj_parser.c edgefunc.c drawline.c general_functions.c exec_time.c lighting.c camera.c quaternions.c shadowmap.c grfk_pipeline.c kinetics.c world_objects.c logging.c -o $(OBJ) $(LINKS);
 
 exec:
 	./$(OBJ)

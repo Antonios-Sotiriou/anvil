@@ -29,50 +29,50 @@ Mesh sort_triangles(Mesh *c) {
     return *c;
 }
 /* Computes the length of a vector with the use of Pythagorean Theorem. */
-const float len_vec(const Vector v) {
+const float len_vec(const vec4 v) {
     return sqrtf(dot_product(v, v));
 }
-/* Normalizes a Vector so he ranges from 0 to 1.Returns a new Vector. */
-const Vector norm_vec(const Vector v) {
+/* Normalizes a vec4 so he ranges from 0 to 1.Returns a new vec4. */
+const vec4 norm_vec(const vec4 v) {
     float len = len_vec(v);
-    Vector res = { v.x / len, v.y / len, v.z / len };
+    vec4 res = { v.x / len, v.y / len, v.z / len };
     return res;
 }
-/* Multiplies a Vector by the given num.Returns a new Vector. */
-const Vector multiply_vec(const Vector v1, const float num) {
-    Vector res =  { v1.x * num, v1.y * num, v1.z * num };
+/* Multiplies a vec4 by the given num.Returns a new vec4. */
+const vec4 multiply_vec(const vec4 v1, const float num) {
+    vec4 res =  { v1.x * num, v1.y * num, v1.z * num };
     return res;
 }
-/* Divides a Vector by the given num.Returns a new Vector. */
-const Vector divide_vec(const Vector v1, const float num) {
-    Vector res =  { v1.x / num, v1.y / num, v1.z / num };
+/* Divides a vec4 by the given num.Returns a new vec4. */
+const vec4 divide_vec(const vec4 v1, const float num) {
+    vec4 res =  { v1.x / num, v1.y / num, v1.z / num };
     return res;
 }
-/* Adits two Vectors.Returns a new Vector. */
-const Vector add_vecs(const Vector v1, const Vector v2) {
-    Vector res =  { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
+/* Adits two Vectors.Returns a new vec4. */
+const vec4 add_vecs(const vec4 v1, const vec4 v2) {
+    vec4 res =  { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
     return res;
 }
-/* Subtracts two Vectors.Returns a new Vector. */
-const Vector sub_vecs(const Vector v1, const Vector v2) {
-    Vector res = { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
+/* Subtracts two Vectors.Returns a new vec4. */
+const vec4 sub_vecs(const vec4 v1, const vec4 v2) {
+    vec4 res = { v1.x - v2.x, v1.y - v2.y, v1.z - v2.z };
     return res;
 }
-/* Computes the Cross Product of two given Vectors.Returns a new Vector. */ 
-const Vector cross_product(const Vector v1, const Vector v2) {
-    Vector cp;
+/* Computes the Cross Product of two given Vectors.Returns a new vec4. */ 
+const vec4 cross_product(const vec4 v1, const vec4 v2) {
+    vec4 cp;
     cp.x = v1.y * v2.z - v1.z * v2.y;
     cp.y = v1.z * v2.x - v1.x * v2.z;
     cp.z = v1.x * v2.y - v1.y * v2.x;
     return cp;
 }
-/* Computes the Dot Product of two given Vectors.Returns a new Vector. */
-float dot_product(const Vector v1, const Vector v2) {
+/* Computes the Dot Product of two given Vectors.Returns a new vec4. */
+float dot_product(const vec4 v1, const vec4 v2) {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }
-/* Computes the Cross Product of a given Triangle.Returns a Vector which represents the Cross Product. */
-const Vector triangle_cp(const Triangle t) {
-    Vector cp, line1, line2;
+/* Computes the Cross Product of a given Triangle.Returns a vec4 which represents the Cross Product. */
+const vec4 triangle_cp(const Triangle t) {
+    vec4 cp, line1, line2;
     line1 = sub_vecs(t.v[1], t.v[0]);
     line2 = sub_vecs(t.v[2], t.v[0]);
 

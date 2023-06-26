@@ -13,10 +13,11 @@
     #include <stdlib.h>
 #endif
 
-const Mesh clipp(const Mesh c, Vector plane_n, Vector plane_p);
-const Vector plane_intersect(Vector plane_n, Vector plane_p, Vector line_start, Vector line_end, float *t);
-float dist(Vector plane_p, Vector plane_n, Vector v);
-int clipp_triangle(Vector plane_p, Vector plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2);
+const Mesh clipp(const Mesh c, vec4 plane_n, vec4 plane_p);
+const vec4 plane_intersect(vec4 plane_n, vec4 plane_p, vec4 line_start, vec4 line_end, float *t);
+float dist(vec4 plane_p, vec4 plane_n, vec4 v);
+int clipp_triangle(vec4 plane_p, vec4 plane_n, Triangle in_t, Triangle *out_t1, Triangle *out_t2);
 
 #endif /* _CLIPPING_H */
+
 
