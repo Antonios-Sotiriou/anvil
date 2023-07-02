@@ -49,13 +49,12 @@ const void initMeshes(Scene *s) {
     ScaleMat = scale_mat(0.5);
     TransMat = translation_mat(1.0, -1.0, 510.0);
     PosMat = mxm(ScaleMat, TransMat);
-    // normalsxm(&earth, PosMat);
     s->m[2] = meshxm(earth, PosMat);
     free(earth.v);
     free(earth.t);
 
     sun = load_obj("objects/spacedom.obj");
-    memcpy(sun.texture_file, "textures/light.bmp", sizeof(char) * 19);
+    memcpy(sun.texture_file, "textures/sun.bmp", sizeof(char) * 17);
     loadTexture(&sun);
     ScaleMat = scale_mat(0.5);
     TransMat = translation_mat(light[Pos].x, light[Pos].y, light[Pos].z);
