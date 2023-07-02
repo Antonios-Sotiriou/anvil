@@ -23,7 +23,7 @@ const void shadowPipeline(Scene s) {
 
         if (nf.t_indexes) {
             /* Applying Backface culling before we proceed to full frustum clipping. */
-            Mesh bf = shadowcull(nf);
+            Mesh bf = bfculling(nf);
 
             /* Sending to translation from NDC to Screen Coordinates. */
             Mesh uf = viewtoscreen(bf);
