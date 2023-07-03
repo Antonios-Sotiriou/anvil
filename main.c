@@ -122,7 +122,8 @@ const static Phong initLightModel(void);
 const static void project(Scene s);
 const static void displayScene(void);
 const static void clearBuffers(const int height, const int width);
-const void exportScene(void);
+const static void exportScene(void);
+const static void announceReady(void);
 
 /* Xlib relative functions and event dispatcher. */
 const static KeySym getKeysym(XEvent *event);
@@ -222,7 +223,7 @@ const static void keypress(XEvent *event) {
     else
         eye = &camera[Pos];
 
-    printf("Key Pressed: %ld\n", keysym);
+    printf("Key Pressed: %ld with keycode: %d\n", keysym, event->xkey.keycode);
     printf("\x1b[H\x1b[J");
     switch (keysym) {
 
@@ -323,7 +324,7 @@ const static void keypress(XEvent *event) {
         case 65289 : rerasterize(light);                    /* Tab */
             break;
         default :
-            return;
+            break;
     }
     LookAt = lookat(eye[Pos], eye[U], eye[V], eye[N]);
     ViewMat = inverse_mat(LookAt);
@@ -396,28 +397,20 @@ const static void project(Scene s) {
     clearBuffers(wa.height, wa.width);
 }
 /* Writes the final Pixel values on screen. */
+/* Writes the final Pixel values on screen. */
 const static void displayScene(void) {
+    int inc = 0;
+    for (int y = 0; y < wa.height; y++)
+        for (int x = 0; x < wa.width; x++) {
 
-    int size = wa.width * wa.height * 4;
-
-    int height_inc = 0;
-    int width_inc = 0;
-    for (int i = 0; i < size; i++) {
-
-        if (PROJECTBUFFER <= 1)
-            memcpy(&frame_buffer[i], &pixels[height_inc][width_inc], sizeof(Pixel));
-        else if (PROJECTBUFFER == 2)
-            memcpy(&frame_buffer[i], &depth_buffer[height_inc][width_inc], sizeof(float));
-        else if (PROJECTBUFFER == 3)
-            memcpy(&frame_buffer[i], &shadow_buffer[height_inc][width_inc], sizeof(float));
-
-        i += 3;
-        width_inc++;
-        if (width_inc == wa.width) {
-            height_inc += 1;
-            width_inc = 0;
+            if (PROJECTBUFFER <= 1)
+                memcpy(&frame_buffer[inc], &pixels[y][x], 4);
+            else if (PROJECTBUFFER == 2)
+                memcpy(&frame_buffer[inc], &depth_buffer[y][x], sizeof(float));
+            else if (PROJECTBUFFER == 3)
+                memcpy(&frame_buffer[inc], &shadow_buffer[y][x], sizeof(float));
+            inc += 4;
         }
-    }
 
     XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
     XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
@@ -434,7 +427,7 @@ const static void clearBuffers(const int height, const int width) {
     }
 }
 /* Exports displayed Scene in bmp format. */
-const void exportScene(void) {
+const static void exportScene(void) {
     BMP_Header header = {
         .Type = 0x4d42,
         .Size = (wa.width * wa.height * 32 ) / 8,
@@ -458,6 +451,16 @@ const void exportScene(void) {
             fwrite(&pixels[y][x], sizeof(int), 1, fp);
 
     fclose(fp);
+}
+const static void announceReady(void) {
+    printf("Announcing ready process state event\n");
+    XEvent event = { 0 };
+    event.xkey.type = KeyPress;
+    event.xkey.keycode = 49;
+    event.xkey.display = displ;
+
+    /* Send the signal to our event dispatcher for further processing. */
+    handler[event.type](&event);
 }
 const static KeySym getKeysym(XEvent *event) {
 
@@ -504,21 +507,26 @@ void UpdateTimeCounter() {
 void CalculateFPS() {
     Frame ++;
 
-    if((Frame % FramesPerFPS) == 0) {
-    FPS = ((float)(FramesPerFPS)) / (TimeCounter-prevTime);
-    prevTime = TimeCounter;
+    if ((Frame % FramesPerFPS) == 0) {
+        FPS = ((float)(FramesPerFPS)) / (TimeCounter-prevTime);
+        prevTime = TimeCounter;
     }
 }
 void displayInfo() {
-    char Resolution_string[20], TimeCounter_string[20], FPS_string[20];
+    time_t t = tv.tv_sec;
+    struct tm *info;
+    info = localtime(&t);
+    char Resolution_string[20], TimeCounter_string[20], FPS_string[20], DayTime[20];
 
     sprintf(Resolution_string, "Resolution: %d x %d\0", wa.width, wa.height);
     sprintf(TimeCounter_string, "Running Time: %4.1f\0", TimeCounter);
     sprintf(FPS_string, "%4.1f fps\0", FPS);
+    sprintf(DayTime, "%s\0", asctime(info));
 
     XDrawString(displ ,win ,gc, 5, 12, Resolution_string, strlen(Resolution_string));
     XDrawString(displ ,win ,gc, 5, 24, TimeCounter_string, strlen(TimeCounter_string));
     XDrawString(displ ,win ,gc, 5, 36, FPS_string, strlen(FPS_string));
+    XDrawString(displ ,win ,gc, 5, 48, DayTime, strlen(DayTime));
 }
 const static void initGlobalGC(void) {
     gcvalues.foreground = 0xffffff;
@@ -533,10 +541,6 @@ const static void initDependedVariables(void) {
     PerspMat = perspective_mat(FOV, AspectRatio, ZNear, ZFar);
     rePerspMat = reperspective_mat(FOV, AspectRatio);
     OrthoMat = orthographic_mat(Scale, Scale, 0.0, 0.0, ZNear, ZFar);
-
-    LookAt = lookat(camera[Pos], camera[U], camera[V], camera[N]);
-    ViewMat = inverse_mat(LookAt);
-    WorldMat = mxm(ViewMat, PerspMat);
 
     AdjustShadow = 1;
     AdjustScene = 1;
@@ -606,6 +610,9 @@ static int board(void) {
     createScene(&scene);
     initMeshes(&scene);
     model = initLightModel();
+
+    /* Announcing to event despatcher that starting initialization is done. We send a Keyress event to Despatcher to awake Projection. */
+    announceReady();
 
     float end_time = 0.0;
     while (RUNNING) {
