@@ -26,7 +26,7 @@ const Mesh clipp(const Mesh c, vec4 plane_p, vec4 plane_n) {
                 index += 2;
                 dynamic_inc++;
             } else if (clipped_count == 3) {
-                r.t[index] = clipped[0];
+                r.t[index] = c.t[i];
                 index++;
             }
         }
@@ -103,7 +103,6 @@ int clipp_triangle(vec4 plane_p, vec4 plane_n, Triangle in_t, Triangle *out_t1, 
     if (inside_count == 0) {
         return 0; /* Triangle is outside and must be ignored. */
     } else if (inside_count == 3) {
-        *out_t1 = in_t;
         return 3; /* Triangle is inside and it needs no clipping. */
     } else if (inside_count == 1 && outside_count == 2) {
         out_t1->v[0] = inside_points[0];

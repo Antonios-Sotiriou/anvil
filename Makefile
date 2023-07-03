@@ -1,7 +1,7 @@
 # Compile all c files to anvil executable!
 
 CC = gcc
-CFLAGS = -Werror -g -msse4.2 # -O2 -Os -Og -O0
+CFLAGS = -Werror #-pg -g # -O2 -Os -Og -O0
 OBJ = anvil
 RM = rm
 LINKS = -lX11 -lm
@@ -28,4 +28,5 @@ assembly:
 
 clean:
 	sudo apt autoremove -y;
+
 

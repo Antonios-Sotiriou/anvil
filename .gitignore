@@ -3,4 +3,5 @@ header_files/code_cache.h
 textures/*
 objects/*
 header_files/draw_functions.h
-
+perf.*
+gmon.*

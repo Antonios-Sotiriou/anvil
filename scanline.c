@@ -242,11 +242,6 @@ const static void texGeneral(const Triangle t, const struct Srt srt[], Pixel **t
 
                         memcpy(&model.objColor, &texels[tex_v][tex_u], sizeof(Pixel));
                         depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
-                    } else if (depthW == depth_buffer[y][x]) {
-                        pixels[y][x].Red = 255;
-                        pixels[y][x].Green = 0;
-                        pixels[y][x].Blue = 0;
-                        depth_buffer[y][x] = depthW;
                     }
                 }
                 xa += y01, xb += y12, xc += y20;
@@ -298,11 +293,6 @@ const static void texGeneral(const Triangle t, const struct Srt srt[], Pixel **t
 
                     memcpy(&model.objColor, &texels[tex_v][tex_u], sizeof(Pixel));
                     depth_buffer[y][x] = phong(model, x, y, depthZ, depthW);
-                } else if (depthW == depth_buffer[y][x]) {
-                    pixels[y][x].Red = 255;
-                    pixels[y][x].Green = 0;
-                    pixels[y][x].Blue = 0;
-                    depth_buffer[y][x] = depthW;
                 }
             }
             xa += y01, xb += y12, xc += y20;
