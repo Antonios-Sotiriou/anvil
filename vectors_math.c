@@ -66,7 +66,7 @@ const vec4 cross_product(const vec4 v1, const vec4 v2) {
     cp.z = v1.x * v2.y - v1.y * v2.x;
     return cp;
 }
-/* Computes the Dot Product of two given Vectors.Returns a new vec4. */
+/* Computes the Dot Product of two given Vectors. */
 float dot_product(const vec4 v1, const vec4 v2) {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 }

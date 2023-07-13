@@ -4,6 +4,7 @@
 #ifndef _OBJECTS_H
     #include "objects.h"
 #endif
+
 #ifndef _MATH_H
     #include "math.h"
 #endif

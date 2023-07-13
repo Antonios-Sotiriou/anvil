@@ -6,8 +6,9 @@ OBJ = anvil
 RM = rm
 LINKS = -lX11 -lm
 INTRINSICS = #-msse4.2 -msse -msse2 -msse2avx -msse3 -msse4 -msse4.1 -msse4a -msse5 -msseregparm -mssse3 -msse-check=warning -msse2avx -march=CPU,i7 
-FILENAME = main.c
+FILENAME = vectors_math.c
 
+# install depended libraries.
 install:
 	./install.sh;
 
@@ -23,10 +24,20 @@ ed:
 exec:
 	./$(OBJ)
 
+# Create assembly code for the given file.
 assembly:
 	$(CC) -S $(FILENAME);
 
 clean:
 	sudo apt autoremove -y;
+
+# Removes all assembly generated files.
+clearAsm:
+	rm *.s;
+
+# Removes all Profiling generated files.
+clearProf:
+	rm *.out;
+	rm *.data;
 
 

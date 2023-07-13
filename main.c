@@ -48,6 +48,7 @@ enum { Pos, U, V, N, C };
 /* X Global Structures. */
 Display *displ;
 Window win;
+XImage *image;
 Pixmap pixmap;
 GC gc;
 XGCValues gcvalues;
@@ -162,6 +163,7 @@ const static void clientmessage(XEvent *event) {
         free2darray((void*)shadow_buffer, wa.height);
         printf("Reached step 4\n");
         free(frame_buffer);
+        free(image);
         printf("Reached step 5\n");
         XFreeGC(displ, gc);
         printf("Reached step 6\n");
@@ -197,13 +199,12 @@ const static void configurenotify(XEvent *event) {
             free2darray((void*)depth_buffer, old_height);
             free2darray((void*)shadow_buffer, old_height);
             free(frame_buffer);
+            free(image);
 
             pixmapcreate();
             initBuffers();
-        }
-        initDependedVariables();
-
-        if (!INIT)
+            initDependedVariables();
+        } else
             INIT = 1;
     }
 }
@@ -216,7 +217,8 @@ const static void buttonpress(XEvent *event) {
 
 const static void keypress(XEvent *event) {
     
-    KeySym keysym = getKeysym(event);
+    KeySym keysym = XLookupKeysym(&event->xkey, 0);
+
     vec4 *eye;
     if (EYEPOINT)
         eye = &light[Pos];
@@ -397,14 +399,13 @@ const static void project(Scene s) {
     clearBuffers(wa.height, wa.width);
 }
 /* Writes the final Pixel values on screen. */
-/* Writes the final Pixel values on screen. */
 const static void displayScene(void) {
     int inc = 0;
     for (int y = 0; y < wa.height; y++)
         for (int x = 0; x < wa.width; x++) {
 
             if (PROJECTBUFFER <= 1)
-                memcpy(&frame_buffer[inc], &pixels[y][x], 4);
+                memcpy(&frame_buffer[inc], &pixels[y][x], 3);
             else if (PROJECTBUFFER == 2)
                 memcpy(&frame_buffer[inc], &depth_buffer[y][x], sizeof(float));
             else if (PROJECTBUFFER == 3)
@@ -412,9 +413,8 @@ const static void displayScene(void) {
             inc += 4;
         }
 
-    XImage *image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
+    image->data = frame_buffer;
     XPutImage(displ, pixmap, gc, image, 0, 0, 0, 0, wa.width, wa.height);
-    free(image);
 
     pixmapdisplay();
 }
@@ -461,31 +461,6 @@ const static void announceReady(void) {
 
     /* Send the signal to our event dispatcher for further processing. */
     handler[event.type](&event);
-}
-const static KeySym getKeysym(XEvent *event) {
-
-    /* Get Keyboard UTF-8 input */
-    XIM xim = { 0 };
-    xim = XOpenIM(displ, NULL, NULL, NULL);
-    if (xim == NULL) {
-        perror("keypress() - XOpenIM()");
-    }
-
-    XIC xic = { 0 };
-    xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, XNClientWindow, win, NULL);
-    if (xic == NULL) {
-        perror("keypress() - XreateIC()");
-    }
-    XSetICFocus(xic);
-
-    KeySym keysym = 0;
-    char buffer[32];
-    Status status = 0;
-    Xutf8LookupString(xic, &event->xkey, buffer, 32, &keysym, &status);
-    if (status == XBufferOverflow) {
-        perror("Buffer Overflow...\n");
-    }
-    return keysym;
 }
 const static void initMainWindow(void) {
     sa.event_mask = EXPOSEMASKS | KEYBOARDMASKS | POINTERMASKS;
@@ -535,6 +510,8 @@ const static void initGlobalGC(void) {
     gc = XCreateGC(displ, win, GCBackground | GCForeground | GCGraphicsExposures, &gcvalues);
 }
 const static void initDependedVariables(void) {
+    image = XCreateImage(displ, wa.visual, wa.depth, ZPixmap, 0, frame_buffer, wa.width, wa.height, 32, (wa.width * 4));
+
     AspectRatio = ((float)wa.width / (float)wa.height);
     HALFW = wa.width >> 1;
     HALFH = wa.height >> 1;
@@ -641,8 +618,8 @@ static int board(void) {
 }
 const int main(int argc, char *argv[]) {
 
-    if (locale_init())
-        fprintf(stderr, "Warning: main() -locale()\n");
+    // if (locale_init())
+    //     fprintf(stderr, "Warning: main() -locale()\n");
 
     if (argc > 1) {
         printf("argc: %d\n", argc);
